@@ -139,7 +139,11 @@ function Switcher({ close }: { close: () => void }) {
           return [...recent, ...rest].slice(0, 100).map((p) => toItem(p))
         }
         return files
-          .map((f) => ({ p: f.path, s: Math.max(fuzzyScore(q, isMd(f.path) ? noteTitle(f.path) : f.path) + 5, fuzzyScore(q, f.path)) }))
+          .map((f) => {
+            const title = fuzzyScore(q, isMd(f.path) ? noteTitle(f.path) : f.path)
+            // a title match ranks above a match that only spans the folder path
+            return { p: f.path, s: title >= 0 ? title + 5 : fuzzyScore(q, f.path) }
+          })
           .filter((x) => x.s >= 0)
           .sort((a, b) => b.s - a.s)
           .slice(0, 100)
@@ -203,7 +207,7 @@ function Confirm({ modal }: { modal: Extract<Modal, { kind: 'confirm' }> }) {
   )
 }
 
-/** Vault list + open/create. Used as the starter screen and the "Open another vault" modal. */
+/** Vault list + open/create. Used as the starter screen and the "Manage vaults" modal. */
 export function VaultManager() {
   const vaults = useModel((s) => s.snap?.vaults ?? [])
   const currentId = useModel((s) => s.snap?.vault?.id)
@@ -217,98 +221,105 @@ export function VaultManager() {
     await open(() => api.createVault(parent, name.trim()))
     setCreating(false)
   }
+  const nameError = name.trim() && (INVALID_NAME.test(name) || name.trim().startsWith('.')) ? 'Names cannot start with "." or contain \\ / : * ? " < > | # ^ [ ]' : null
 
   return (
     <div className="vault-manager" data-testid="vault-manager">
-      <div className="vault-list" aria-label="Recent vaults">
-        <div className="vault-list-title">Vaults</div>
-        {!vaults.length && <div className="pane-empty">No vaults yet.</div>}
+      <section className="vm-intro">
+        <div className="vm-mark" aria-hidden>
+          <span /><span /><span />
+        </div>
+        <h1 className="vm-wordmark">Synapse</h1>
+        <p className="vm-statement">Connected notes, kept as plain Markdown files in folders you own.</p>
+        {!creating ? (
+          <div className="vm-actions">
+            <button className="vm-action" onClick={() => setCreating(true)}>
+              <FolderPlus size={17} />
+              <span>
+                <span className="vm-action-title">Create a vault</span>
+                <span className="vm-action-desc">Start an empty folder for new notes</span>
+              </span>
+            </button>
+            <button
+              className="vm-action"
+              onClick={async () => {
+                const p = await api.pickFolder('Open folder as vault')
+                if (p) open(() => api.openVault(p))
+              }}
+            >
+              <FolderOpen size={17} />
+              <span>
+                <span className="vm-action-title">Open a folder</span>
+                <span className="vm-action-desc">Use an existing folder of Markdown files</span>
+              </span>
+            </button>
+          </div>
+        ) : (
+          <form
+            className="vm-create"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!nameError) create()
+            }}
+          >
+            <label className="field">
+              <span>Name</span>
+              <input className="text-input wide" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Research" aria-invalid={!!nameError} />
+              {nameError && <span className="field-error">{nameError}</span>}
+            </label>
+            <div className="field">
+              <span>Location</span>
+              <div className="row">
+                <span className="path-display" title={parent ?? undefined}>{parent ?? 'No folder chosen'}</span>
+                <button type="button" className="btn" onClick={async () => setParent((await api.pickFolder('Choose where to create the vault')) ?? parent)}>
+                  Choose…
+                </button>
+              </div>
+            </div>
+            <div className="modal-buttons">
+              <button type="button" className="btn" onClick={() => setCreating(false)}>Back</button>
+              <button type="submit" className="btn mod-cta" disabled={!parent || !name.trim() || !!nameError}>Create vault</button>
+            </div>
+          </form>
+        )}
+      </section>
+      <section className="vm-list" aria-label="Recent vaults">
+        <h2 className="vm-list-title">Recent vaults</h2>
+        {!vaults.length && <p className="vm-list-empty">Vaults you open appear here.</p>}
         {vaults.map((v) => (
           <div
             key={v.id}
             className={`vault-row${v.id === currentId ? ' is-active' : ''}${v.available ? '' : ' is-missing'}`}
-            tabIndex={0}
+            // a missing vault's row holds its own buttons, so it is not itself a button
+            tabIndex={v.available ? 0 : undefined}
+            role={v.available ? 'button' : 'group'}
+            aria-label={v.available ? undefined : `${v.name} (folder not found)`}
             onClick={() => v.available && v.id !== currentId && open(() => api.openVaultId(v.id))}
-            onKeyDown={(e) => e.key === 'Enter' && v.available && open(() => api.openVaultId(v.id))}
+            onKeyDown={(e) => e.key === 'Enter' && v.available && v.id !== currentId && open(() => api.openVaultId(v.id))}
             onContextMenu={(e) =>
               model.openMenu(e, [
                 { label: 'Remove from list', disabled: v.id === currentId, run: () => api.removeVault(v.id).catch((err) => model.error(err)) },
               ])
             }
           >
-            <div className="vault-row-name">
-              {!v.available && <AlertTriangle size={13} className="warn-icon" aria-label="Unavailable" />} {v.name}
-            </div>
-            <div className="vault-row-path">{v.available ? v.path : `Folder not found: ${v.path}`}</div>
-            {!v.available && (
-              <div className="vault-row-actions">
-                <button className="btn small" onClick={(e) => { e.stopPropagation(); open(() => api.locateVault(v.id)) }}>Locate…</button>
-                <button className="btn small" onClick={(e) => { e.stopPropagation(); api.removeVault(v.id).catch((err) => model.error(err)) }}>Remove from list</button>
-              </div>
-            )}
+            <span className="vault-mark" aria-hidden>{[...v.name][0]?.toUpperCase()}</span>
+            <span className="vault-row-text">
+              <span className="vault-row-name">
+                {v.name}
+                {v.id === currentId && <span className="vault-row-current">Open</span>}
+              </span>
+              <span className="vault-row-path" title={v.path}>{v.available ? v.path : `Folder not found: ${v.path}`}</span>
+              {!v.available && (
+                <span className="vault-row-actions">
+                  <button className="btn small" onClick={(e) => { e.stopPropagation(); open(() => api.locateVault(v.id)) }}>Locate…</button>
+                  <button className="btn small" onClick={(e) => { e.stopPropagation(); api.removeVault(v.id).catch((err) => model.error(err)) }}>Remove from list</button>
+                </span>
+              )}
+            </span>
+            {!v.available && <AlertTriangle size={14} className="warn-icon" aria-label="Unavailable" />}
           </div>
         ))}
-      </div>
-      <div className="vault-actions">
-        <div className="vault-brand">
-          <div className="vault-logo" aria-hidden />
-          <div className="vault-brand-name">Synapse</div>
-        </div>
-        {!creating ? (
-          <>
-            <div className="vault-action">
-              <div>
-                <div className="vault-action-title">Create new vault</div>
-                <div className="vault-action-desc">Create a new Synapse vault in a folder.</div>
-              </div>
-              <button className="btn mod-cta" onClick={() => setCreating(true)}>
-                <FolderPlus size={14} /> Create
-              </button>
-            </div>
-            <div className="vault-action">
-              <div>
-                <div className="vault-action-title">Open folder as vault</div>
-                <div className="vault-action-desc">Choose an existing folder of Markdown files.</div>
-              </div>
-              <button
-                className="btn"
-                onClick={async () => {
-                  const p = await api.pickFolder('Open folder as vault')
-                  if (p) open(() => api.openVault(p))
-                }}
-              >
-                <FolderOpen size={14} /> Open
-              </button>
-            </div>
-          </>
-        ) : (
-          <form
-            className="vault-create"
-            onSubmit={(e) => {
-              e.preventDefault()
-              create()
-            }}
-          >
-            <label className="field">
-              <span>Vault name</span>
-              <input className="text-input wide" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="My notes" />
-            </label>
-            <label className="field">
-              <span>Location</span>
-              <div className="row">
-                <span className="path-display">{parent ?? 'No folder selected'}</span>
-                <button type="button" className="btn" onClick={async () => setParent((await api.pickFolder('Choose where to create the vault')) ?? parent)}>
-                  Browse
-                </button>
-              </div>
-            </label>
-            <div className="modal-buttons">
-              <button type="button" className="btn" onClick={() => setCreating(false)}>Back</button>
-              <button type="submit" className="btn mod-cta" disabled={!parent || !name.trim()}>Create</button>
-            </div>
-          </form>
-        )}
-      </div>
+      </section>
     </div>
   )
 }
