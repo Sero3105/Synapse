@@ -166,7 +166,9 @@ test('create, edit, rename with link update, persist across restart', async () =
   ;({ app, win } = await launch())
   await expect(win.locator('.tab', { hasText: 'Concepts' })).toBeVisible()
   await win.locator('.tree-item-self', { hasText: 'Résumé 日本' }).click()
-  await expect(win.locator('.cm-content')).toContainText('Hello **world** with link [[Concepts]]')
+  // Live Preview hides the markup on lines without the cursor; the file keeps it
+  await expect(win.locator('.cm-content')).toContainText(/Hello (\*\*)?world(\*\*)? with link (\[\[)?Concepts/)
+  expect(fs.readFileSync(path.join(vaultA, 'Résumé 日本.md'), 'utf8')).toContain('Hello **world** with link [[Concepts]]')
   await app.close()
 })
 
@@ -359,5 +361,42 @@ test('language: switch to Italian, persists across restart, back to English', as
   await win.getByRole('button', { name: 'Generali', exact: true }).click()
   await win.getByLabel('Lingua', { exact: true }).selectOption('en')
   await expect(win.getByRole('button', { name: 'General', exact: true })).toBeVisible()
+  await app.close()
+})
+
+test('fast typing is never reordered or lost', async () => {
+  seedRegistry('A')
+  const { app, win } = await launch()
+  await win.locator('.tree-item-self', { hasText: 'Ideas' }).click()
+  await win.locator('.cm-content').click()
+  await win.keyboard.press('Meta+ArrowDown')
+  const text = ' ' + 'The quick brown fox jumps over the lazy dog 0123456789. '.repeat(7)
+  await win.keyboard.type(text)
+  await expect(win.locator('.cm-content')).toContainText(text.trim())
+  await expect.poll(() => fs.readFileSync(path.join(vaultA, 'Ideas.md'), 'utf8'), { timeout: 5000 }).toContain(text.trim())
+  await app.close()
+})
+
+test('live preview hides markup off the cursor line and edits tables in place', async () => {
+  fs.writeFileSync(path.join(vaultA, 'Live.md'), 'First line\n\n## Section\n\nSome **bold** text and [[Welcome]].\n\n| Name | Value |\n|---|---|\n| alpha | 1 |\n\nLast line\n')
+  seedRegistry('A')
+  const { app, win } = await launch()
+  await win.locator('.tree-item-self', { hasText: 'Live' }).click()
+  const content = win.locator('.cm-content')
+  await content.click({ position: { x: 5, y: 5 } }) // cursor on the first line
+  await expect(content).toContainText('Some bold text and Welcome.')
+  await expect(content).not.toContainText('**')
+  await expect(content).not.toContainText('## ')
+  // the cursor's line shows its Markdown
+  await win.locator('.cm-line', { hasText: 'Some' }).click()
+  await expect(win.locator('.cm-line', { hasText: 'Some' })).toContainText('**bold**')
+  // tables render as a grid; editing a cell rewrites the Markdown table
+  const cell = win.locator('.cm-lp-table td', { hasText: '1' })
+  await expect(win.locator('.cm-lp-table')).toBeVisible()
+  await cell.click()
+  await win.keyboard.press('End')
+  await win.keyboard.type('00')
+  await expect(win.locator('.cm-lp-table')).toBeVisible() // still a grid while editing
+  await expect.poll(() => fs.readFileSync(path.join(vaultA, 'Live.md'), 'utf8'), { timeout: 5000 }).toContain('| alpha | 100 |')
   await app.close()
 })
