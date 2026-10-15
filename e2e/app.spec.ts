@@ -85,18 +85,18 @@ test('mandatory settings acceptance scenario', async () => {
   await win.keyboard.press('Escape')
   // 5. sidebar layout: hide the right sidebar
   await win.getByRole('button', { name: 'Toggle right sidebar' }).click()
-  await expect(win.locator('.side-dock.right')).toHaveCount(0)
+  await expect(win.locator('.dock-right.is-open')).toHaveCount(0)
   // 6-8. restart, preferences persist
   await app.close()
   ;({ app, win } = await launch())
   await expect.poll(() => vaultName(win)).toBe('Vault A')
   await expect(win.locator('body')).toHaveClass(/theme-dark/)
   await expect.poll(() => win.evaluate(() => document.body.style.getPropertyValue('--font-text-size'))).toBe('19px')
-  await expect(win.locator('.side-dock.right')).toHaveCount(0)
+  await expect(win.locator('.dock-right.is-open')).toHaveCount(0)
   // 9-10. Vault B: globals unchanged
   await switchTo(win, 'Vault B')
   expect(await prefs(win)).toMatchObject({ theme: 'dark', fontSize: 19 })
-  await expect(win.locator('.side-dock.right')).toHaveCount(0)
+  await expect(win.locator('.dock-right.is-open')).toHaveCount(0)
   // 11. vault-specific setting in B
   await openSettings(win, 'Editor')
   const row = win.locator('[data-setting="showLineNumber"]')
@@ -237,5 +237,82 @@ test('security: renderer has no Node access and cannot leave the vault', async (
   expect(r.abs.error.code).toBe('EOUTSIDE')
   expect(r.config.error.code).toBe('EOUTSIDE')
   expect(r.blocked).toContain('Blocked')
+  await app.close()
+})
+
+test('editing: undo/redo, status bar, save state', async () => {
+  seedRegistry('A')
+  const { app, win } = await launch()
+  await win.locator('.tree-item-self', { hasText: 'Welcome' }).click()
+  await win.locator('.cm-content').click()
+  await win.keyboard.press('Meta+ArrowDown')
+  await win.keyboard.type(' typed')
+  await expect(win.locator('.cm-content')).toContainText('typed')
+  await expect(win.getByTestId('status-bar')).toContainText(/Ln \d+, Col \d+/)
+  await win.keyboard.press('Meta+Z')
+  await expect(win.locator('.cm-content')).not.toContainText('typed')
+  await win.keyboard.press('Meta+Shift+Z')
+  await expect(win.locator('.cm-content')).toContainText('typed')
+  await expect(win.getByTestId('save-state')).toHaveText('Saved', { timeout: 5000 })
+  await expect.poll(() => fs.readFileSync(path.join(vaultA, 'Welcome.md'), 'utf8')).toContain('typed')
+  await app.close()
+})
+
+test('empty vault shows an empty state that creates the first note', async () => {
+  fs.rmSync(vaultA, { recursive: true })
+  fs.mkdirSync(vaultA)
+  seedRegistry('A')
+  const { app, win } = await launch()
+  await expect(win.getByTestId('empty-vault')).toBeVisible()
+  await win.getByRole('button', { name: 'Create first note' }).click()
+  await expect.poll(() => fs.existsSync(path.join(vaultA, 'Untitled.md'))).toBe(true)
+  await expect(win.getByTestId('empty-vault')).toHaveCount(0)
+  await app.close()
+})
+
+test('layout holds with long names at wide and narrow window sizes', async () => {
+  const long = 'An extremely long note name that keeps going well past any reasonable width for a sidebar row'
+  fs.mkdirSync(path.join(vaultA, 'A folder with a similarly long name for nesting tests'), { recursive: true })
+  fs.writeFileSync(path.join(vaultA, 'A folder with a similarly long name for nesting tests', long + '.md'), '# x\n\n[[Welcome]]\n')
+  seedRegistry('A')
+  const { app, win } = await launch()
+  await win.locator('.tree-item-self', { hasText: 'A folder with' }).click()
+  await win.locator('.tree-item-self', { hasText: 'An extremely long' }).click()
+  for (const [w, h] of [[1400, 900], [900, 700], [640, 520]]) {
+    await win.setViewportSize({ width: w, height: h })
+    await win.waitForTimeout(350)
+    const overflow = await win.evaluate(() =>
+      ['.shell', '.workspace', '.nav-files', '.tab-strip', '.status-bar', '.note-scroll'].map((sel) => {
+        const el = document.querySelector(sel) as HTMLElement | null
+        return el && !sel.includes('tab-strip') && !sel.includes('nav-files') ? el.scrollWidth - el.clientWidth : 0
+      }).concat(document.documentElement.scrollWidth - document.documentElement.clientWidth),
+    )
+    expect(Math.max(...overflow), `horizontal overflow at ${w}px`).toBeLessThanOrEqual(1)
+    // the editor keeps a usable width
+    const editorWidth = await win.locator('.pane-content').evaluate((el) => el.getBoundingClientRect().width)
+    expect(editorWidth, `editor width at ${w}px`).toBeGreaterThan(Math.min(360, w * 0.5))
+  }
+  await app.close()
+})
+
+test('keyboard shortcuts drive the workspace', async () => {
+  seedRegistry('A')
+  const { app, win } = await launch()
+  await expect(win.getByTestId('file-explorer')).toBeVisible()
+  await win.keyboard.press('Meta+N')
+  await expect(win.getByLabel('Note title')).toBeFocused()
+  const tabs = win.locator('.tab')
+  const before = await tabs.count()
+  await win.keyboard.press('Meta+T')
+  await expect(tabs).toHaveCount(before + 1)
+  await win.keyboard.press('Meta+W')
+  await expect(tabs).toHaveCount(before)
+  await win.keyboard.press('Meta+Shift+T')
+  await expect(tabs).toHaveCount(before + 1)
+  await win.getByRole('button', { name: 'Toggle left sidebar' }).click()
+  await expect(win.locator('.dock-left')).not.toHaveClass(/is-open/)
+  await expect(win.locator('.dock-left')).toHaveAttribute('inert', '')
+  await win.getByRole('button', { name: 'Toggle left sidebar' }).click()
+  await expect(win.locator('.dock-left')).toHaveClass(/is-open/)
   await app.close()
 })
