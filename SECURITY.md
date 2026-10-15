@@ -1,8 +1,14 @@
 # Security
 
+## Supported versions
+
+Only the latest commit on `main` is supported. There are no maintained release branches yet.
+
 ## Reporting a vulnerability
 
-Please report vulnerabilities privately through GitHub's **Security → Report a vulnerability** form for this repository, not in a public issue.
+Please report vulnerabilities privately through GitHub's **Security → Report a vulnerability** form for this repository, not in a public issue. Include the steps to reproduce, the affected version or commit, and the impact you observed. Expect an acknowledgement within a week.
+
+Do not attach real personal notes to a report. A minimal vault that reproduces the problem is enough.
 
 ## Security model
 
@@ -26,3 +32,9 @@ Synapse opens folders of Markdown files that may come from anywhere: a downloade
 - **The Node inspector fuse stays enabled**, so the end-to-end tests can drive the packaged app. Anyone able to start the app with debugging flags can already run code as your user.
 - The build is **ad-hoc signed and not notarized**.
 - `npm audit` reports moderate issues in electron-builder's dependency chain. They are build-time only and are not shipped in the app bundle.
+- The `SYNAPSE_USER_DATA` environment variable redirects where settings are stored, so that the tests can use temporary folders. It is honoured in packaged builds too. Setting it requires the ability to launch the app with a custom environment, which already implies access to your user account.
+- Third-party license notices are not yet bundled inside the `.app`. All bundled dependencies use permissive licenses (MIT, BSD-2-Clause, ISC); notices should be added before distributing prebuilt binaries.
+
+## Scope
+
+In scope: the Electron app in this repository and its handling of vault files. Out of scope: vulnerabilities that require an attacker who can already run code as your macOS user, and issues in third-party sync tools you use with your vaults.
