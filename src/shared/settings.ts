@@ -1,3 +1,5 @@
+import type { LanguagePref } from './i18n'
+
 // Settings schema shared by main (persistence) and renderer (UI).
 //
 // Precedence (lowest -> highest): DEFAULT_PREFS -> global settings -> vault overrides.
@@ -55,6 +57,8 @@ export interface Layout {
 
 export interface GlobalSettings {
   version: number
+  /** Interface language; global only. 'system' follows macOS preferred languages. */
+  language: LanguagePref
   prefs: Prefs
   layout: Layout
   /** command id -> hotkeys like "Mod+Shift+F"; [] = unbound. Missing = default. */
@@ -110,6 +114,7 @@ export const DEFAULT_GRAPH: GraphSettings = { showOrphans: true, showUnresolved:
 
 export const defaultGlobal = (): GlobalSettings => ({
   version: GLOBAL_SCHEMA_VERSION,
+  language: 'system',
   prefs: structuredClone(DEFAULT_PREFS),
   layout: { ...DEFAULT_LAYOUT },
   hotkeys: {},
@@ -195,6 +200,8 @@ function pick<T>(input: unknown, validators: Record<string, V<unknown>>): Partia
   return out as Partial<T>
 }
 
+const validLanguage = oneOf<LanguagePref>('system', 'en', 'it')
+
 export const validPrefs = (x: unknown) => pick<Prefs>(x, PREF_VALIDATORS)
 export const validLayout = (x: unknown) => pick<Layout>(x, LAYOUT_VALIDATORS)
 export const validGraph = (x: unknown) => pick<GraphSettings>(x, GRAPH_VALIDATORS)
@@ -248,6 +255,7 @@ export function normalizeGlobal(raw: unknown): GlobalSettings {
   if (!isObj(m)) return d
   return {
     version: GLOBAL_SCHEMA_VERSION,
+    language: validLanguage(m.language) ?? d.language,
     prefs: mergePrefs(d.prefs, validPrefs(m.prefs)),
     layout: { ...d.layout, ...validLayout(m.layout) },
     hotkeys: validHotkeys(m.hotkeys),
@@ -279,6 +287,7 @@ export function applyGlobalPatch(g: GlobalSettings, patch: unknown): GlobalSetti
   if (!isObj(patch)) return g
   return normalizeGlobal({
     ...g,
+    language: validLanguage(patch.language) ?? g.language,
     prefs: isObj(patch.prefs) ? mergePrefs(g.prefs, validPrefs(patch.prefs)) : g.prefs,
     layout: isObj(patch.layout) ? { ...g.layout, ...validLayout(patch.layout) } : g.layout,
     hotkeys: isObj(patch.hotkeys) ? patchHotkeys(g.hotkeys, patch.hotkeys) : g.hotkeys,
