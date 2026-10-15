@@ -12,6 +12,7 @@ import { model, useModel, Tab } from '../model'
 import { api } from '../api'
 import { noteTitle, shortestLinkText, fuzzyScore } from '../../shared/markdown'
 import { t as tr } from '../../shared/i18n'
+import { livePreview, liveTables } from '../live-preview'
 
 const hl = HighlightStyle.define([
   { tag: t.heading1, class: 'cm-h1' },
@@ -110,7 +111,7 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
   const path = tab.path!
   const buffer = useModel((s) => s.buffers[path])
   const prefs = useModel((s) => s.snap!.prefs)
-  const comps = useRef({ lines: new Compartment(), tab: new Compartment(), spell: new Compartment(), pair: new Compartment() })
+  const comps = useRef({ lines: new Compartment(), tab: new Compartment(), spell: new Compartment(), pair: new Compartment(), live: new Compartment() })
 
   // create the view once per tab+path
   useEffect(() => {
@@ -141,6 +142,7 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
           c.tab.of([EditorState.tabSize.of(p.tabSize), indentUnit.of(' '.repeat(p.tabSize))]),
           c.spell.of(EditorView.contentAttributes.of({ spellcheck: String(p.spellcheck), autocorrect: 'off' })),
           c.pair.of(p.autoPairBrackets ? closeBrackets() : []),
+          c.live.of(p.livePreview ? [livePreview(path), liveTables] : []),
           keymap.of([...closeBracketsKeymap, ...completionKeymap, ...searchKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) model.edit(path, u.state.doc.toString())
@@ -191,11 +193,14 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
   // external buffer changes (disk reload, link rewrite, other tab)
   useEffect(() => {
     const v = viewRef.current
-    if (!v || !buffer) return
+    // Compare with the model's current buffer, not this render's copy: keystrokes typed after the
+    // render already updated both the view and the model, and the stale copy would undo them.
+    const latest = model.state.buffers[path]?.content
+    if (!v || latest === undefined) return
     const cur = v.state.doc.toString()
-    if (cur !== buffer.content) {
-      const head = Math.min(v.state.selection.main.head, buffer.content.length)
-      v.dispatch({ changes: { from: 0, to: cur.length, insert: buffer.content }, selection: { anchor: head } })
+    if (cur !== latest) {
+      const head = Math.min(v.state.selection.main.head, latest.length)
+      v.dispatch({ changes: { from: 0, to: cur.length, insert: latest }, selection: { anchor: head } })
     }
   }, [buffer?.content])
 
@@ -210,9 +215,10 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
         c.tab.reconfigure([EditorState.tabSize.of(prefs.tabSize), indentUnit.of(' '.repeat(prefs.tabSize))]),
         c.spell.reconfigure(EditorView.contentAttributes.of({ spellcheck: String(prefs.spellcheck), autocorrect: 'off' })),
         c.pair.reconfigure(prefs.autoPairBrackets ? closeBrackets() : []),
+        c.live.reconfigure(prefs.livePreview ? [livePreview(path), liveTables] : []),
       ],
     })
-  }, [prefs.showLineNumber, prefs.tabSize, prefs.spellcheck, prefs.autoPairBrackets])
+  }, [prefs.showLineNumber, prefs.tabSize, prefs.spellcheck, prefs.autoPairBrackets, prefs.livePreview])
 
   // jump to a line requested by search/backlinks/outline
   useModel((s) => s.navTick)
