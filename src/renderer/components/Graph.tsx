@@ -174,7 +174,8 @@ export function GraphView() {
         ctx.fill()
         if (view.k > 0.7 || focus || neighbors.has(i)) {
           ctx.fillStyle = text
-          ctx.fillText(n.label, n.x, n.y + radius(n) + 12 / view.k)
+          const label = !focus && n.label.length > 32 ? n.label.slice(0, 30) + '…' : n.label
+          ctx.fillText(label, n.x, n.y + radius(n) + 12 / view.k)
         }
       })
       ctx.globalAlpha = 1

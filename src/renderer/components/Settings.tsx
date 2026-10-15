@@ -24,7 +24,7 @@ export function SettingsModal({ close, initialTab }: { close: () => void; initia
         <X size={16} />
       </button>
       <nav className="settings-nav" aria-label="Settings sections">
-        <div className="settings-nav-group">Options</div>
+        <div className="settings-nav-group">Settings</div>
         {TABS.filter(([id]) => hasVault || id !== 'vault').map(([id, label]) => (
           <button key={id} className={`settings-nav-item${tab === id ? ' is-active' : ''}`} aria-current={tab === id} onClick={() => setTab(id)}>
             {label}
@@ -220,30 +220,13 @@ function AppearanceTab() {
       <PrefRow k="interfaceFontSize" name="Interface font size" desc="Font size for sidebars, tabs and menus.">
         {(v, set) => <NumberSlider value={v} set={set} min={11} max={18} label="Interface font size" />}
       </PrefRow>
-      <PrefRow k="textFont" name="Text font" desc="Font family for notes. Empty uses the system font.">
-        {(v, set) => <TextSetting value={v} set={set} placeholder="e.g. Iowan Old Style" label="Text font" />}
+      <PrefRow k="textFont" name="Text font" desc="Font family for notes. Empty uses the macOS serif, New York.">
+        {(v, set) => <TextSetting value={v} set={set} placeholder="New York (system serif)" label="Text font" />}
       </PrefRow>
       <PrefRow k="monoFont" name="Monospace font" desc="Font family for code. Empty uses the system monospace font.">
         {(v, set) => <TextSetting value={v} set={set} placeholder="e.g. SF Mono" label="Monospace font" />}
       </PrefRow>
-      <Heading>Interface</Heading>
-      <LayoutToggle k="showRibbon" name="Show ribbon" desc="Display the vertical toolbar on the side of the window." />
     </>
-  )
-}
-
-function LayoutToggle({ k, name, desc }: { k: 'showRibbon'; name: string; desc: string }) {
-  const v = useModel((s) => s.snap!.global.layout[k])
-  return (
-    <div className="setting-item">
-      <div className="setting-info">
-        <div className="setting-name">{name}</div>
-        <div className="setting-desc">{desc}</div>
-      </div>
-      <div className="setting-control">
-        <Toggle value={v} set={(x) => model.setLayout({ [k]: x })} label={name} />
-      </div>
-    </div>
   )
 }
 
