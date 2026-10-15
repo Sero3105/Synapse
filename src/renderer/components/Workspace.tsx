@@ -7,6 +7,7 @@ import { GraphView } from './Graph'
 import { fileUrl, api } from '../api'
 import { basename, noteTitle, INVALID_NAME } from '../../shared/markdown'
 import { runCommand, hotkeysFor, formatHotkey } from '../commands'
+import { t as tr } from '../../shared/i18n'
 
 export function Workspace() {
   const ws = useModel((s) => s.ws)
@@ -55,8 +56,8 @@ export function Workspace() {
 }
 
 function tabTitle(t: Tab) {
-  if (t.kind === 'graph') return 'Graph view'
-  if (t.kind === 'empty' || !t.path) return 'New tab'
+  if (t.kind === 'graph') return tr('tab.graph')
+  if (t.kind === 'empty' || !t.path) return tr('tab.new')
   return t.kind === 'note' ? noteTitle(t.path) : basename(t.path)
 }
 
@@ -116,21 +117,21 @@ function PaneView({ pane, active }: { pane: Pane; active: boolean }) {
               onAuxClick={(e) => e.button === 1 && model.closeTab(pane.id, t.id)}
               onContextMenu={(e) =>
                 model.openMenu(e, [
-                  { label: 'Close', run: () => model.closeTab(pane.id, t.id) },
-                  { label: 'Close others', run: () => model.closeOthers(pane.id, t.id) },
+                  { label: tr('tab.close'), run: () => model.closeTab(pane.id, t.id) },
+                  { label: tr('tab.closeOthers'), run: () => model.closeOthers(pane.id, t.id) },
                   { separator: true, label: '' },
-                  { label: 'Split right', run: () => { model.selectTab(pane.id, t.id); model.split('row') } },
-                  { label: 'Split down', run: () => { model.selectTab(pane.id, t.id); model.split('column') } },
-                  ...(t.path ? [{ separator: true, label: '' }, { label: 'Reveal in Finder', run: () => api.reveal(t.path!) }, { label: 'Copy path', run: () => navigator.clipboard.writeText(t.path!) }] : []),
+                  { label: tr('common.splitRight'), run: () => { model.selectTab(pane.id, t.id); model.split('row') } },
+                  { label: tr('common.splitDown'), run: () => { model.selectTab(pane.id, t.id); model.split('column') } },
+                  ...(t.path ? [{ separator: true, label: '' }, { label: tr('common.revealInFinder'), run: () => api.reveal(t.path!) }, { label: tr('common.copyPath'), run: () => navigator.clipboard.writeText(t.path!) }] : []),
                 ])
               }
             >
               <span className="tab-icon"><TabIcon t={t} /></span>
               <span className="tab-title">{tabTitle(t)}</span>
-              {dirty[i] && <span className="tab-dirty" aria-label="Unsaved changes" />}
+              {dirty[i] && <span className="tab-dirty" aria-label={tr('tab.unsaved')} />}
               <button
                 className="tab-close"
-                aria-label={`Close ${tabTitle(t)}`}
+                aria-label={tr('tab.closeNamed', { name: tabTitle(t) })}
                 onClick={(e) => {
                   e.stopPropagation()
                   model.closeTab(pane.id, t.id)
@@ -140,7 +141,7 @@ function PaneView({ pane, active }: { pane: Pane; active: boolean }) {
               </button>
             </div>
           ))}
-          <button className="tab-new icon-btn" aria-label="New tab" onClick={() => model.newTab(pane.id)}>
+          <button className="tab-new icon-btn" aria-label={tr('tab.new')} onClick={() => model.newTab(pane.id)}>
             <Plus size={16} />
           </button>
         </div>
@@ -170,10 +171,10 @@ function ViewHeader({ tab, paneId }: { tab: Tab; paneId: string }) {
   return (
     <div className="view-header">
       <div className="view-header-nav">
-        <button className="icon-btn" aria-label="Navigate back" disabled={!tab.back.length} onClick={() => model.goBack(tab.id)}>
+        <button className="icon-btn" aria-label={tr('view.back')} disabled={!tab.back.length} onClick={() => model.goBack(tab.id)}>
           <ArrowLeft size={16} />
         </button>
-        <button className="icon-btn" aria-label="Navigate forward" disabled={!tab.fwd.length} onClick={() => model.goForward(tab.id)}>
+        <button className="icon-btn" aria-label={tr('view.forward')} disabled={!tab.fwd.length} onClick={() => model.goForward(tab.id)}>
           <ArrowRight size={16} />
         </button>
       </div>
@@ -190,8 +191,8 @@ function ViewHeader({ tab, paneId }: { tab: Tab; paneId: string }) {
         {isNote && (
           <button
             className="icon-btn"
-            aria-label={tab.mode === 'source' ? 'Switch to reading view' : 'Switch to editing view'}
-            title={tab.mode === 'source' ? 'Reading view (⌘E)' : 'Editing view (⌘E)'}
+            aria-label={tab.mode === 'source' ? tr('view.toReading') : tr('view.toEditing')}
+            title={tab.mode === 'source' ? tr('view.readingHint') : tr('view.editingHint')}
             onClick={() => model.updateTab(tab.id, { mode: tab.mode === 'source' ? 'preview' : 'source' })}
           >
             {tab.mode === 'source' ? <BookOpen size={16} /> : <Pencil size={16} />}
@@ -199,18 +200,18 @@ function ViewHeader({ tab, paneId }: { tab: Tab; paneId: string }) {
         )}
         <button
           className="icon-btn"
-          aria-label="More options"
+          aria-label={tr('view.more')}
           onClick={(e) => {
             model.focusPane(paneId)
             model.openMenu(e, [
-              { label: 'Rename…', run: () => model.renamePrompt(path) },
-              { label: 'Split right', run: () => model.split('row') },
-              { label: 'Split down', run: () => model.split('column') },
-              ...(isNote ? [{ label: 'Find in note', run: () => runCommand('editor:open-search') }] : []),
-              { label: 'Reveal in Finder', run: () => api.reveal(path) },
-              { label: 'Copy path', run: () => navigator.clipboard.writeText(path) },
+              { label: tr('common.renameEllipsis'), run: () => model.renamePrompt(path) },
+              { label: tr('common.splitRight'), run: () => model.split('row') },
+              { label: tr('common.splitDown'), run: () => model.split('column') },
+              ...(isNote ? [{ label: tr('view.findInNote'), run: () => runCommand('editor:open-search') }] : []),
+              { label: tr('common.revealInFinder'), run: () => api.reveal(path) },
+              { label: tr('common.copyPath'), run: () => navigator.clipboard.writeText(path) },
               { separator: true, label: '' },
-              { label: 'Delete file', danger: true, run: () => model.remove(path) },
+              { label: tr('view.deleteFile'), danger: true, run: () => model.remove(path) },
             ])
           }}
         >
@@ -229,12 +230,12 @@ function NoteBody({ tab, paneId }: { tab: Tab; paneId: string }) {
     <div className={`note-body${prefs.readableLineLength ? ' readable' : ''}`}>
       {conflict && (
         <div className="conflict-banner" role="alert">
-          <span>{conflict === 'modified' ? 'This note was changed outside Synapse while you had unsaved edits.' : 'This note was deleted outside Synapse.'}</span>
+          <span>{conflict === 'modified' ? tr('conflict.modified') : tr('conflict.deleted')}</span>
           <button className="btn" onClick={() => model.resolveConflict(path, 'disk')}>
-            {conflict === 'modified' ? 'Load disk version' : 'Discard'}
+            {conflict === 'modified' ? tr('conflict.loadDisk') : tr('conflict.discard')}
           </button>
           <button className="btn mod-cta" onClick={() => model.resolveConflict(path, 'mine')}>
-            {conflict === 'modified' ? 'Keep my version' : 'Restore my version'}
+            {conflict === 'modified' ? tr('conflict.keepMine') : tr('conflict.restoreMine')}
           </button>
         </div>
       )}
@@ -264,7 +265,7 @@ function InlineTitle({ tab }: { tab: Tab }) {
     const v = value.trim()
     if (!v || v === noteTitle(path)) return setValue(noteTitle(path))
     if (INVALID_NAME.test(v) || v.startsWith('.')) {
-      model.notice('Names cannot start with "." or contain \\ / : * ? " < > | # ^ [ ]', true)
+      model.notice(tr('common.invalidName'), true)
       return setValue(noteTitle(path))
     }
     const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : ''
@@ -274,7 +275,7 @@ function InlineTitle({ tab }: { tab: Tab }) {
     <textarea
       ref={ref}
       className="inline-title"
-      aria-label="Note title"
+      aria-label={tr('view.noteTitle')}
       rows={1}
       value={value}
       spellCheck={false}
@@ -305,8 +306,8 @@ function FileBody({ path }: { path: string }) {
   return (
     <div className="empty-state">
       <div className="empty-title">{basename(path)}</div>
-      <div className="empty-sub">This file type can't be previewed in Synapse.</div>
-      <button className="btn" onClick={() => api.reveal(path)}>Reveal in Finder</button>
+      <div className="empty-sub">{tr('view.unsupported')}</div>
+      <button className="btn" onClick={() => api.reveal(path)}>{tr('common.revealInFinder')}</button>
     </div>
   )
 }
@@ -315,15 +316,15 @@ function EmptyTab({ paneId, tabId }: { paneId: string; tabId: string }) {
   const recent = useModel((s) => s.recent)
   const graph = useModel((s) => s.snap!.prefs.corePlugins.graph)
   const actions = [
-    { label: 'New note', cmd: 'file-explorer:new-file', run: () => model.createNote({ where: 'tab' }) },
-    { label: 'Jump to note', cmd: 'switcher:open', run: () => model.set({ modal: { kind: 'switcher' } }) },
-    ...(graph ? [{ label: 'Open graph', cmd: 'graph:open', run: () => model.openGraph('tab') }] : []),
-    { label: 'Close tab', cmd: 'workspace:close', run: () => model.closeTab(paneId, tabId) },
+    { label: tr('common.newNote'), cmd: 'file-explorer:new-file', run: () => model.createNote({ where: 'tab' }) },
+    { label: tr('empty.jump'), cmd: 'switcher:open', run: () => model.set({ modal: { kind: 'switcher' } }) },
+    ...(graph ? [{ label: tr('empty.graph'), cmd: 'graph:open', run: () => model.openGraph('tab') }] : []),
+    { label: tr('empty.closeTab'), cmd: 'workspace:close', run: () => model.closeTab(paneId, tabId) },
   ]
   return (
     <div className="empty-tab" data-testid="empty-tab">
       <div className="empty-tab-inner">
-        <h1 className="empty-tab-title">Nothing open</h1>
+        <h1 className="empty-tab-title">{tr('empty.title')}</h1>
         <div className="empty-tab-actions">
           {actions.map((a) => (
             <button key={a.cmd} className="action-row" onClick={a.run}>
@@ -333,8 +334,8 @@ function EmptyTab({ paneId, tabId }: { paneId: string; tabId: string }) {
           ))}
         </div>
         {recent.length > 0 && (
-          <section className="empty-tab-recent" aria-label="Recent notes">
-            <h2>Recent</h2>
+          <section className="empty-tab-recent" aria-label={tr('empty.recentLabel')}>
+            <h2>{tr('empty.recent')}</h2>
             {recent.slice(0, 7).map((p) => (
               <button key={p} className="recent-row" onClick={(e) => model.open(p, e.metaKey ? 'new' : 'tab')}>
                 <span className="recent-title">{isMd(p) ? noteTitle(p) : basename(p)}</span>

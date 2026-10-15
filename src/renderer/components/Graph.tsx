@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Settings2, RotateCcw } from 'lucide-react'
 import { model, useModel } from '../model'
 import { noteTitle } from '../../shared/markdown'
+import { t } from '../../shared/i18n'
 
 interface Node { id: string; label: string; x: number; y: number; vx: number; vy: number; deg: number; unresolved: boolean; fixed?: boolean }
 
@@ -246,30 +247,30 @@ export function GraphView() {
   const set = (patch: Partial<typeof settings>) => model.setVault({ graph: patch })
   return (
     <div className="graph-view" data-testid="graph">
-      <canvas ref={canvas} className="graph-canvas" aria-label="Graph of linked notes" />
+      <canvas ref={canvas} className="graph-canvas" aria-label={t('graph.label')} />
       <div className="graph-controls">
-        <button className="icon-btn" aria-label="Restart layout" title="Restart layout" onClick={() => sim.current?.restart()}>
+        <button className="icon-btn" aria-label={t('graph.restart')} title={t('graph.restart')} onClick={() => sim.current?.restart()}>
           <RotateCcw size={16} />
         </button>
-        <button className={`icon-btn${panel ? ' is-active' : ''}`} aria-label="Graph settings" aria-expanded={panel} onClick={() => setPanel(!panel)}>
+        <button className={`icon-btn${panel ? ' is-active' : ''}`} aria-label={t('graph.settings')} aria-expanded={panel} onClick={() => setPanel(!panel)}>
           <Settings2 size={16} />
         </button>
       </div>
       {panel && (
         <div className="graph-settings">
-          <div className="graph-settings-title">Graph settings <span className="scope-pill">this vault</span></div>
+          <div className="graph-settings-title">{t('graph.settings')} <span className="scope-pill">{t('graph.thisVault')}</span></div>
           <label className="check-row">
-            <input type="checkbox" checked={settings.showOrphans} onChange={(e) => set({ showOrphans: e.target.checked })} /> Show orphans
+            <input type="checkbox" checked={settings.showOrphans} onChange={(e) => set({ showOrphans: e.target.checked })} /> {t('graph.orphans')}
           </label>
           <label className="check-row">
-            <input type="checkbox" checked={settings.showUnresolved} onChange={(e) => set({ showUnresolved: e.target.checked })} /> Show unresolved links
+            <input type="checkbox" checked={settings.showUnresolved} onChange={(e) => set({ showUnresolved: e.target.checked })} /> {t('graph.unresolved')}
           </label>
           <label className="slider-row">
-            Link distance
+            {t('graph.distance')}
             <input type="range" min={20} max={400} value={settings.linkDistance} onChange={(e) => set({ linkDistance: Number(e.target.value) })} />
           </label>
           <label className="slider-row">
-            Repel force
+            {t('graph.repel')}
             <input type="range" min={50} max={3000} value={settings.repel} onChange={(e) => set({ repel: Number(e.target.value) })} />
           </label>
         </div>

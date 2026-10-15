@@ -4,6 +4,7 @@ import type { EditorView } from '@codemirror/view'
 import { api, ApiError, Snapshot, FileEntry } from './api'
 import { NoteIndex, rewriteLinks, buildLookup, uniqueName, INVALID_NAME, basename, noteTitle } from '../shared/markdown'
 import { isObj, Prefs, Layout, GraphSettings } from '../shared/settings'
+import { t, tn, Key, type LanguagePref } from '../shared/i18n'
 
 export type ViewMode = 'source' | 'preview'
 export interface Tab {
@@ -227,14 +228,14 @@ class Model {
 
   error(e: unknown) {
     console.error(e)
-    this.notice(e instanceof Error ? e.message : String(e), true)
+    this.notice(errorText(e), true)
   }
 
-  prompt(title: string, value = '', okText = 'Save'): Promise<string | null> {
+  prompt(title: string, value = '', okText = t('common.save')): Promise<string | null> {
     return new Promise((resolve) => this.set({ modal: { kind: 'prompt', title, value, okText, resolve } }))
   }
 
-  confirm(title: string, message: string, okText = 'Delete', danger = true): Promise<boolean> {
+  confirm(title: string, message: string, okText = t('common.delete'), danger = true): Promise<boolean> {
     return new Promise((resolve) => this.set({ modal: { kind: 'confirm', title, message, okText, danger, resolve } }))
   }
 
@@ -244,7 +245,7 @@ class Model {
   }
 
   // ---------- settings ----------
-  async setGlobal(patch: { prefs?: Partial<Prefs>; layout?: Partial<Layout>; hotkeys?: Record<string, string[] | null> }) {
+  async setGlobal(patch: { language?: LanguagePref; prefs?: Partial<Prefs>; layout?: Partial<Layout>; hotkeys?: Record<string, string[] | null> }) {
     try {
       await api.updateGlobal(patch)
     } catch (e) {
@@ -390,7 +391,7 @@ class Model {
 
   split(direction: 'row' | 'column', path?: string) {
     const ws = this.state.ws
-    if (ws.panes.length >= 4) return this.notice('Maximum of 4 panes')
+    if (ws.panes.length >= 4) return this.notice(t('notice.maxPanes'))
     const src = this.activeTab
     const tab: Tab = path ? { ...emptyTab(), kind: 'note', path, mode: this.prefs.defaultViewMode } : { ...src, id: newId(), back: [...src.back], fwd: [...src.fwd] }
     const pane: Pane = { id: newId(), tabs: [tab], active: tab.id }
@@ -438,7 +439,7 @@ class Model {
    * `line` scrolls to and selects a line once the editor is ready.
    */
   async open(path: string, where: 'tab' | 'new' | 'split' = 'tab', opts: { line?: number; mode?: ViewMode } = {}) {
-    if (!this.state.files.some((f) => f.path === path && f.type === 'file')) return this.notice(`File not found: ${path}`, true)
+    if (!this.state.files.some((f) => f.path === path && f.type === 'file')) return this.notice(t('notice.fileNotFound', { path }), true)
     const kind: Tab['kind'] = isMd(path) ? 'note' : 'file'
     if (kind === 'note') this.ensureBuffer(path)
     if (where === 'split') return this.split('row', path)
@@ -503,7 +504,7 @@ class Model {
       return this.open(resolved, where, { line })
     }
     if (!linkpath) return
-    if (INVALID_NAME.test(basename(linkpath))) return this.notice('Cannot create a note with that name', true)
+    if (INVALID_NAME.test(basename(linkpath))) return this.notice(t('notice.cannotCreate'), true)
     const path = linkpath.endsWith('.md') ? linkpath : `${linkpath}.md`
     await this.createNote({ path, where })
   }
@@ -565,7 +566,7 @@ class Model {
       const cur = this.state.buffers[path]
       if (e instanceof ApiError && (e.code === 'ECONFLICT' || e.code === 'ENOENT') && cur) {
         this.setBuffer(path, { ...cur, conflict: e.code === 'ECONFLICT' ? 'modified' : 'deleted' })
-        this.notice(`${noteTitle(path)}: ${e.message}`, true)
+        this.notice(`${noteTitle(path)}: ${errorText(e)}`, true)
       } else this.error(e)
       return false
     } finally {
@@ -682,7 +683,7 @@ class Model {
 
   async createNote(opts: { folder?: string; path?: string; where?: 'tab' | 'new' | 'split'; content?: string } = {}) {
     const existing = new Set(this.state.files.map((f) => f.path))
-    const path = opts.path ?? uniqueName(existing, opts.folder ?? this.newNoteFolder(), 'Untitled', '.md')
+    const path = opts.path ?? uniqueName(existing, opts.folder ?? this.newNoteFolder(), t('file.untitled'), '.md')
     try {
       const n = await api.create(path, opts.content ?? '')
       this.setBuffer(n.path, { content: n.content, saved: n.content, mtime: n.mtime })
@@ -707,9 +708,9 @@ class Model {
   }
 
   async createFolder(parent = '') {
-    const name = await this.prompt('New folder name', '', 'Create')
+    const name = await this.prompt(t('dialog.newFolder'), '', t('common.create'))
     if (!name) return
-    if (INVALID_NAME.test(name) || name.startsWith('.')) return this.notice('Invalid folder name', true)
+    if (INVALID_NAME.test(name) || name.startsWith('.')) return this.notice(t('notice.invalidFolder'), true)
     const path = parent ? `${parent}/${name}` : name
     try {
       await api.mkdir(path)
@@ -724,7 +725,7 @@ class Model {
     const isFolder = this.state.files.some((f) => f.path === path && f.type === 'folder')
     const name = basename(path)
     const shown = !isFolder && isMd(name) ? name.slice(0, -3) : name
-    const next = await this.prompt(isFolder ? 'Rename folder' : 'Rename file', shown, 'Rename')
+    const next = await this.prompt(isFolder ? t('dialog.renameFolder') : t('dialog.renameFile'), shown, t('common.rename'))
     if (next === null || next === shown) return
     const full = !isFolder && isMd(name) ? `${next}.md` : next
     const dir = dirOf(path)
@@ -739,7 +740,7 @@ class Model {
     to = to.replace(/^\/+|\/+$/g, '')
     const name = basename(to)
     if (!name || INVALID_NAME.test(name.replace(/\.md$/i, '')) || name.startsWith('.')) {
-      this.notice('Names cannot be empty, start with "." or contain \\ / : * ? " < > | # ^ [ ]', true)
+      this.notice(t('common.invalidName'), true)
       return false
     }
     if (from === to) return true
@@ -810,14 +811,14 @@ class Model {
         }
       }
     }
-    if (count) this.notice(`Updated links in ${count} note${count > 1 ? 's' : ''}`)
+    if (count) this.notice(tn('notice.linksUpdated', count))
     this.set({ indexVersion: this.state.indexVersion + 1 })
   }
 
   async remove(path: string) {
     const isFolder = this.state.files.some((f) => f.path === path && f.type === 'folder')
     if (this.prefs.promptDelete) {
-      const ok = await this.confirm(isFolder ? 'Delete folder' : 'Delete file', `Move "${basename(path)}"${isFolder ? ' and everything inside it' : ''} to the system trash?`)
+      const ok = await this.confirm(isFolder ? t('dialog.deleteFolder') : t('dialog.deleteFile'), t(isFolder ? 'dialog.deleteFolderBody' : 'dialog.deleteFileBody', { name: basename(path) }))
       if (!ok) return
     }
     try {
@@ -840,7 +841,7 @@ class Model {
     const setting = this.state.snap?.vault?.settings.attachmentFolder ?? ''
     const folder = setting === './' ? dirOf(notePath) : setting.replace(/^\/+|\/+$/g, '')
     const dot = name.lastIndexOf('.')
-    const base = (dot > 0 ? name.slice(0, dot) : name).replace(INVALID_NAME, '-') || 'Pasted image'
+    const base = (dot > 0 ? name.slice(0, dot) : name).replace(INVALID_NAME, '-') || t('file.pastedImage')
     const ext = dot > 0 ? name.slice(dot) : ''
     const path = uniqueName(new Set(this.state.files.map((f) => f.path)), folder, base, ext)
     try {
@@ -856,7 +857,7 @@ class Model {
   // ---------- vaults ----------
   async switchVault(action: () => Promise<unknown>) {
     const ok = await this.flushAll()
-    if (!ok && !(await this.confirm('Unsaved changes', 'Some notes could not be saved. Switch vault anyway?', 'Switch'))) return
+    if (!ok && !(await this.confirm(t('dialog.unsavedTitle'), t('dialog.unsavedBody'), t('common.switch')))) return
     try {
       await action()
     } catch (e) {
@@ -881,4 +882,14 @@ export function useModel<T>(sel: (s: State) => T): T {
 let runCommandById: (id: string) => void = () => {}
 export function setCommandRunner(fn: (id: string) => void) {
   runCommandById = fn
+}
+
+/** User-facing error text: known filesystem error codes are translated, anything else keeps its message. */
+export function errorText(e: unknown): string {
+  if (e instanceof ApiError) {
+    const key = `error.${e.code}` as Key
+    const text = t(key)
+    if (text !== key) return text
+  }
+  return e instanceof Error ? e.message : String(e)
 }

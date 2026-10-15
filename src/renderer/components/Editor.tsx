@@ -11,6 +11,7 @@ import { tags as t } from '@lezer/highlight'
 import { model, useModel, Tab } from '../model'
 import { api } from '../api'
 import { noteTitle, shortestLinkText, fuzzyScore } from '../../shared/markdown'
+import { t as tr } from '../../shared/i18n'
 
 const hl = HighlightStyle.define([
   { tag: t.heading1, class: 'cm-h1' },
@@ -226,7 +227,7 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
     v.focus()
   })
 
-  if (!buffer) return <div className="view-loading">Loading…</div>
+  if (!buffer) return <div className="view-loading">{tr('common.loading')}</div>
   return <div className="cm-host" ref={host} data-testid="editor" />
 }
 
@@ -236,7 +237,7 @@ function handleFiles(files: FileList | undefined, view: EditorView, notePath: st
   ;(async () => {
     const links: string[] = []
     for (const f of Array.from(files)) {
-      const name = f.name && f.name !== 'image.png' ? f.name : `Pasted image ${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}.png`
+      const name = f.name && f.name !== 'image.png' ? f.name : `${tr('file.pastedImage')} ${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}.png`
       const saved = await model.saveAttachment(name, new Uint8Array(await f.arrayBuffer()), notePath)
       if (saved) links.push(`![[${shortestLinkText(saved, model.index.lookup)}]]`)
     }

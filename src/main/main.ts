@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { AppStore } from './store'
 import { openVault, OpenVault, snapshot, isDir } from './session'
 import { toIpcError, VaultError } from './vault'
+import { t, setLanguage, resolveLanguage } from '../shared/i18n'
 
 app.setName('Synapse')
 // Tests point this at a temp dir; normal runs use ~/Library/Application Support/Synapse.
@@ -76,6 +77,7 @@ const handlers: Record<string, Handler> = {
   'state:get': () => snapshot(store, current),
   'settings:global': async (patch) => {
     await store.updateGlobal(patch)
+    applyLanguage()
     pushSnapshot()
   },
   'settings:vault': async (patch) => {
@@ -108,7 +110,7 @@ const handlers: Record<string, Handler> = {
   },
   'vault:locate': async (id) => {
     // Relink a moved/renamed vault: user picks its new folder; keep the same id.
-    const r = await dialog.showOpenDialog(win!, { title: 'Locate vault folder', properties: ['openDirectory'] })
+    const r = await dialog.showOpenDialog(win!, { title: t('main.locate'), properties: ['openDirectory'] })
     if (r.canceled || !r.filePaths[0]) return null
     const reg = store.getRegistry()
     if (!reg.vaults[String(id)]) throw new VaultError('ENOENT', 'Unknown vault')
@@ -116,7 +118,7 @@ const handlers: Record<string, Handler> = {
     return activate(r.filePaths[0])
   },
   'dialog:folder': async (title) => {
-    const r = await dialog.showOpenDialog(win!, { title: String(title ?? 'Choose folder'), properties: ['openDirectory', 'createDirectory'] })
+    const r = await dialog.showOpenDialog(win!, { title: String(title ?? t('main.chooseFolder')), properties: ['openDirectory', 'createDirectory'] })
     return r.canceled ? null : r.filePaths[0] ?? null
   },
   'fs:list': () => requireVault().vault.list(),
@@ -206,10 +208,10 @@ function createWindow() {
       if (!ok) {
         const choice = dialog.showMessageBoxSync(win!, {
           type: 'warning',
-          buttons: ['Cancel', 'Quit Anyway'],
+          buttons: [t('common.cancel'), t('main.quitAnyway')],
           defaultId: 0,
-          message: 'Some changes could not be saved.',
-          detail: 'Quitting now will lose them.',
+          message: t('main.unsavedTitle'),
+          detail: t('main.unsavedDetail'),
         })
         if (choice === 0) {
           quitting = false
@@ -243,6 +245,12 @@ function debounce(fn: () => void, ms: number) {
   }
 }
 
+/** Resolve the global language setting and rebuild the native menu in that language. */
+function applyLanguage() {
+  setLanguage(resolveLanguage(store.getGlobal().language, app.getPreferredSystemLanguages()))
+  buildMenu()
+}
+
 function buildMenu() {
   const cmd = (id: string) => () => send('command', id)
   Menu.setApplicationMenu(
@@ -252,7 +260,7 @@ function buildMenu() {
         submenu: [
           { role: 'about' },
           { type: 'separator' },
-          { label: 'Settings…', accelerator: 'Cmd+,', click: cmd('app:open-settings') },
+          { label: t('menu.settings'), accelerator: 'Cmd+,', click: cmd('app:open-settings') },
           { type: 'separator' },
           { role: 'hide' },
           { role: 'hideOthers' },
@@ -262,23 +270,23 @@ function buildMenu() {
         ],
       },
       {
-        label: 'File',
+        label: t('menu.file'),
         submenu: [
-          { label: 'New Note', click: cmd('file-explorer:new-file') },
-          { label: 'New Tab', click: cmd('workspace:new-tab') },
+          { label: t('menu.newNote'), click: cmd('file-explorer:new-file') },
+          { label: t('menu.newTab'), click: cmd('workspace:new-tab') },
           { type: 'separator' },
-          { label: 'Open Vault…', click: cmd('app:open-vault') },
+          { label: t('menu.openVault'), click: cmd('app:open-vault') },
           { type: 'separator' },
-          { label: 'Close Tab', click: cmd('workspace:close') },
+          { label: t('menu.closeTab'), click: cmd('workspace:close') },
         ],
       },
       { role: 'editMenu' },
       {
-        label: 'View',
+        label: t('menu.view'),
         submenu: [
-          { label: 'Command Palette', click: cmd('command-palette:open') },
-          { label: 'Toggle Left Sidebar', click: cmd('app:toggle-left-sidebar') },
-          { label: 'Toggle Right Sidebar', click: cmd('app:toggle-right-sidebar') },
+          { label: t('menu.palette'), click: cmd('command-palette:open') },
+          { label: t('menu.toggleLeft'), click: cmd('app:toggle-left-sidebar') },
+          { label: t('menu.toggleRight'), click: cmd('app:toggle-right-sidebar') },
           { type: 'separator' },
           { role: 'resetZoom' },
           { role: 'zoomIn' },
@@ -288,7 +296,7 @@ function buildMenu() {
           { role: 'toggleDevTools' },
         ],
       },
-      { label: 'Window', submenu: [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }] },
+      { label: t('menu.window'), submenu: [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }] },
     ]),
   )
 }
@@ -313,7 +321,7 @@ app.whenReady().then(async () => {
       return new Response('Not found', { status: 404 })
     }
   })
-  buildMenu()
+  applyLanguage()
   await boot()
   app.on('activate', () => {
     if (!win) boot()

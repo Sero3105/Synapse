@@ -4,6 +4,7 @@ import { model, useModel, isMd, IMAGE_EXT } from '../model'
 import { api, FileEntry } from '../api'
 import { noteTitle, basename, Link, wordCount } from '../../shared/markdown'
 import { runCommand, hotkeysFor, formatHotkey } from '../commands'
+import { t, tn, getLanguage } from '../../shared/i18n'
 
 const ICON = { size: 15, strokeWidth: 1.75 } as const
 const kbd = (id: string) => formatHotkey(hotkeysFor(id)[0] ?? '')
@@ -16,21 +17,21 @@ export function Navigator() {
   const graphActive = useModel((s) => model.activeTab.kind === 'graph' && !!s.ws)
   const current = (tab === 'search' && !plugins.search) || (tab === 'tags' && !plugins.tags) ? 'files' : tab
   const views = [
-    { id: 'files' as const, label: 'Files', icon: <FolderTree {...ICON} />, on: true, hint: '' },
-    { id: 'search' as const, label: 'Search', icon: <Search {...ICON} />, on: plugins.search, hint: kbd('global-search:open') },
-    { id: 'tags' as const, label: 'Tags', icon: <Hash {...ICON} />, on: plugins.tags, hint: '' },
+    { id: 'files' as const, label: t('nav.files'), icon: <FolderTree {...ICON} />, on: true, hint: '' },
+    { id: 'search' as const, label: t('nav.search'), icon: <Search {...ICON} />, on: plugins.search, hint: kbd('global-search:open') },
+    { id: 'tags' as const, label: t('nav.tags'), icon: <Hash {...ICON} />, on: plugins.tags, hint: '' },
   ].filter((v) => v.on)
 
   return (
     <div className="nav">
       <div className="dock-titlebar" />
       <VaultSwitcher />
-      <button className="jump-field" onClick={() => runCommand('switcher:open')} aria-label="Jump to note">
+      <button className="jump-field" onClick={() => runCommand('switcher:open')} aria-label={t('nav.jump')}>
         <Search {...ICON} />
-        <span>Jump to note</span>
+        <span>{t('nav.jump')}</span>
         <kbd>{kbd('switcher:open')}</kbd>
       </button>
-      <nav className="nav-views" aria-label="Views">
+      <nav className="nav-views" aria-label={t('nav.views')}>
         {views.map((v) => (
           <button key={v.id} className={`nav-row${current === v.id ? ' is-active' : ''}`} aria-current={current === v.id ? 'page' : undefined} onClick={() => {
             model.setLayout({ leftTab: v.id })
@@ -44,7 +45,7 @@ export function Navigator() {
         {plugins.graph && (
           <button className={`nav-row${graphActive ? ' is-current-view' : ''}`} aria-pressed={graphActive} onClick={() => runCommand('graph:open')}>
             <Waypoints {...ICON} />
-            <span>Graph</span>
+            <span>{t('nav.graph')}</span>
             <kbd>{kbd('graph:open')}</kbd>
           </button>
         )}
@@ -57,10 +58,10 @@ export function Navigator() {
       <div className="nav-footer">
         <button className="nav-row" onClick={() => runCommand('file-explorer:new-file')}>
           <FilePlus {...ICON} />
-          <span>New note</span>
+          <span>{t('common.newNote')}</span>
           <kbd>{kbd('file-explorer:new-file')}</kbd>
         </button>
-        <button className="icon-btn" aria-label="Settings" title={`Settings ${kbd('app:open-settings')}`} onClick={() => runCommand('app:open-settings')}>
+        <button className="icon-btn" aria-label={t('nav.settings')} title={`${t('nav.settings')} ${kbd('app:open-settings')}`} onClick={() => runCommand('app:open-settings')}>
           <Settings {...ICON} />
         </button>
       </div>
@@ -75,14 +76,14 @@ function VaultSwitcher() {
   return (
     <button
       className="vault-switcher"
-      aria-label="Switch vault"
+      aria-label={t('nav.switchVault')}
       title={snap.vault!.path}
       onClick={(e) =>
         model.openMenu(e, [
           ...others.slice(0, 8).map((v) => ({ label: v.name, run: () => model.switchVault(() => api.openVaultId(v.id)) })),
           ...(others.length ? [{ separator: true, label: '' }] : []),
-          { label: 'Manage vaults…', run: () => model.set({ modal: { kind: 'vaults' } }) },
-          { label: 'Reveal vault in Finder', run: () => api.reveal('') },
+          { label: t('nav.manageVaults'), run: () => model.set({ modal: { kind: 'vaults' } }) },
+          { label: t('nav.revealVault'), run: () => api.reveal('') },
         ])
       }
     >
@@ -102,9 +103,9 @@ export function ContextPanel() {
   const indexVersion = useModel((s) => s.indexVersion)
   const backCount = useMemo(() => (path && plugins.backlinks ? model.index.backlinks(path).length : 0), [path, indexVersion, plugins.backlinks])
   const tabs = [
-    { id: 'backlinks' as const, label: 'Backlinks', on: plugins.backlinks, count: backCount },
-    { id: 'outgoing' as const, label: 'Outgoing', on: plugins.outgoing, count: null },
-    { id: 'outline' as const, label: 'Outline', on: plugins.outline, count: null },
+    { id: 'backlinks' as const, label: t('context.backlinks'), on: plugins.backlinks, count: backCount },
+    { id: 'outgoing' as const, label: t('context.outgoing'), on: plugins.outgoing, count: null },
+    { id: 'outline' as const, label: t('context.outline'), on: plugins.outline, count: null },
   ].filter((t) => t.on)
   const current = tabs.some((t) => t.id === tab) ? tab : tabs[0]?.id
 
@@ -113,14 +114,14 @@ export function ContextPanel() {
       <div className="dock-titlebar" />
       {!path ? (
         <div className="context-empty">
-          <div className="empty-heading">No note selected</div>
-          <p>Open a note to see its details, links and outline.</p>
+          <div className="empty-heading">{t('context.noNote')}</div>
+          <p>{t('context.noNoteBody')}</p>
         </div>
       ) : (
         <>
           <NoteInfo path={path} />
           {tabs.length > 0 && (
-            <div className="segmented" role="tablist" aria-label="Note context">
+            <div className="segmented" role="tablist" aria-label={t('shell.noteContext')}>
               {tabs.map((t) => (
                 <button key={t.id} role="tab" aria-selected={current === t.id} className={`segment${current === t.id ? ' is-active' : ''}`} onClick={() => model.setLayout({ rightTab: t.id })}>
                   {t.label}
@@ -140,7 +141,6 @@ export function ContextPanel() {
   )
 }
 
-const dateFmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
 /** Real metadata of the active note: location, modification time, size, tags. */
 function NoteInfo({ path }: { path: string }) {
@@ -149,21 +149,22 @@ function NoteInfo({ path }: { path: string }) {
   const indexVersion = useModel((s) => s.indexVersion)
   const tags = useMemo(() => model.index.notes.get(path)?.meta.tags ?? [], [path, indexVersion])
   const words = useMemo(() => (content !== undefined ? wordCount(content).words : 0), [content])
-  const folder = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : 'Vault root'
+  const folder = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : t('context.vaultRoot')
+  const dateFmt = new Intl.DateTimeFormat(getLanguage(), { dateStyle: 'medium', timeStyle: 'short' })
   return (
-    <section className="note-info" aria-label="Note details">
+    <section className="note-info" aria-label={t('context.details')}>
       <div className="note-info-title">{noteTitle(path)}</div>
       <dl className="note-info-grid">
-        <dt>Folder</dt>
+        <dt>{t('context.folder')}</dt>
         <dd title={folder}>{folder}</dd>
         {mtime !== undefined && (
           <>
-            <dt>Modified</dt>
+            <dt>{t('context.modified')}</dt>
             <dd className="tabular">{dateFmt.format(mtime)}</dd>
           </>
         )}
-        <dt>Length</dt>
-        <dd className="tabular">{words.toLocaleString()} {words === 1 ? 'word' : 'words'}</dd>
+        <dt>{t('context.length')}</dt>
+        <dd className="tabular">{tn('count.words', words)}</dd>
       </dl>
       {tags.length > 0 && (
         <div className="note-info-tags">
@@ -229,20 +230,20 @@ function FileExplorer() {
     <div className="file-explorer" data-testid="file-explorer">
       <div className="panel-toolbar">
         <div className="filter-box">
-          <input className="text-input" placeholder="Filter" aria-label="Filter files" value={filter} onChange={(e) => setFilter(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setFilter('')} />
+          <input className="text-input" placeholder={t('files.filter')} aria-label={t('files.filterLabel')} value={filter} onChange={(e) => setFilter(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setFilter('')} />
           {filter && (
-            <button className="icon-btn clear" aria-label="Clear filter" onClick={() => setFilter('')}>
+            <button className="icon-btn clear" aria-label={t('files.clearFilter')} onClick={() => setFilter('')}>
               <X size={13} />
             </button>
           )}
         </div>
-        <button className="icon-btn" aria-label="New note" title="New note" onClick={() => model.createNote()}>
+        <button className="icon-btn" aria-label={t('common.newNote')} title={t('common.newNote')} onClick={() => model.createNote()}>
           <FilePlus {...ICON} />
         </button>
-        <button className="icon-btn" aria-label="New folder" title="New folder" onClick={() => model.createFolder()}>
+        <button className="icon-btn" aria-label={t('common.newFolder')} title={t('common.newFolder')} onClick={() => model.createFolder()}>
           <FolderPlus {...ICON} />
         </button>
-        <button className="icon-btn" aria-label="Collapse all" title="Collapse all" onClick={() => model.set({ expanded: {} })}>
+        <button className="icon-btn" aria-label={t('files.collapseAll')} title={t('files.collapseAll')} onClick={() => model.set({ expanded: {} })}>
           <ChevronsDownUp {...ICON} />
         </button>
       </div>
@@ -251,8 +252,8 @@ function FileExplorer() {
         role="tree"
         onContextMenu={(e) =>
           model.openMenu(e, [
-            { label: 'New note', run: () => model.createNote({ folder: '' }) },
-            { label: 'New folder', run: () => model.createFolder('') },
+            { label: t('common.newNote'), run: () => model.createNote({ folder: '' }) },
+            { label: t('common.newFolder'), run: () => model.createFolder('') },
           ])
         }
         onDragOver={(e) => {
@@ -270,12 +271,12 @@ function FileExplorer() {
       >
         {tree.children.length === 0 &&
           (filter ? (
-            <div className="pane-empty">Nothing matches “{filter}”.</div>
+            <div className="pane-empty">{t('files.noMatch', { q: filter })}</div>
           ) : (
             <div className="panel-empty" data-testid="empty-vault">
-              <div className="empty-heading">This vault has no notes yet</div>
-              <p>Notes are plain Markdown files in this folder.</p>
-              <button className="btn mod-cta" onClick={() => model.createNote()}>Create first note</button>
+              <div className="empty-heading">{t('files.emptyTitle')}</div>
+              <p>{t('files.emptyBody')}</p>
+              <button className="btn mod-cta" onClick={() => model.createNote()}>{t('files.createFirst')}</button>
             </div>
           ))}
         {tree.children.map((n) => (
@@ -296,24 +297,24 @@ function TreeItem({ node, depth, active, forceOpen }: { node: TreeNode; depth: n
     e.stopPropagation()
     const items = isFolder
       ? [
-          { label: 'New note', run: () => model.createNote({ folder: node.path }) },
-          { label: 'New folder', run: () => model.createFolder(node.path) },
+          { label: t('common.newNote'), run: () => model.createNote({ folder: node.path }) },
+          { label: t('common.newFolder'), run: () => model.createFolder(node.path) },
           { separator: true, label: '' },
-          { label: 'Rename…', run: () => model.renamePrompt(node.path) },
-          { label: 'Reveal in Finder', run: () => api.reveal(node.path) },
-          { label: 'Copy path', run: () => navigator.clipboard.writeText(node.path) },
+          { label: t('common.renameEllipsis'), run: () => model.renamePrompt(node.path) },
+          { label: t('common.revealInFinder'), run: () => api.reveal(node.path) },
+          { label: t('common.copyPath'), run: () => navigator.clipboard.writeText(node.path) },
           { separator: true, label: '' },
-          { label: 'Delete', danger: true, run: () => model.remove(node.path) },
+          { label: t('common.delete'), danger: true, run: () => model.remove(node.path) },
         ]
       : [
-          { label: 'Open in new tab', run: () => model.open(node.path, 'new') },
-          { label: 'Open to the right', run: () => model.open(node.path, 'split') },
+          { label: t('files.openNewTab'), run: () => model.open(node.path, 'new') },
+          { label: t('files.openRight'), run: () => model.open(node.path, 'split') },
           { separator: true, label: '' },
-          { label: 'Rename…', run: () => model.renamePrompt(node.path) },
-          { label: 'Reveal in Finder', run: () => api.reveal(node.path) },
-          { label: 'Copy path', run: () => navigator.clipboard.writeText(node.path) },
+          { label: t('common.renameEllipsis'), run: () => model.renamePrompt(node.path) },
+          { label: t('common.revealInFinder'), run: () => api.reveal(node.path) },
+          { label: t('common.copyPath'), run: () => navigator.clipboard.writeText(node.path) },
           { separator: true, label: '' },
-          { label: 'Delete', danger: true, run: () => model.remove(node.path) },
+          { label: t('common.delete'), danger: true, run: () => model.remove(node.path) },
         ]
     model.openMenu(e, items)
   }
@@ -426,18 +427,18 @@ function SearchPanel() {
           id="search-input"
           className="text-input"
           autoFocus
-          placeholder="Search… (tag:#x  path:dir  file:name  -exclude  &quot;phrase&quot;)"
-          aria-label="Search all notes"
+          placeholder={t('search.placeholder')}
+          aria-label={t('search.label')}
           value={query}
           onChange={(e) => model.set({ searchQuery: e.target.value })}
         />
         {query && (
-          <button className="icon-btn clear" aria-label="Clear search" onClick={() => model.set({ searchQuery: '' })}>
+          <button className="icon-btn clear" aria-label={t('search.clear')} onClick={() => model.set({ searchQuery: '' })}>
             <X size={14} />
           </button>
         )}
       </div>
-      {debounced && <div className="search-summary">{hits.length ? `${hits.length} file${hits.length > 1 ? 's' : ''}${total ? `, ${total} match${total > 1 ? 'es' : ''}` : ''}` : 'No results found.'}</div>}
+      {debounced && <div className="search-summary">{hits.length ? tn('search.files', hits.length) + (total ? ', ' + tn('search.matches', total) : '') : t('search.noResults')}</div>}
       <div className="search-results" data-testid="search-results">
         {hits.map((h) => (
           <div key={h.path} className="search-result">
@@ -473,8 +474,8 @@ function TagsPanel() {
   const tags = useMemo(() => [...model.index.tags()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])), [indexVersion])
   return (
     <div className="tags-panel">
-      <div className="pane-subheader">Tags</div>
-      {!tags.length && <div className="pane-empty">No tags found.</div>}
+      <div className="pane-subheader">{t('tags.title')}</div>
+      {!tags.length && <div className="pane-empty">{t('tags.none')}</div>}
       {tags.map(([tag, count]) => (
         <div
           key={tag}
@@ -512,11 +513,11 @@ function BacklinksPanel() {
   const [showUnlinked, setShowUnlinked] = useState(false)
   const back = useMemo(() => (path ? model.index.backlinks(path) : []), [path, indexVersion])
   const unlinked = useMemo(() => (path && showUnlinked ? model.index.unlinkedMentions(path) : []), [path, indexVersion, showUnlinked])
-  if (!path) return <div className="pane-empty">No active note.</div>
+  if (!path) return <div className="pane-empty">{t('context.noActive')}</div>
   return (
     <div className="backlinks-panel" data-testid="backlinks">
-      <div className="pane-subheader">Linked mentions <span className="count">{back.length}</span></div>
-      {!back.length && <div className="pane-empty">No backlinks found.</div>}
+      <div className="pane-subheader">{t('backlinks.linked')} <span className="count">{back.length}</span></div>
+      {!back.length && <div className="pane-empty">{t('backlinks.none')}</div>}
       {back.map((b) => (
         <div key={b.source} className="search-result">
           <div className="search-result-file" onClick={(e) => model.open(b.source, e.metaKey ? 'new' : 'tab')}>
@@ -529,9 +530,9 @@ function BacklinksPanel() {
         </div>
       ))}
       <button className="pane-subheader collapsible" aria-expanded={showUnlinked} onClick={() => setShowUnlinked(!showUnlinked)}>
-        <ChevronRight size={14} className={`tree-chevron${showUnlinked ? ' is-open' : ''}`} /> Unlinked mentions {showUnlinked && <span className="count">{unlinked.length}</span>}
+        <ChevronRight size={14} className={`tree-chevron${showUnlinked ? ' is-open' : ''}`} /> {t('backlinks.unlinked')} {showUnlinked && <span className="count">{unlinked.length}</span>}
       </button>
-      {showUnlinked && !unlinked.length && <div className="pane-empty">No unlinked mentions.</div>}
+      {showUnlinked && !unlinked.length && <div className="pane-empty">{t('backlinks.noUnlinked')}</div>}
       {unlinked.map((u, i) => (
         <div key={i} className="search-result">
           <div className="search-result-file" onClick={() => model.open(u.source, 'tab', { line: u.line, mode: 'source' })}>
@@ -564,19 +565,19 @@ function OutgoingPanel() {
     }
     return { resolved, unresolved }
   }, [path, indexVersion])
-  if (!path) return <div className="pane-empty">No active note.</div>
+  if (!path) return <div className="pane-empty">{t('context.noActive')}</div>
   return (
     <div className="outgoing-panel" data-testid="outgoing">
-      <div className="pane-subheader">Links <span className="count">{links.resolved.length}</span></div>
-      {!links.resolved.length && <div className="pane-empty">No outgoing links.</div>}
+      <div className="pane-subheader">{t('outgoing.links')} <span className="count">{links.resolved.length}</span></div>
+      {!links.resolved.length && <div className="pane-empty">{t('outgoing.none')}</div>}
       {links.resolved.map((r) => (
         <div key={r} className="tag-row" tabIndex={0} onClick={(e) => model.open(r, e.metaKey ? 'new' : 'tab')}>
           {isMd(r) ? noteTitle(r) : basename(r)}
         </div>
       ))}
-      <div className="pane-subheader">Unresolved links <span className="count">{links.unresolved.length}</span></div>
+      <div className="pane-subheader">{t('outgoing.unresolved')} <span className="count">{links.unresolved.length}</span></div>
       {links.unresolved.map((u) => (
-        <div key={u} className="tag-row is-unresolved" tabIndex={0} title="Click to create" onClick={() => model.followLink(u, path)}>
+        <div key={u} className="tag-row is-unresolved" tabIndex={0} title={t('outgoing.clickToCreate')} onClick={() => model.followLink(u, path)}>
           {u}
         </div>
       ))}
@@ -589,8 +590,8 @@ function OutlinePanel() {
   const indexVersion = useModel((s) => s.indexVersion)
   const headings = useMemo(() => (path ? model.index.notes.get(path)?.meta.headings ?? [] : []), [path, indexVersion])
   const ref = useRef<HTMLDivElement>(null)
-  if (!path) return <div className="pane-empty">No active note.</div>
-  if (!headings.length) return <div className="pane-empty">No headings found.</div>
+  if (!path) return <div className="pane-empty">{t('context.noActive')}</div>
+  if (!headings.length) return <div className="pane-empty">{t('outline.none')}</div>
   const min = Math.min(...headings.map((h) => h.level))
   return (
     <div className="outline-panel" ref={ref}>

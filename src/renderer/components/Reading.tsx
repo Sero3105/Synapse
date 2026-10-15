@@ -3,6 +3,7 @@ import MarkdownIt, { type StateInline, type StateCore, type Env as MdEnv } from 
 import { model, useModel, IMAGE_EXT } from '../model'
 import { api, fileUrl } from '../api'
 import { noteTitle } from '../../shared/markdown'
+import { t } from '../../shared/i18n'
 
 interface Env extends MdEnv { source: string; depth: number }
 
@@ -141,7 +142,7 @@ export function Reading({ path }: { path: string }) {
   const content = useModel((s) => s.buffers[path]?.content)
   const indexVersion = useModel((s) => s.indexVersion)
   const html = useMemo(() => (content === undefined ? '' : renderMarkdown(content, path)), [content, path, indexVersion])
-  if (content === undefined) return <div className="view-loading">Loading…</div>
+  if (content === undefined) return <div className="view-loading">{t('common.loading')}</div>
 
   const onClick = (e: React.MouseEvent) => {
     const el = e.target as HTMLElement

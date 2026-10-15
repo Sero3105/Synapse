@@ -5,15 +5,31 @@ import { api } from '../api'
 import { COMMANDS, hotkeysFor, formatHotkey, runCommand } from '../commands'
 import { fuzzyScore, noteTitle, INVALID_NAME } from '../../shared/markdown'
 import { SettingsModal } from './Settings'
+import { t, commandName } from '../../shared/i18n'
+
+/** Left-to-right mark: keeps a path's leading "/" in place inside the rtl (start-truncated) path boxes. */
+const LRM = '\u200E'
 
 export function Modals() {
   const modal = useModel((s) => s.modal)
-  if (!modal) return null
   const close = () => {
-    if (modal.kind === 'prompt') modal.resolve(null)
-    if (modal.kind === 'confirm') modal.resolve(false)
+    const m = model.state.modal
+    if (m?.kind === 'prompt') m.resolve(null)
+    if (m?.kind === 'confirm') m.resolve(false)
     model.set({ modal: null })
   }
+  // Escape closes any modal even when focus has left it (e.g. after a language switch remount).
+  useEffect(() => {
+    if (!modal) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('.hotkey-capture')) return
+      if ((e.target as HTMLElement | null)?.closest?.('.modal')) return // the modal's own handler runs
+      close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [modal])
+  if (!modal) return null
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       {modal.kind === 'palette' && <Palette close={close} />}
@@ -22,8 +38,8 @@ export function Modals() {
       {modal.kind === 'confirm' && <Confirm modal={modal} />}
       {modal.kind === 'settings' && <SettingsModal close={close} initialTab={modal.tab} />}
       {modal.kind === 'vaults' && (
-        <div className="modal vault-modal" role="dialog" aria-modal="true" aria-label="Manage vaults" onKeyDown={(e) => e.key === 'Escape' && close()}>
-          <button className="icon-btn modal-close" aria-label="Close" onClick={close}>
+        <div className="modal vault-modal" role="dialog" aria-modal="true" aria-label={t('vaults.manage')} onKeyDown={(e) => e.key === 'Escape' && close()}>
+          <button className="icon-btn modal-close" aria-label={t('common.close')} onClick={close}>
             <X size={16} />
           </button>
           <VaultManager />
@@ -104,15 +120,15 @@ function Palette({ close }: { close: () => void }) {
   return (
     <Picker
       close={close}
-      placeholder="Type a command…"
-      empty="No commands found."
-      instructions="↑↓ navigate  ↵ use  esc dismiss"
+      placeholder={t('palette.placeholder')}
+      empty={t('palette.empty')}
+      instructions={t('palette.help')}
       items={(q) =>
         COMMANDS.filter((c) => !c.when || c.when())
-          .map((c) => ({ c, s: fuzzyScore(q, c.name) }))
+          .map((c) => ({ c, s: fuzzyScore(q, commandName(c.id, c.name)) }))
           .filter((x) => x.s >= 0)
-          .sort((a, b) => (q ? b.s - a.s : a.c.name.localeCompare(b.c.name)))
-          .map(({ c }) => ({ key: c.id, label: c.name, hint: hotkeysFor(c.id).map(formatHotkey)[0], run: () => runCommand(c.id) }))
+          .sort((a, b) => (q ? b.s - a.s : commandName(a.c.id, a.c.name).localeCompare(commandName(b.c.id, b.c.name))))
+          .map(({ c }) => ({ key: c.id, label: commandName(c.id, c.name), hint: hotkeysFor(c.id).map(formatHotkey)[0], run: () => runCommand(c.id) }))
       }
     />
   )
@@ -122,11 +138,11 @@ function Switcher({ close }: { close: () => void }) {
   return (
     <Picker
       close={close}
-      placeholder="Find or create a note…"
-      empty="No notes found. Press ↵ to create it."
-      instructions="↑↓ navigate  ↵ open  ⌘↵ open in new tab  ⇧↵ create  esc dismiss"
+      placeholder={t('switcher.placeholder')}
+      empty={t('switcher.empty')}
+      instructions={t('switcher.help')}
       onEnterEmpty={(q) => {
-        if (INVALID_NAME.test(q.split('/').pop()!)) return model.notice('Invalid note name', true)
+        if (INVALID_NAME.test(q.split('/').pop()!)) return model.notice(t('switcher.invalid'), true)
         model.createNote({ path: q.endsWith('.md') ? q : `${q}.md` })
       }}
       items={(q) => {
@@ -181,8 +197,8 @@ function Prompt({ modal }: { modal: Extract<Modal, { kind: 'prompt' }> }) {
       <div className="modal-title">{modal.title}</div>
       <input className="text-input wide" autoFocus value={value} onFocus={(e) => e.target.select()} onChange={(e) => setValue(e.target.value)} aria-label={modal.title} />
       <div className="modal-buttons">
-        <button type="button" className="btn" onClick={() => done(null)}>Cancel</button>
-        <button type="submit" className="btn mod-cta">{modal.okText ?? 'Save'}</button>
+        <button type="button" className="btn" onClick={() => done(null)}>{t('common.cancel')}</button>
+        <button type="submit" className="btn mod-cta">{modal.okText ?? t('common.save')}</button>
       </div>
     </form>
   )
@@ -198,7 +214,7 @@ function Confirm({ modal }: { modal: Extract<Modal, { kind: 'confirm' }> }) {
       <div className="modal-title">{modal.title}</div>
       <p className="modal-text">{modal.message}</p>
       <div className="modal-buttons">
-        <button className="btn" onClick={() => done(false)}>Cancel</button>
+        <button className="btn" onClick={() => done(false)}>{t('common.cancel')}</button>
         <button className={`btn ${modal.danger ? 'mod-warning' : 'mod-cta'}`} autoFocus onClick={() => done(true)}>
           {modal.okText}
         </button>
@@ -221,7 +237,7 @@ export function VaultManager() {
     await open(() => api.createVault(parent, name.trim()))
     setCreating(false)
   }
-  const nameError = name.trim() && (INVALID_NAME.test(name) || name.trim().startsWith('.')) ? 'Names cannot start with "." or contain \\ / : * ? " < > | # ^ [ ]' : null
+  const nameError = name.trim() && (INVALID_NAME.test(name) || name.trim().startsWith('.')) ? t('common.invalidName') : null
 
   return (
     <div className="vault-manager" data-testid="vault-manager">
@@ -230,27 +246,27 @@ export function VaultManager() {
           <span /><span /><span />
         </div>
         <h1 className="vm-wordmark">Synapse</h1>
-        <p className="vm-statement">Connected notes, kept as plain Markdown files in folders you own.</p>
+        <p className="vm-statement">{t('vaults.statement')}</p>
         {!creating ? (
           <div className="vm-actions">
             <button className="vm-action" onClick={() => setCreating(true)}>
               <FolderPlus size={17} />
               <span>
-                <span className="vm-action-title">Create a vault</span>
-                <span className="vm-action-desc">Start an empty folder for new notes</span>
+                <span className="vm-action-title">{t('vaults.create')}</span>
+                <span className="vm-action-desc">{t('vaults.createDesc')}</span>
               </span>
             </button>
             <button
               className="vm-action"
               onClick={async () => {
-                const p = await api.pickFolder('Open folder as vault')
+                const p = await api.pickFolder(t('vaults.openDialog'))
                 if (p) open(() => api.openVault(p))
               }}
             >
               <FolderOpen size={17} />
               <span>
-                <span className="vm-action-title">Open a folder</span>
-                <span className="vm-action-desc">Use an existing folder of Markdown files</span>
+                <span className="vm-action-title">{t('vaults.open')}</span>
+                <span className="vm-action-desc">{t('vaults.openDesc')}</span>
               </span>
             </button>
           </div>
@@ -263,29 +279,29 @@ export function VaultManager() {
             }}
           >
             <label className="field">
-              <span>Name</span>
-              <input className="text-input wide" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Research" aria-invalid={!!nameError} />
+              <span>{t('vaults.name')}</span>
+              <input className="text-input wide" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t('vaults.namePlaceholder')} aria-invalid={!!nameError} />
               {nameError && <span className="field-error">{nameError}</span>}
             </label>
             <div className="field">
-              <span>Location</span>
+              <span>{t('vaults.location')}</span>
               <div className="row">
-                <span className="path-display" title={parent ?? undefined}>{parent ?? 'No folder chosen'}</span>
-                <button type="button" className="btn" onClick={async () => setParent((await api.pickFolder('Choose where to create the vault')) ?? parent)}>
-                  Choose…
+                <span className="path-display" title={parent ?? undefined}>{parent ? LRM + parent : t('vaults.noFolder')}</span>
+                <button type="button" className="btn" onClick={async () => setParent((await api.pickFolder(t('vaults.chooseDialog'))) ?? parent)}>
+                  {t('vaults.choose')}
                 </button>
               </div>
             </div>
             <div className="modal-buttons">
-              <button type="button" className="btn" onClick={() => setCreating(false)}>Back</button>
-              <button type="submit" className="btn mod-cta" disabled={!parent || !name.trim() || !!nameError}>Create vault</button>
+              <button type="button" className="btn" onClick={() => setCreating(false)}>{t('common.back')}</button>
+              <button type="submit" className="btn mod-cta" disabled={!parent || !name.trim() || !!nameError}>{t('vaults.createButton')}</button>
             </div>
           </form>
         )}
       </section>
-      <section className="vm-list" aria-label="Recent vaults">
-        <h2 className="vm-list-title">Recent vaults</h2>
-        {!vaults.length && <p className="vm-list-empty">Vaults you open appear here.</p>}
+      <section className="vm-list" aria-label={t('vaults.recent')}>
+        <h2 className="vm-list-title">{t('vaults.recent')}</h2>
+        {!vaults.length && <p className="vm-list-empty">{t('vaults.recentEmpty')}</p>}
         {vaults.map((v) => (
           <div
             key={v.id}
@@ -293,12 +309,12 @@ export function VaultManager() {
             // a missing vault's row holds its own buttons, so it is not itself a button
             tabIndex={v.available ? 0 : undefined}
             role={v.available ? 'button' : 'group'}
-            aria-label={v.available ? undefined : `${v.name} (folder not found)`}
+            aria-label={v.available ? undefined : t('vaults.notFoundLabel', { name: v.name })}
             onClick={() => v.available && v.id !== currentId && open(() => api.openVaultId(v.id))}
             onKeyDown={(e) => e.key === 'Enter' && v.available && v.id !== currentId && open(() => api.openVaultId(v.id))}
             onContextMenu={(e) =>
               model.openMenu(e, [
-                { label: 'Remove from list', disabled: v.id === currentId, run: () => api.removeVault(v.id).catch((err) => model.error(err)) },
+                { label: t('vaults.removeFromList'), disabled: v.id === currentId, run: () => api.removeVault(v.id).catch((err) => model.error(err)) },
               ])
             }
           >
@@ -306,17 +322,17 @@ export function VaultManager() {
             <span className="vault-row-text">
               <span className="vault-row-name">
                 {v.name}
-                {v.id === currentId && <span className="vault-row-current">Open</span>}
+                {v.id === currentId && <span className="vault-row-current">{t('vaults.current')}</span>}
               </span>
-              <span className="vault-row-path" title={v.path}>{v.available ? v.path : `Folder not found: ${v.path}`}</span>
+              <span className="vault-row-path" title={v.path}>{v.available ? LRM + v.path : t('vaults.notFound', { path: v.path })}</span>
               {!v.available && (
                 <span className="vault-row-actions">
-                  <button className="btn small" onClick={(e) => { e.stopPropagation(); open(() => api.locateVault(v.id)) }}>Locate…</button>
-                  <button className="btn small" onClick={(e) => { e.stopPropagation(); api.removeVault(v.id).catch((err) => model.error(err)) }}>Remove from list</button>
+                  <button className="btn small" onClick={(e) => { e.stopPropagation(); open(() => api.locateVault(v.id)) }}>{t('vaults.locate')}</button>
+                  <button className="btn small" onClick={(e) => { e.stopPropagation(); api.removeVault(v.id).catch((err) => model.error(err)) }}>{t('vaults.removeFromList')}</button>
                 </span>
               )}
             </span>
-            {!v.available && <AlertTriangle size={14} className="warn-icon" aria-label="Unavailable" />}
+            {!v.available && <AlertTriangle size={14} className="warn-icon" aria-label={t('vaults.unavailable')} />}
           </div>
         ))}
       </section>

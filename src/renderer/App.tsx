@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { PanelLeft, PanelRight } from 'lucide-react'
 import { model, useModel } from './model'
 import { Workspace } from './components/Workspace'
@@ -7,6 +7,7 @@ import { Modals, ContextMenu, Notices, VaultManager } from './components/Modals'
 import { runCommand } from './commands'
 import { wordCount } from '../shared/markdown'
 import type { Prefs, Layout } from '../shared/settings'
+import { t, tn, setLanguage, resolveLanguage } from '../shared/i18n'
 
 const SANS = `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif`
 const SERIF = `ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif`
@@ -42,11 +43,18 @@ export function App() {
   const snap = useModel((s) => s.snap)
   const loading = useModel((s) => s.loading)
   useApplyPrefs(snap?.prefs)
+  // Resolve before rendering children so every t() call below uses the new language.
+  const lang = resolveLanguage(snap?.global.language, navigator.languages)
+  setLanguage(lang)
+  useEffect(() => {
+    document.documentElement.lang = lang
+  }, [lang])
 
   if (!snap) return <div className="app-loading" />
+  // keyed by language: a language switch re-renders every string at once
   if (!snap.vault)
     return (
-      <div className="starter">
+      <div className="starter" key={lang}>
         <div className="titlebar-drag" />
         <VaultManager />
         <Modals />
@@ -55,12 +63,12 @@ export function App() {
       </div>
     )
   return (
-    <>
+    <Fragment key={lang}>
       <Shell loading={loading} />
       <Modals />
       <ContextMenu />
       <Notices />
-    </>
+    </Fragment>
   )
 }
 
@@ -109,30 +117,30 @@ function Shell({ loading }: { loading: boolean }) {
       key={vaultId}
     >
       <div className="titlebar-controls left">
-        <button className="icon-btn" aria-label="Toggle left sidebar" aria-pressed={L.leftOpen} title="Toggle navigator" onClick={() => runCommand('app:toggle-left-sidebar')}>
+        <button className="icon-btn" aria-label={t('shell.toggleLeft')} aria-pressed={L.leftOpen} title={t('shell.toggleLeftTitle')} onClick={() => runCommand('app:toggle-left-sidebar')}>
           <PanelLeft size={16} strokeWidth={1.75} />
         </button>
       </div>
       <div className="titlebar-controls right">
-        <button className="icon-btn" aria-label="Toggle right sidebar" aria-pressed={L.rightOpen} title="Toggle note context" onClick={() => runCommand('app:toggle-right-sidebar')}>
+        <button className="icon-btn" aria-label={t('shell.toggleRight')} aria-pressed={L.rightOpen} title={t('shell.toggleRightTitle')} onClick={() => runCommand('app:toggle-right-sidebar')}>
           <PanelRight size={16} strokeWidth={1.75} />
         </button>
       </div>
 
-      <aside className={`dock dock-left${L.leftOpen ? ' is-open' : ''}`} inert={!L.leftOpen} aria-label="Navigator">
+      <aside className={`dock dock-left${L.leftOpen ? ' is-open' : ''}`} inert={!L.leftOpen} aria-label={t('shell.navigator')}>
         <div className="dock-inner">
           <Navigator />
         </div>
       </aside>
-      {L.leftOpen && <div className="dock-resizer" role="separator" tabIndex={0} aria-orientation="vertical" aria-label="Resize navigator" aria-valuenow={L.leftWidth} onPointerDown={resize('left')} onKeyDown={keyResize('left')} />}
+      {L.leftOpen && <div className="dock-resizer" role="separator" tabIndex={0} aria-orientation="vertical" aria-label={t('shell.resizeNavigator')} aria-valuenow={L.leftWidth} onPointerDown={resize('left')} onKeyDown={keyResize('left')} />}
 
       <main className="workspace">
-        <div className="workspace-body">{loading ? <div className="view-loading">Opening vault…</div> : <Workspace />}</div>
+        <div className="workspace-body">{loading ? <div className="view-loading">{t('shell.openingVault')}</div> : <Workspace />}</div>
         <StatusBar />
       </main>
 
-      {L.rightOpen && <div className="dock-resizer" role="separator" tabIndex={0} aria-orientation="vertical" aria-label="Resize note context" aria-valuenow={L.rightWidth} onPointerDown={resize('right')} onKeyDown={keyResize('right')} />}
-      <aside className={`dock dock-right${L.rightOpen ? ' is-open' : ''}`} inert={!L.rightOpen} aria-label="Note context">
+      {L.rightOpen && <div className="dock-resizer" role="separator" tabIndex={0} aria-orientation="vertical" aria-label={t('shell.resizeContext')} aria-valuenow={L.rightWidth} onPointerDown={resize('right')} onKeyDown={keyResize('right')} />}
+      <aside className={`dock dock-right${L.rightOpen ? ' is-open' : ''}`} inert={!L.rightOpen} aria-label={t('shell.noteContext')}>
         <div className="dock-inner">
           <ContextPanel />
         </div>
@@ -158,20 +166,20 @@ function StatusBar() {
   if (!path) return <footer className="status-bar" aria-hidden />
   return (
     <footer className="status-bar" data-testid="status-bar">
-      <span className="status-item">{tab.mode === 'source' ? 'Editing' : 'Reading'}</span>
+      <span className="status-item">{tab.mode === 'source' ? t('status.editing') : t('status.reading')}</span>
       {tab.mode === 'source' && cursor && (
         <span className="status-item tabular">
-          Ln {cursor.line}, Col {cursor.col}
+          {t('status.position', { line: cursor.line, col: cursor.col })}
         </span>
       )}
       <span className="status-spacer" />
       {plugins.wordCount && counts && (
         <span className="status-item tabular">
-          {counts.words.toLocaleString()} {counts.words === 1 ? 'word' : 'words'} · {counts.chars.toLocaleString()} {counts.chars === 1 ? 'character' : 'characters'}
+          {tn('count.words', counts.words)} · {tn('count.chars', counts.chars)}
         </span>
       )}
       <span className={`status-item save-state is-${state}`} data-testid="save-state">
-        {state === 'unsaved' ? 'Unsaved' : state === 'conflict' ? 'Conflict' : 'Saved'}
+        {state === 'unsaved' ? t('status.unsaved') : state === 'conflict' ? t('status.conflict') : t('status.saved')}
       </span>
     </footer>
   )
