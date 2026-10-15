@@ -161,6 +161,9 @@ function EditorTab() {
           </select>
         )}
       </PrefRow>
+      <PrefRow k="livePreview" name={t('settings.livePreview')} desc={t('settings.livePreviewDesc')}>
+        {(v, set) => <Toggle value={v} set={set} label={t('settings.livePreview')} />}
+      </PrefRow>
       <PrefRow k="readableLineLength" name={t('settings.readable')} desc={t('settings.readableDesc')}>
         {(v, set) => <Toggle value={v} set={set} label={t('settings.readable')} />}
       </PrefRow>

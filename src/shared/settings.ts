@@ -38,6 +38,8 @@ export interface Prefs {
   tabSize: number
   autoPairBrackets: boolean
   defaultViewMode: ViewMode
+  /** hide Markdown syntax except on the cursor's lines; edit tables as grids */
+  livePreview: boolean
   showInlineTitle: boolean
   promptDelete: boolean
   updateLinksOnRename: boolean
@@ -94,6 +96,7 @@ export const DEFAULT_PREFS: Prefs = {
   tabSize: 4,
   autoPairBrackets: true,
   defaultViewMode: 'source',
+  livePreview: true,
   showInlineTitle: true,
   promptDelete: true,
   updateLinksOnRename: true,
@@ -161,6 +164,7 @@ const PREF_VALIDATORS: { [K in keyof Prefs]: V<unknown> } = {
   tabSize: num(1, 8),
   autoPairBrackets: bool,
   defaultViewMode: oneOf('source', 'preview'),
+  livePreview: bool,
   showInlineTitle: bool,
   promptDelete: bool,
   updateLinksOnRename: bool,

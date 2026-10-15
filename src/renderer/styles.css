@@ -763,3 +763,26 @@ body.theme-light .cm-kw { color: #8e3fa8; } body.theme-light .cm-str { color: #2
   .vm-list { padding: var(--s-5) var(--s-4); }
   .settings-nav { width: 150px; }
 }
+
+/* ---------- live preview (editor) ---------- */
+.cm-lp-link { color: var(--signal); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, var(--signal) 45%, transparent); cursor: pointer; }
+.cm-lp-highlight { background: var(--highlight); border-radius: 2px; }
+.cm-lp-bullet { display: inline-block; width: 1.1em; color: var(--ink-3); text-align: center; }
+.cm-lp-checkbox { width: 15px; height: 15px; margin: 0 6px 0 0; vertical-align: -2px; cursor: pointer; }
+.cm-lp-done { color: var(--ink-3); text-decoration: line-through; }
+.cm-lp-hr { display: inline-block; width: 100%; height: 3px; vertical-align: middle; border-radius: 3px; background: var(--raise-2); }
+.cm-lp-image { display: block; max-width: 100%; max-height: 60vh; margin: 4px 0; border-radius: var(--r-ctl); }
+.cm-host .cm-line.cm-lp-quote { box-shadow: inset 4px 0 0 var(--raise-2); padding-left: var(--s-4); color: var(--ink-2); } /* taste-skill-ignore: 4px quote bar, not a shadow */
+.cm-host .cm-line.cm-lp-codeblock { background: var(--code-ground); font-family: var(--font-mono); font-size: 0.86em; padding: 0 var(--s-4); } /* taste-skill-ignore: literal code only */
+.cm-host .cm-line.cm-lp-codeblock.is-first { border-radius: var(--r-float) var(--r-float) 0 0; padding-top: 6px; }
+.cm-host .cm-line.cm-lp-codeblock.is-last { border-radius: 0 0 var(--r-float) var(--r-float); padding-bottom: 6px; }
+.cm-lp-table { margin: 6px 0 10px; font-family: var(--font-ui); font-size: 0.86em; }
+.cm-lp-table table { border-collapse: collapse; }
+.cm-lp-table th, .cm-lp-table td { min-width: 64px; padding: 6px 14px; text-align: left; outline: none; cursor: text; user-select: text; }
+.cm-lp-table th { color: var(--ink-2); font-weight: 600; background: var(--ground-sunk); }
+.cm-lp-table tr:nth-child(odd) td { background: color-mix(in oklab, var(--ground-sunk) 55%, transparent); }
+.cm-lp-table th:focus, .cm-lp-table td:focus { background: var(--signal-soft); }
+.cm-lp-table-tools { display: flex; gap: 4px; margin-top: 4px; opacity: 0; transition: opacity var(--dur-fast) var(--ease); }
+.cm-lp-table:hover .cm-lp-table-tools, .cm-lp-table:focus-within .cm-lp-table-tools { opacity: 1; }
+.cm-lp-table-tools button { height: 22px; padding: 0 var(--s-2); border: 0; border-radius: var(--r-ctl); background: var(--raise-1); color: var(--ink-2); font: var(--ui-xs) var(--font-ui); cursor: pointer; }
+.cm-lp-table-tools button:hover { background: var(--raise-2); color: var(--ink); }
