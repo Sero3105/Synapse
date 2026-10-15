@@ -16,14 +16,17 @@
     "test": "vitest run",
     "test:e2e": "npm run build && playwright test",
     "icon": "node scripts/make-icon.mjs",
-    "package": "npm run build && electron-builder --mac dir",
-    "install:app": "node scripts/install-app.mjs"
+    "package": "npm run build && npm run notices && electron-builder --mac",
+    "install:app": "node scripts/install-app.mjs",
+    "notices": "node scripts/third-party-notices.mjs"
   },
   "build": {
     "appId": "com.synapse.notes",
     "productName": "Synapse",
     "files": [
       "dist/**/*",
+      "!dist/**/*.map",
+      "!dist/THIRD_PARTY_NOTICES.txt",
       "package.json"
     ],
     "directories": {
@@ -35,14 +38,15 @@
       "icon": "build/icon.png",
       "target": [
         {
-          "target": "dir",
+          "target": "dmg",
           "arch": [
             "arm64"
           ]
         }
       ],
       "identity": "-",
-      "hardenedRuntime": false
+      "hardenedRuntime": false,
+      "minimumSystemVersion": "13.0"
     },
     "asar": true,
     "electronFuses": {
@@ -52,6 +56,45 @@
       "enableEmbeddedAsarIntegrityValidation": true,
       "onlyLoadAppFromAsar": true,
       "enableCookieEncryption": true
+    },
+    "extraResources": [
+      {
+        "from": "dist/THIRD_PARTY_NOTICES.txt",
+        "to": "THIRD_PARTY_NOTICES.txt"
+      },
+      {
+        "from": "node_modules/electron/dist/LICENSE",
+        "to": "LICENSE.electron.txt"
+      },
+      {
+        "from": "node_modules/electron/dist/LICENSES.chromium.html",
+        "to": "LICENSES.chromium.html"
+      },
+      {
+        "from": "LICENSE",
+        "to": "LICENSE.txt"
+      }
+    ],
+    "dmg": {
+      "title": "Synapse ${version}",
+      "artifactName": "Synapse-${version}-${arch}.dmg",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 140,
+          "y": 190,
+          "type": "file"
+        },
+        {
+          "x": 400,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     }
   },
   "devDependencies": {
