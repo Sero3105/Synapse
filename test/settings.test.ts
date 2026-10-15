@@ -299,3 +299,11 @@ describe('layout schema', () => {
     expect(g.prefs.theme).toBe('dark')
   })
 })
+
+describe('prototype keys', () => {
+  it('ignores __proto__ and friends in stored hotkeys', () => {
+    const g = normalizeGlobal(JSON.parse('{"version":2,"hotkeys":{"__proto__":["Mod+X"],"constructor":["Mod+Y"],"graph:open":["Mod+G"]}}'))
+    expect(Object.keys(g.hotkeys)).toEqual(['graph:open'])
+    expect(Object.getPrototypeOf(g.hotkeys)).toBe(Object.prototype)
+  })
+})

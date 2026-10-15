@@ -236,6 +236,11 @@ test('security: renderer has no Node access and cannot leave the vault', async (
     abs: await (window as any).synapse.invoke('fs:read', '/etc/hosts'),
     config: await (window as any).synapse.invoke('fs:write', '.synapse/settings.json', 'x'),
     blocked: await (window as any).synapse.invoke('evil:channel').catch((e: Error) => e.message),
+    // only folders picked in a native dialog (or already registered) can become vaults
+    openHome: await (window as any).synapse.invoke('vault:open', '/Users'),
+    createAnywhere: await (window as any).synapse.invoke('vault:create', '/tmp', 'x'),
+    notifications: await Notification.requestPermission(),
+    csp: document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute('content') ?? '',
   }))
   expect(r.require).toBe('undefined')
   expect(r.process).toBe('undefined')
@@ -243,6 +248,10 @@ test('security: renderer has no Node access and cannot leave the vault', async (
   expect(r.abs.error.code).toBe('EOUTSIDE')
   expect(r.config.error.code).toBe('EOUTSIDE')
   expect(r.blocked).toContain('Blocked')
+  expect(r.openHome.error.code).toBe('EPERM')
+  expect(r.createAnywhere.error.code).toBe('EPERM')
+  expect(r.notifications).toBe('denied')
+  if (process.env.SYNAPSE_APP) expect(r.csp).not.toContain('localhost')
   await app.close()
 })
 
