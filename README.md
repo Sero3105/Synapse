@@ -55,7 +55,7 @@
 
 | | |
 |---|---|
-| **Editor** | Live Preview: Markdown syntax hides itself except on the line you are editing; tables are edited as tables. Built on CodeMirror 6, with `[[` link autocomplete, ⌘-click to follow links, find & replace, formatting shortcuts, image paste and drop, autosave |
+| **Editor** | Live Preview: Markdown syntax hides itself except on the line you are editing; tables are edited as tables; LaTeX math (`$inline$`, `$$block$$`) renders with KaTeX. Built on CodeMirror 6, with `[[` link autocomplete, ⌘-click to follow links, find & replace, formatting shortcuts, image paste and drop, autosave |
 | **Reading view** | Rendered Markdown with tables, code, quotes, embeds (`![[note]]`, `![[image.png]]`) and clickable task lists |
 | **Knowledge** | Backlinks with context, unlinked mentions, outgoing and unresolved links, outline, tags (inline and front-matter), graph view |
 | **Navigation** | Quick switcher (⌘O), command palette (⌘P), tabs, split panes, per-tab back/forward, recent notes, workspace restored per vault |

@@ -12,7 +12,7 @@ import { model, useModel, Tab } from '../model'
 import { api } from '../api'
 import { noteTitle, shortestLinkText, fuzzyScore } from '../../shared/markdown'
 import { t as tr } from '../../shared/i18n'
-import { livePreview, liveTables } from '../live-preview'
+import { livePreview, liveTables, liveMath } from '../live-preview'
 
 const hl = HighlightStyle.define([
   { tag: t.heading1, class: 'cm-h1' },
@@ -142,7 +142,7 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
           c.tab.of([EditorState.tabSize.of(p.tabSize), indentUnit.of(' '.repeat(p.tabSize))]),
           c.spell.of(EditorView.contentAttributes.of({ spellcheck: String(p.spellcheck), autocorrect: 'off' })),
           c.pair.of(p.autoPairBrackets ? closeBrackets() : []),
-          c.live.of(p.livePreview ? [livePreview(path), liveTables] : []),
+          c.live.of(p.livePreview ? [livePreview(path), liveTables, liveMath] : []),
           keymap.of([...closeBracketsKeymap, ...completionKeymap, ...searchKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) model.edit(path, u.state.doc.toString())
@@ -215,7 +215,7 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
         c.tab.reconfigure([EditorState.tabSize.of(prefs.tabSize), indentUnit.of(' '.repeat(prefs.tabSize))]),
         c.spell.reconfigure(EditorView.contentAttributes.of({ spellcheck: String(prefs.spellcheck), autocorrect: 'off' })),
         c.pair.reconfigure(prefs.autoPairBrackets ? closeBrackets() : []),
-        c.live.reconfigure(prefs.livePreview ? [livePreview(path), liveTables] : []),
+        c.live.reconfigure(prefs.livePreview ? [livePreview(path), liveTables, liveMath] : []),
       ],
     })
   }, [prefs.showLineNumber, prefs.tabSize, prefs.spellcheck, prefs.autoPairBrackets, prefs.livePreview])

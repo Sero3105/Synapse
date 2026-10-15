@@ -786,3 +786,8 @@ body.theme-light .cm-kw { color: #8e3fa8; } body.theme-light .cm-str { color: #2
 .cm-lp-table:hover .cm-lp-table-tools, .cm-lp-table:focus-within .cm-lp-table-tools { opacity: 1; }
 .cm-lp-table-tools button { height: 22px; padding: 0 var(--s-2); border: 0; border-radius: var(--r-ctl); background: var(--raise-1); color: var(--ink-2); font: var(--ui-xs) var(--font-ui); cursor: pointer; }
 .cm-lp-table-tools button:hover { background: var(--raise-2); color: var(--ink); }
+
+/* math (KaTeX) */
+.markdown-reading .math-block, .cm-lp-math-block { margin: 0.6em 0; overflow-x: auto; overflow-y: hidden; text-align: center; }
+.cm-lp-math, .cm-lp-math-block { cursor: text; }
+.katex { font-size: 1.1em; }

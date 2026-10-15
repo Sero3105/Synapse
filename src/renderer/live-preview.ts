@@ -9,6 +9,7 @@ import { parseTable, formatTable } from '../shared/table'
 import { fileUrl } from './api'
 import { model, IMAGE_EXT } from './model'
 import { t } from '../shared/i18n'
+import { renderTex, INLINE_MATH, BLOCK_MATH } from './math'
 
 const hide = Decoration.replace({})
 
@@ -77,6 +78,40 @@ class ImageWidget extends WidgetType {
   }
 }
 
+class MathWidget extends WidgetType {
+  constructor(readonly tex: string, readonly display: boolean) {
+    super()
+  }
+  eq(o: MathWidget) {
+    return o.tex === this.tex && o.display === this.display
+  }
+  toDOM() {
+    const el = document.createElement(this.display ? 'div' : 'span')
+    el.className = this.display ? 'cm-lp-math-block' : 'cm-lp-math'
+    el.innerHTML = renderTex(this.tex, this.display)
+    return el
+  }
+  // let clicks through so the editor moves the cursor here and shows the source
+  ignoreEvent() {
+    return false
+  }
+}
+
+const CODE_NODES = /^(FencedCode|CodeBlock|InlineCode|CodeText)$/
+function inCodeAt(state: EditorState, pos: number) {
+  for (let n: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1); n; n = n.parent) if (CODE_NODES.test(n.name)) return true
+  return false
+}
+
+/** `$$...$$` blocks outside code, as [from, to, tex] covering whole lines. */
+function mathBlocks(state: EditorState): [number, number, string][] {
+  const text = state.doc.toString()
+  if (!text.includes('$$')) return []
+  const out: [number, number, string][] = []
+  for (const m of text.matchAll(BLOCK_MATH)) if (!inCodeAt(state, m.index! + m[0].indexOf('$'))) out.push([m.index!, m.index! + m[0].length, m[1].trim()])
+  return out
+}
+
 /** Lines touched by any selection range; empty when the editor is not focused. */
 function activeLines(view: EditorView): Set<number> {
   const out = new Set<number>()
@@ -109,8 +144,26 @@ function buildDecorations(view: EditorView, notePath: string): DecorationSet {
   }
   const decos: Range<Decoration>[] = []
   const codeRanges: [number, number][] = []
+  const blocks = mathBlocks(state)
+  const mathRanges: [number, number][] = blocks.map(([a, b]) => [a, b])
+  const inMath = (pos: number) => mathRanges.some(([a, b]) => pos >= a && pos < b)
 
   for (const { from, to } of view.visibleRanges) {
+    // $inline$ math on lines without the cursor; block math is rendered by `liveMath`
+    for (let pos = from; pos <= to; ) {
+      const line = state.doc.lineAt(pos)
+      if (!active.has(line.number) && line.text.includes('$') && !inMath(line.from)) {
+        for (const m of line.text.matchAll(INLINE_MATH)) {
+          const start = line.from + m.index!
+          if (inCodeAt(state, start)) continue
+          const end = start + m[0].length
+          mathRanges.push([start, end])
+          decos.push(Decoration.replace({ widget: new MathWidget(m[1], false) }).range(start, end))
+        }
+      }
+      pos = line.to + 1
+    }
+
     syntaxTree(state).iterate({
       from,
       to,
@@ -144,7 +197,7 @@ function buildDecorations(view: EditorView, notePath: string): DecorationSet {
           }
           case 'EmphasisMark':
           case 'StrikethroughMark':
-            if (!isActive(node.from)) decos.push(hide.range(node.from, node.to))
+            if (!isActive(node.from) && !inMath(node.from)) decos.push(hide.range(node.from, node.to))
             return
           case 'QuoteMark':
             if (!isActive(node.from)) {
@@ -185,7 +238,7 @@ function buildDecorations(view: EditorView, notePath: string): DecorationSet {
     const inCode = (pos: number) => codeRanges.some(([a, b]) => pos >= a && pos < b)
     for (let pos = from; pos <= to; ) {
       const line = state.doc.lineAt(pos)
-      if (!active.has(line.number)) {
+      if (!active.has(line.number) && !inMath(line.from)) {
         const wiki = /(!?)\[\[([^[\]\n|#]*)(#[^[\]\n|]*)?(\|[^[\]\n]*)?\]\]/g
         let m: RegExpExecArray | null
         while ((m = wiki.exec(line.text))) {
@@ -363,6 +416,26 @@ export const liveTables = StateField.define<DecorationSet>({
   create: tableDecorations,
   update(value, tr) {
     if (tr.docChanged || tr.selection || syntaxTree(tr.state) !== syntaxTree(tr.startState)) return tableDecorations(tr.state)
+    return value
+  },
+  provide: (f) => EditorView.decorations.from(f),
+})
+
+// ---------- math blocks ----------
+
+function mathDecorations(state: EditorState): DecorationSet {
+  const sel = state.selection.ranges
+  const decos = mathBlocks(state)
+    .filter(([from, to]) => !sel.some((r) => r.head >= from && r.head <= to))
+    .map(([from, to, tex]) => Decoration.replace({ widget: new MathWidget(tex, true), block: true }).range(from, to))
+  return Decoration.set(decos)
+}
+
+/** `$$` blocks can span lines, so like tables they are block decorations from a state field. */
+export const liveMath = StateField.define<DecorationSet>({
+  create: mathDecorations,
+  update(value, tr) {
+    if (tr.docChanged || tr.selection || syntaxTree(tr.state) !== syntaxTree(tr.startState)) return mathDecorations(tr.state)
     return value
   },
   provide: (f) => EditorView.decorations.from(f),

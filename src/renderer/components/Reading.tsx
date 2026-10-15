@@ -4,13 +4,14 @@ import { model, useModel, IMAGE_EXT } from '../model'
 import { api, fileUrl } from '../api'
 import { noteTitle } from '../../shared/markdown'
 import { t } from '../../shared/i18n'
+import { mathPlugin } from '../math'
 
 interface Env extends MdEnv { source: string; depth: number }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
 // Raw HTML is disabled: notes are rendered without executing or injecting markup.
-const md = new MarkdownIt({ html: false, linkify: true, breaks: false })
+const md = new MarkdownIt({ html: false, linkify: true, breaks: false }).use(mathPlugin)
 
 md.inline.ruler.before('link', 'wikilink', (state: StateInline, silent: boolean) => {
   const src = state.src
