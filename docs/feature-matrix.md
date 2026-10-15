@@ -52,3 +52,4 @@ Legend:
 | Community plugins | `.obsidian/plugins` with Node access | F | ✗ | — | Not supported, by design (security) |
 | Canvas, Bases, Sync, Publish, PDF viewer, daily notes, templates | various | — | ✗ | — | Future work |
 | macOS app bundle + install | — | — | ✅ /Applications/Synapse.app | E | Ad-hoc signed, not notarized |
+| Interface language (English, Italian; follows macOS by default) | — | — | ✅ global setting, native menu included | U, E | Two languages; note content is never translated |

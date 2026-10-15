@@ -5,8 +5,8 @@
 | Check | Result (2026-10-15) |
 |---|---|
 | `npm run typecheck` | pass |
-| `npm test` (vitest) | 68/68 pass. New: the retired `showRibbon` layout key is dropped without losing other values. |
-| `npm run test:e2e` (Playwright on Electron) | 10/10 pass on the dev build |
+| `npm test` (vitest) | 74/74 pass. Includes the retired `showRibbon` key and the i18n suite: dictionary completeness, placeholders, plurals, language resolution and persistence. |
+| `npm run test:e2e` (Playwright on Electron) | 11/11 pass on the dev build and on the installed app. Includes switching to Italian, persistence across restart, the native menu language, and switching back. |
 | Taste-Skill `lint.mjs src/renderer` | 0 FAIL, 0 WARN |
 
 New E2E tests added for the redesign:
