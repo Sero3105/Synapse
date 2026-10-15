@@ -1,13 +1,16 @@
-// Render the original Synapse app icon (three linked nodes on a rounded square) to build/icon.png.
+// Render the original Synapse app icon to build/icon.png: three linked nodes on a flat
+// graphite square; one node carries the signal accent (see docs/design-system.md).
 // Pure Node: signed-distance shapes, 4x4 supersampling, PNG encoded with zlib.
 import fs from 'node:fs'
 import zlib from 'node:zlib'
 
 const S = 1024
 const px = new Uint8Array(S * S * 4)
-const bg1 = [124, 77, 255]
-const bg2 = [86, 46, 214]
-const nodes = [[360, 380, 92], [690, 330, 72], [560, 690, 104]]
+const ground = [21, 24, 28]
+const ink = [228, 231, 235]
+const signal = [76, 201, 176]
+const edgeInk = [96, 104, 114]
+const nodes = [[360, 380, 86], [690, 330, 66], [560, 690, 100]]
 const edges = [[0, 1], [1, 2], [2, 0]]
 
 // macOS icon grid: 824px rounded square centered in 1024 canvas
@@ -25,12 +28,11 @@ const sdSegment = (x, y, a, b) => {
 
 function sample(x, y) {
   if (sdRoundRect(x, y) > 0) return null
-  const t = (x + y) / (2 * S)
-  let c = bg1.map((v, i) => v + (bg2[i] - v) * t)
-  let fg = false
-  for (const [a, b] of edges) if (sdSegment(x, y, nodes[a], nodes[b]) < 22) fg = true
-  for (const [nx, ny, r] of nodes) if (Math.hypot(x - nx, y - ny) < r) fg = true
-  if (fg) c = [255, 255, 255]
+  let c = ground
+  for (const [a, b] of edges) if (sdSegment(x, y, nodes[a], nodes[b]) < 16) c = edgeInk
+  nodes.forEach(([nx, ny, r], i) => {
+    if (Math.hypot(x - nx, y - ny) < r) c = i === 2 ? signal : ink
+  })
   return c
 }
 
