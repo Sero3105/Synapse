@@ -168,7 +168,7 @@ function createWindow() {
     title: current ? `${path.basename(current.vault.root)} - Synapse` : 'Synapse',
     titleBarStyle: 'hidden',
     trafficLightPosition: { x: 14, y: 13 },
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#0e1012',
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
