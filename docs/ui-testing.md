@@ -13,7 +13,7 @@ New E2E tests added for the redesign:
 
 - Editing: undo (⌘Z) and redo (⌘⇧Z), status bar line and column, save state, file content on disk.
 - An empty vault shows the empty state, and "Create first note" creates `Untitled.md`.
-- Long file and folder names at 1400, 900 and 640px wide: no horizontal overflow; the editor keeps at least 360px (or half the window).
+- Long file and folder names with the **native window** resized to 1400, 1200, 1000, 900 and 640px: no horizontal overflow, both docks end inside the window, and the editor keeps at least 360px (or half the window). Earlier versions of this test used Playwright viewport emulation, which does not resize the BrowserWindow. A window launched that way looks clipped on screen even though the app is correct.
 - Keyboard: ⌘N focuses the new note's title; ⌘T, ⌘W and ⌘⇧T change the tab count; docks toggle and are `inert` while closed.
 - The existing tests still cover the 20-step settings scenario, restarts, rename with link rewriting, external conflicts, missing vaults, search/switcher/palette/graph, and security.
 

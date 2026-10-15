@@ -278,9 +278,14 @@ test('layout holds with long names at wide and narrow window sizes', async () =>
   const { app, win } = await launch()
   await win.locator('.tree-item-self', { hasText: 'A folder with' }).click()
   await win.locator('.tree-item-self', { hasText: 'An extremely long' }).click()
-  for (const [w, h] of [[1400, 900], [900, 700], [640, 520]]) {
-    await win.setViewportSize({ width: w, height: h })
+  // Resize the real native window: viewport emulation would not reflow the BrowserWindow.
+  for (const [w, h] of [[1400, 900], [1200, 800], [1000, 720], [900, 700], [640, 520]]) {
+    await app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0].setContentSize(w, h), [w, h])
+    await expect.poll(() => win.evaluate(() => innerWidth)).toBe(w)
     await win.waitForTimeout(350)
+    // both docks end inside the window
+    const docks = await win.evaluate(() => [...document.querySelectorAll('.dock.is-open')].map((d) => d.getBoundingClientRect().right))
+    for (const right of docks) expect(right, `dock clipped at ${w}px`).toBeLessThanOrEqual(w + 1)
     const overflow = await win.evaluate(() =>
       ['.shell', '.workspace', '.nav-files', '.tab-strip', '.status-bar', '.note-scroll'].map((sel) => {
         const el = document.querySelector(sel) as HTMLElement | null
