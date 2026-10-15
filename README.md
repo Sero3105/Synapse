@@ -12,7 +12,7 @@ Notes stay plain `.md` files in folders you choose. Synapse adds only a small `.
 - File explorer with filter, context menus, drag-and-drop moves, rename with automatic link updates, delete to Trash.
 - Backlinks (with unlinked mentions), outgoing links, outline, tags, full-text search with operators, graph view.
 - Tabs, split panes, per-tab back/forward history, workspace restore, quick switcher (⌘O), command palette (⌘P), rebindable hotkeys.
-- Light, dark and system themes, accent color, fonts and sizes. Core plugins can be toggled globally or per vault.
+- Original "Signal on graphite" design (docs/design-system.md): serif writing surface, quiet graphite chrome, one accent reserved for connections. Light, dark and system themes, configurable accent, fonts and sizes. Core plugins can be toggled globally or per vault.
 
 See `docs/feature-matrix.md` for exact status and limitations.
 
@@ -67,4 +67,4 @@ In Settings, each preference row has a scope menu: **All vaults** (default) or *
 
 ## Docs
 
-`docs/project-audit.md` · `docs/obsidian-analysis.md` · `docs/feature-specification.md` · `docs/feature-matrix.md` · `docs/architecture.md` · `docs/settings-architecture.md` · `docs/implementation-plan.md` · `docs/testing.md`
+`docs/project-audit.md` · `docs/ui-redesign-audit.md` · `docs/design-system.md` · `docs/ui-implementation.md` · `docs/ui-testing.md` · `docs/obsidian-analysis.md` · `docs/feature-specification.md` · `docs/feature-matrix.md` · `docs/architecture.md` · `docs/settings-architecture.md` · `docs/implementation-plan.md` · `docs/testing.md`

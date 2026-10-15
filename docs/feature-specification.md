@@ -3,9 +3,9 @@
 Scope is derived from `obsidian-analysis.md`. Status per feature is in `feature-matrix.md`.
 
 ## Shell
-- The window uses a hidden title bar with traffic lights. Ribbon is 44px; header rows are 40px.
-- Layout: left sidebar (Files, Search, Tags), workspace with tabbed panes, right sidebar (Backlinks, Outgoing links, Outline). The status bar sits bottom-right.
-- Both sidebars can be toggled and resized (160–800px). Layout is stored globally.
+- Hidden title bar with native traffic lights; a 44px title zone shared by docks and the tab rail. The visual system is described in `design-system.md`.
+- Layout: navigator dock on the left (vault switcher, jump field, Files / Search / Tags / Graph, file tree), workspace with tabbed panes, note-context dock on the right (note info, Backlinks / Outgoing / Outline). Status bar along the bottom of the workspace.
+- Both docks animate open and closed, can be resized with the mouse or keyboard (200–800px), and float over the page in narrow windows. Layout is stored globally.
 - Starter screen when no vault is open: recent vaults (unavailable ones flagged, with Locate… and Remove), Create new vault, Open folder as vault.
 
 ## Vaults

@@ -45,8 +45,8 @@ Legend:
 | Split panes + resize | split-vertical/horizontal | D | ◐ | M | Flat, max 4, one direction |
 | Navigation history per tab | go-back/forward | D | ✅ | M | — |
 | Workspace restore | workspace.json | D | ✅ | E | — |
-| Resizable / toggle sidebars, ribbon | — | Design | ✅ | E | — |
-| Status bar (backlinks, words, chars, save state) | — | Public | ✅ | M | — |
+| Resizable / toggle docks (animated, keyboard-resizable, float when narrow) | — | Design | ✅ | E | No ribbon (removed in the redesign) |
+| Status bar (mode, line/column, words, chars, save state) and note info panel | — | Public | ✅ | E | — |
 | Light/dark/system themes, accent, fonts | appearance.json | B | ✅ | E | No CSS themes or snippets |
 | Core plugin toggles (global or per vault) | core-plugins.json | F | ✅ | M | — |
 | Community plugins | `.obsidian/plugins` with Node access | F | ✗ | — | Not supported, by design (security) |
