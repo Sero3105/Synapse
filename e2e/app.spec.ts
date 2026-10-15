@@ -31,6 +31,12 @@ function seedRegistry(lastOpen: 'A' | 'B' | null, extra: Record<string, { path: 
 }
 
 async function launch(): Promise<{ app: ElectronApplication; win: Page }> {
+  // Selectors are English; pin the language unless a test wrote its own settings.
+  const settingsFile = path.join(userData, 'settings.json')
+  if (!fs.existsSync(settingsFile)) {
+    fs.mkdirSync(userData, { recursive: true })
+    fs.writeFileSync(settingsFile, JSON.stringify({ version: 2, language: 'en' }))
+  }
   const exe = process.env.SYNAPSE_APP
   const app = await _electron.launch({
     ...(exe ? { executablePath: exe, args: [] } : { args: [path.join(__dirname, '..')] }),
@@ -319,5 +325,30 @@ test('keyboard shortcuts drive the workspace', async () => {
   await expect(win.locator('.dock-left')).toHaveAttribute('inert', '')
   await win.getByRole('button', { name: 'Toggle left sidebar' }).click()
   await expect(win.locator('.dock-left')).toHaveClass(/is-open/)
+  await app.close()
+})
+
+test('language: switch to Italian, persists across restart, back to English', async () => {
+  seedRegistry('A')
+  let { app, win } = await launch()
+  await win.keyboard.press('Meta+Comma')
+  await win.getByRole('button', { name: 'General', exact: true }).click()
+  await win.getByLabel('Language', { exact: true }).selectOption('it')
+  await expect(win.getByRole('button', { name: 'Generali', exact: true })).toBeVisible()
+  await win.keyboard.press('Escape')
+  await expect(win.locator('.jump-field')).toHaveText(/Vai alla nota/)
+  await win.locator('.tree-item-self', { hasText: 'Welcome' }).click()
+  await expect(win.getByTestId('status-bar')).toContainText('parole')
+  expect(JSON.parse(fs.readFileSync(path.join(userData, 'settings.json'), 'utf8')).language).toBe('it')
+  // the native menu follows the language
+  const menu = await app.evaluate(({ Menu }) => Menu.getApplicationMenu()!.items.map((i) => i.label))
+  expect(menu).toContain('Vista')
+  await app.close()
+  ;({ app, win } = await launch())
+  await expect(win.locator('.jump-field')).toHaveText(/Vai alla nota/)
+  await win.keyboard.press('Meta+Comma')
+  await win.getByRole('button', { name: 'Generali', exact: true }).click()
+  await win.getByLabel('Lingua', { exact: true }).selectOption('en')
+  await expect(win.getByRole('button', { name: 'General', exact: true })).toBeVisible()
   await app.close()
 })
