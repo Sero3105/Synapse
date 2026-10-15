@@ -211,6 +211,7 @@ function validHotkeys(x: unknown): Record<string, string[]> {
   if (!isObj(x)) return out
   for (const [k, v] of Object.entries(x)) {
     const list = strList(v)
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue
     if (list && k.length < 200 && list.length <= 5) out[k] = list.filter((s) => s.length < 60)
   }
   return out

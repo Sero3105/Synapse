@@ -44,7 +44,15 @@
       "identity": "-",
       "hardenedRuntime": false
     },
-    "asar": true
+    "asar": true,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": true,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "enableCookieEncryption": true
+    }
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.3",

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell, IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session, shell, IpcMainInvokeEvent } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -71,6 +71,20 @@ function requireVault() {
 }
 
 // ---------- IPC ----------
+/**
+ * Folders the user chose in a native dialog this session. The renderer may only open or
+ * create vaults in these (or reopen registered vaults), so a compromised renderer cannot
+ * turn an arbitrary path such as the home folder into a readable vault.
+ */
+const pickedFolders = new Set<string>()
+function approvedFolder(p: unknown): string {
+  if (typeof p !== 'string' || !path.isAbsolute(p)) throw new VaultError('EINVAL', 'Invalid folder')
+  const abs = path.resolve(p)
+  const registered = Object.values(store.getRegistry().vaults).some((v) => v.path === abs)
+  if (!pickedFolders.has(abs) && !registered) throw new VaultError('EPERM', 'Choose the folder in the Open dialog')
+  return abs
+}
+
 // Every handler validates its arguments; the renderer has no Node access.
 type Handler = (...args: unknown[]) => unknown
 const handlers: Record<string, Handler> = {
@@ -84,7 +98,7 @@ const handlers: Record<string, Handler> = {
     await requireVault().store.update(patch)
     pushSnapshot()
   },
-  'vault:open': (p) => activate(String(p)),
+  'vault:open': (p) => activate(approvedFolder(p)),
   'vault:openId': (id) => {
     const v = store.getRegistry().vaults[String(id)]
     if (!v) throw new VaultError('ENOENT', 'Unknown vault')
@@ -93,7 +107,7 @@ const handlers: Record<string, Handler> = {
   'vault:create': (parent, name) => {
     if (typeof parent !== 'string' || typeof name !== 'string' || !/^[^/\\:\0]{1,120}$/.test(name.trim()) || name.trim().startsWith('.'))
       throw new VaultError('EINVAL', 'Invalid vault name')
-    return activate(path.join(parent, name.trim()), true)
+    return activate(path.join(approvedFolder(parent), name.trim()), true)
   },
   'vault:remove': async (id) => {
     if (current?.id === id) throw new VaultError('EBUSY', 'Cannot remove the open vault')
@@ -119,7 +133,9 @@ const handlers: Record<string, Handler> = {
   },
   'dialog:folder': async (title) => {
     const r = await dialog.showOpenDialog(win!, { title: String(title ?? t('main.chooseFolder')), properties: ['openDirectory', 'createDirectory'] })
-    return r.canceled ? null : r.filePaths[0] ?? null
+    const picked = r.canceled ? null : r.filePaths[0] ?? null
+    if (picked) pickedFolders.add(path.resolve(picked))
+    return picked
   },
   'fs:list': () => requireVault().vault.list(),
   'fs:read': (p) => requireVault().vault.read(p),
@@ -232,8 +248,10 @@ function createWindow() {
     current = null
   })
 
-  const dev = process.env.SYNAPSE_DEV_URL
-  if (dev) win.loadURL(dev)
+  // The dev server URL is honoured only in unpackaged development builds, and only on localhost:
+  // the window gets the filesystem bridge, so it must never load anything else.
+  const dev = !app.isPackaged ? process.env.SYNAPSE_DEV_URL : undefined
+  if (dev && /^http:\/\/localhost:\d+\/?$/.test(dev)) win.loadURL(dev)
   else win.loadFile(path.join(__dirname, '../renderer/index.html'))
 }
 
@@ -312,6 +330,11 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   store = new AppStore(app.getPath('userData'))
+  // Deny web permission requests (notifications, geolocation, media, ...); the app needs none
+  // except writing to the clipboard for "Copy path".
+  const allowed = new Set(['clipboard-sanitized-write'])
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => cb(allowed.has(permission)))
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => allowed.has(permission))
   protocol.handle('synapse-file', (req) => {
     try {
       const rel = decodeURIComponent(new URL(req.url).pathname.replace(/^\//, ''))
