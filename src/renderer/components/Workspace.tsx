@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, Fragment } from 'react'
 import { X, Plus, ArrowLeft, ArrowRight, BookOpen, Pencil, MoreHorizontal, FileText, Waypoints, Image as ImageIcon, File as FileIcon } from 'lucide-react'
-import { model, useModel, Pane, Tab, IMAGE_EXT } from '../model'
+import { model, useModel, Pane, Tab, IMAGE_EXT, isMd } from '../model'
 import { Editor } from './Editor'
 import { Reading } from './Reading'
 import { GraphView } from './Graph'
 import { fileUrl, api } from '../api'
 import { basename, noteTitle, INVALID_NAME } from '../../shared/markdown'
-import { runCommand } from '../commands'
+import { runCommand, hotkeysFor, formatHotkey } from '../commands'
 
 export function Workspace() {
   const ws = useModel((s) => s.ws)
@@ -251,7 +251,7 @@ function InlineTitle({ tab }: { tab: Tab }) {
   const path = tab.path!
   const [value, setValue] = useState(noteTitle(path))
   const focus = useModel((s) => s.focusTitle === tab.id)
-  const ref = useRef<HTMLInputElement>(null)
+  const ref = useRef<HTMLTextAreaElement>(null)
   useEffect(() => setValue(noteTitle(path)), [path])
   useEffect(() => {
     if (focus && ref.current) {
@@ -271,23 +271,24 @@ function InlineTitle({ tab }: { tab: Tab }) {
     if (!(await model.rename(path, `${dir}${v}.md`))) setValue(noteTitle(path))
   }
   return (
-    <input
+    <textarea
       ref={ref}
       className="inline-title"
       aria-label="Note title"
+      rows={1}
       value={value}
       spellCheck={false}
-      onChange={(e) => setValue(e.target.value)}
+      onChange={(e) => setValue(e.target.value.replace(/\n/g, ''))}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
           e.preventDefault()
-          ;(e.target as HTMLInputElement).blur()
+          ;(e.target as HTMLTextAreaElement).blur()
           requestAnimationFrame(() => model.editors.get(tab.id)?.focus())
         }
         if (e.key === 'Escape') {
           setValue(noteTitle(path))
-          requestAnimationFrame(() => (e.target as HTMLInputElement).blur())
+          requestAnimationFrame(() => (e.target as HTMLTextAreaElement).blur())
         }
       }}
     />
@@ -311,13 +312,38 @@ function FileBody({ path }: { path: string }) {
 }
 
 function EmptyTab({ paneId, tabId }: { paneId: string; tabId: string }) {
+  const recent = useModel((s) => s.recent)
+  const graph = useModel((s) => s.snap!.prefs.corePlugins.graph)
+  const actions = [
+    { label: 'New note', cmd: 'file-explorer:new-file', run: () => model.createNote({ where: 'tab' }) },
+    { label: 'Jump to note', cmd: 'switcher:open', run: () => model.set({ modal: { kind: 'switcher' } }) },
+    ...(graph ? [{ label: 'Open graph', cmd: 'graph:open', run: () => model.openGraph('tab') }] : []),
+    { label: 'Close tab', cmd: 'workspace:close', run: () => model.closeTab(paneId, tabId) },
+  ]
   return (
-    <div className="empty-state" data-testid="empty-tab">
-      <div className="empty-title">No file is open</div>
-      <button className="link-btn" onClick={() => model.createNote({ where: 'tab' })}>Create new note (⌘N)</button>
-      <button className="link-btn" onClick={() => model.set({ modal: { kind: 'switcher' } })}>Go to file (⌘O)</button>
-      {model.prefs.corePlugins.graph && <button className="link-btn" onClick={() => model.openGraph('tab')}>Open graph view (⌘G)</button>}
-      <button className="link-btn" onClick={() => model.closeTab(paneId, tabId)}>Close</button>
+    <div className="empty-tab" data-testid="empty-tab">
+      <div className="empty-tab-inner">
+        <h1 className="empty-tab-title">Nothing open</h1>
+        <div className="empty-tab-actions">
+          {actions.map((a) => (
+            <button key={a.cmd} className="action-row" onClick={a.run}>
+              <span>{a.label}</span>
+              <kbd>{formatHotkey(hotkeysFor(a.cmd)[0] ?? '')}</kbd>
+            </button>
+          ))}
+        </div>
+        {recent.length > 0 && (
+          <section className="empty-tab-recent" aria-label="Recent notes">
+            <h2>Recent</h2>
+            {recent.slice(0, 7).map((p) => (
+              <button key={p} className="recent-row" onClick={(e) => model.open(p, e.metaKey ? 'new' : 'tab')}>
+                <span className="recent-title">{isMd(p) ? noteTitle(p) : basename(p)}</span>
+                {p.includes('/') && <span className="recent-path">{p.slice(0, p.lastIndexOf('/'))}</span>}
+              </button>
+            ))}
+          </section>
+        )}
+      </div>
     </div>
   )
 }
