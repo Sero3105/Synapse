@@ -45,7 +45,6 @@ export interface Prefs {
 
 /** Global-only state: layout, hotkeys. Never overridden by a vault. */
 export interface Layout {
-  showRibbon: boolean
   leftOpen: boolean
   rightOpen: boolean
   leftWidth: number
@@ -80,7 +79,7 @@ export interface VaultSettings {
 
 export const DEFAULT_PREFS: Prefs = {
   theme: 'system',
-  accentColor: '#8a5cf5',
+  accentColor: '#4cc9b0',
   fontSize: 16,
   interfaceFontSize: 13,
   textFont: '',
@@ -99,7 +98,6 @@ export const DEFAULT_PREFS: Prefs = {
 }
 
 export const DEFAULT_LAYOUT: Layout = {
-  showRibbon: true,
   leftOpen: true,
   rightOpen: true,
   leftWidth: 260,
@@ -167,7 +165,6 @@ const PREF_VALIDATORS: { [K in keyof Prefs]: V<unknown> } = {
 export const PREF_KEYS = Object.keys(PREF_VALIDATORS) as (keyof Prefs)[]
 
 const LAYOUT_VALIDATORS: { [K in keyof Layout]: V<unknown> } = {
-  showRibbon: bool,
   leftOpen: bool,
   rightOpen: bool,
   leftWidth: num(160, 800),

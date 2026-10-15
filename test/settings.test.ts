@@ -288,3 +288,14 @@ describe('hotkeys', () => {
     expect(new AppStore(userData).getGlobal().hotkeys).toEqual({ 'switcher:open': [] })
   })
 })
+
+describe('layout schema', () => {
+  it('drops the retired showRibbon key without losing other layout values', () => {
+    fs.mkdirSync(userData, { recursive: true })
+    fs.writeFileSync(path.join(userData, 'settings.json'), JSON.stringify({ version: 2, prefs: { theme: 'dark' }, layout: { showRibbon: false, leftWidth: 320 }, hotkeys: {} }))
+    const g = new AppStore(userData).getGlobal()
+    expect(g.layout).not.toHaveProperty('showRibbon')
+    expect(g.layout.leftWidth).toBe(320)
+    expect(g.prefs.theme).toBe('dark')
+  })
+})
