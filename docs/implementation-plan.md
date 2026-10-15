@@ -9,9 +9,9 @@
 | E. Reliability | Atomic writes, conflicts, migrations, corruption recovery, a11y roles and focus, tests, packaging, install | Done |
 
 ## Next candidates (not implemented)
-1. Live Preview (hide Markdown syntax outside the cursor line), folding, code highlighting in reading view.
+1. Folding, code highlighting in reading view, adding and removing table columns.
 2. Arbitrary split tree, pinned and stacked tabs.
 3. Local graph, graph filters and groups; Barnes-Hut layout for large vaults.
 4. Daily notes and templates.
-5. Signed and notarized build, DMG, auto-update.
+5. Developer ID signing and notarization (the DMG exists, but is ad-hoc signed); auto-update.
 6. On-disk index for very large vaults (currently all note text is kept in memory).

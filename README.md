@@ -55,7 +55,7 @@
 
 | | |
 |---|---|
-| **Editor** | CodeMirror 6 with styled Markdown, `[[` link autocomplete, ⌘-click to follow links, find & replace, formatting shortcuts, image paste and drop, autosave |
+| **Editor** | Live Preview: Markdown syntax hides itself except on the line you are editing; tables are edited as tables. Built on CodeMirror 6, with `[[` link autocomplete, ⌘-click to follow links, find & replace, formatting shortcuts, image paste and drop, autosave |
 | **Reading view** | Rendered Markdown with tables, code, quotes, embeds (`![[note]]`, `![[image.png]]`) and clickable task lists |
 | **Knowledge** | Backlinks with context, unlinked mentions, outgoing and unresolved links, outline, tags (inline and front-matter), graph view |
 | **Navigation** | Quick switcher (⌘O), command palette (⌘P), tabs, split panes, per-tab back/forward, recent notes, workspace restored per vault |
@@ -66,7 +66,13 @@
 
 ## Install
 
-Synapse is built from source; there is no prebuilt download yet.
+1. Download the latest **`Synapse-<version>-arm64.dmg`** from [Releases](https://github.com/Sero3105/Synapse/releases).
+2. Open it and drag **Synapse** onto **Applications**.
+3. The first time you open Synapse, macOS warns that it cannot verify the app, because builds are not notarized yet. Open **System Settings → Privacy & Security** and click **Open Anyway**. You only need to do this once.
+
+Requirements: macOS 13 Ventura or later, on Apple silicon.
+
+### Build from source
 
 ```sh
 git clone https://github.com/Sero3105/Synapse.git
@@ -76,7 +82,7 @@ npm run package       # builds release/mac-arm64/Synapse.app
 npm run install:app   # copies it to /Applications/Synapse.app
 ```
 
-Requirements: macOS on Apple Silicon, Node.js 22 or newer.
+Requirements for building: Node.js 22 or newer.
 
 `install:app` only replaces an existing Synapse build (bundle id `com.synapse.notes`), refuses while the app is running, and never touches your notes or preferences. The app is ad-hoc signed, not notarized.
 
@@ -153,7 +159,6 @@ SYNAPSE_APP=/Applications/Synapse.app/Contents/MacOS/Synapse npx playwright test
 
 ## Known limitations
 
-- No Live Preview: Markdown syntax stays visible while editing; ⌘E shows the rendered page.
 - Raw HTML in notes is not rendered, for security. There is no math, Mermaid or code highlighting in the reading view yet.
 - Split panes run in one direction, with up to four panes.
 - Obsidian community plugins are not supported.

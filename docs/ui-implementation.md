@@ -21,7 +21,7 @@ The redesign kept the architecture: same model, IPC, settings service and editor
 - **The ribbon is gone.** Its commands are in the navigator, the palette and the menu bar. One fewer column makes the layout less like Obsidian and gives the page more room.
 - **Search stays a navigator view**, not a modal. Results need to stay visible while notes are opened from them.
 - **Note info shows only real metadata** from the buffer and index: folder, mtime, word count, tags. Nothing is invented.
-- **No Live Preview was added.** The editor stays source-mode Markdown with typographic styling, and the reading view is separate. The status bar says which mode is active.
+- **Live Preview** (added after the redesign): Markdown syntax is hidden except on the lines with the cursor. Tables render as editable grids with "+ Row" and "Edit as Markdown". It can be switched off per vault or globally (Settings → Editor).
 
 ## Not changed
 

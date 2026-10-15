@@ -52,7 +52,7 @@ The renderer computes the old→new map (a whole folder when needed), flushes bu
 
 - One window that switches vaults in place, instead of one window per vault.
 - Preferences are global with per-vault overrides. In the reference they are only per-vault.
-- The editor is source mode with styled Markdown, plus a separate reading view. There is no Live Preview that hides markup.
+- Live Preview is implemented as CodeMirror decorations (`src/renderer/live-preview.ts`). The file text is never altered by rendering. Tables outside the cursor are block widgets whose cell edits are written back as normal, undoable transactions.
 - A flat split layout (up to 4 panes in one direction) instead of an arbitrary split tree.
 - Rename uses a dialog. The inline title also renames the file.
 - No community plugin API.
