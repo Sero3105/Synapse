@@ -1,61 +1,186 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
-import { Folder, Search, Hash, Link2, ArrowUpRight, ListTree, FilePlus, FolderPlus, ChevronsDownUp, ChevronRight, FileText, Image as ImageIcon, File as FileIcon, X } from 'lucide-react'
+import { Search, Hash, Folder, FolderOpen, FolderTree, Waypoints, FilePlus, FolderPlus, ChevronsDownUp, ChevronRight, ChevronsUpDown, FileText, Image as ImageIcon, File as FileIcon, X, Settings } from 'lucide-react'
 import { model, useModel, isMd, IMAGE_EXT } from '../model'
 import { api, FileEntry } from '../api'
-import { noteTitle, basename, Link } from '../../shared/markdown'
+import { noteTitle, basename, Link, wordCount } from '../../shared/markdown'
+import { runCommand, hotkeysFor, formatHotkey } from '../commands'
 
-// ---------- shells ----------
+const ICON = { size: 15, strokeWidth: 1.75 } as const
+const kbd = (id: string) => formatHotkey(hotkeysFor(id)[0] ?? '')
 
-export function LeftSidebar() {
+// ---------- navigator (left) ----------
+
+export function Navigator() {
   const tab = useModel((s) => s.snap!.global.layout.leftTab)
   const plugins = useModel((s) => s.snap!.prefs.corePlugins)
-  const tabs = [
-    { id: 'files' as const, icon: <Folder size={16} />, label: 'Files', on: true },
-    { id: 'search' as const, icon: <Search size={16} />, label: 'Search', on: plugins.search },
-    { id: 'tags' as const, icon: <Hash size={16} />, label: 'Tags', on: plugins.tags },
-  ].filter((t) => t.on)
-  const current = tabs.some((t) => t.id === tab) ? tab : 'files'
-  return (
-    <SidebarShell tabs={tabs} current={current} onSelect={(id) => model.setLayout({ leftTab: id })}>
-      {current === 'files' && <FileExplorer />}
-      {current === 'search' && <SearchPanel />}
-      {current === 'tags' && <TagsPanel />}
-    </SidebarShell>
-  )
-}
+  const graphActive = useModel((s) => model.activeTab.kind === 'graph' && !!s.ws)
+  const current = (tab === 'search' && !plugins.search) || (tab === 'tags' && !plugins.tags) ? 'files' : tab
+  const views = [
+    { id: 'files' as const, label: 'Files', icon: <FolderTree {...ICON} />, on: true, hint: '' },
+    { id: 'search' as const, label: 'Search', icon: <Search {...ICON} />, on: plugins.search, hint: kbd('global-search:open') },
+    { id: 'tags' as const, label: 'Tags', icon: <Hash {...ICON} />, on: plugins.tags, hint: '' },
+  ].filter((v) => v.on)
 
-export function RightSidebar() {
-  const tab = useModel((s) => s.snap!.global.layout.rightTab)
-  const plugins = useModel((s) => s.snap!.prefs.corePlugins)
-  const tabs = [
-    { id: 'backlinks' as const, icon: <Link2 size={16} />, label: 'Backlinks', on: plugins.backlinks },
-    { id: 'outgoing' as const, icon: <ArrowUpRight size={16} />, label: 'Outgoing links', on: plugins.outgoing },
-    { id: 'outline' as const, icon: <ListTree size={16} />, label: 'Outline', on: plugins.outline },
-  ].filter((t) => t.on)
-  if (!tabs.length) return <div className="sidebar"><div className="pane-empty">All right-sidebar plugins are disabled.</div></div>
-  const current = tabs.some((t) => t.id === tab) ? tab : tabs[0].id
   return (
-    <SidebarShell tabs={tabs} current={current} onSelect={(id) => model.setLayout({ rightTab: id })}>
-      {current === 'backlinks' && <BacklinksPanel />}
-      {current === 'outgoing' && <OutgoingPanel />}
-      {current === 'outline' && <OutlinePanel />}
-    </SidebarShell>
-  )
-}
-
-function SidebarShell<T extends string>({ tabs, current, onSelect, children }: { tabs: { id: T; icon: React.ReactNode; label: string }[]; current: T; onSelect: (id: T) => void; children: React.ReactNode }) {
-  return (
-    <div className="sidebar">
-      <div className="sidebar-tabs" role="tablist">
-        {tabs.map((t) => (
-          <button key={t.id} role="tab" aria-selected={t.id === current} aria-label={t.label} title={t.label} className={`icon-btn sidebar-tab${t.id === current ? ' is-active' : ''}`} onClick={() => onSelect(t.id)}>
-            {t.icon}
+    <div className="nav">
+      <div className="dock-titlebar" />
+      <VaultSwitcher />
+      <button className="jump-field" onClick={() => runCommand('switcher:open')} aria-label="Jump to note">
+        <Search {...ICON} />
+        <span>Jump to note</span>
+        <kbd>{kbd('switcher:open')}</kbd>
+      </button>
+      <nav className="nav-views" aria-label="Views">
+        {views.map((v) => (
+          <button key={v.id} className={`nav-row${current === v.id ? ' is-active' : ''}`} aria-current={current === v.id ? 'page' : undefined} onClick={() => {
+            model.setLayout({ leftTab: v.id })
+            if (v.id === 'search') requestAnimationFrame(() => document.querySelector<HTMLInputElement>('#search-input')?.focus())
+          }}>
+            {v.icon}
+            <span>{v.label}</span>
+            {v.hint && <kbd>{v.hint}</kbd>}
           </button>
         ))}
+        {plugins.graph && (
+          <button className={`nav-row${graphActive ? ' is-current-view' : ''}`} aria-pressed={graphActive} onClick={() => runCommand('graph:open')}>
+            <Waypoints {...ICON} />
+            <span>Graph</span>
+            <kbd>{kbd('graph:open')}</kbd>
+          </button>
+        )}
+      </nav>
+      <div className="nav-panel">
+        {current === 'files' && <FileExplorer />}
+        {current === 'search' && <SearchPanel />}
+        {current === 'tags' && <TagsPanel />}
       </div>
-      <div className="sidebar-content">{children}</div>
+      <div className="nav-footer">
+        <button className="nav-row" onClick={() => runCommand('file-explorer:new-file')}>
+          <FilePlus {...ICON} />
+          <span>New note</span>
+          <kbd>{kbd('file-explorer:new-file')}</kbd>
+        </button>
+        <button className="icon-btn" aria-label="Settings" title={`Settings ${kbd('app:open-settings')}`} onClick={() => runCommand('app:open-settings')}>
+          <Settings {...ICON} />
+        </button>
+      </div>
     </div>
   )
+}
+
+function VaultSwitcher() {
+  const snap = useModel((s) => s.snap!)
+  const others = snap.vaults.filter((v) => v.id !== snap.vault!.id && v.available)
+  const name = snap.vault!.name
+  return (
+    <button
+      className="vault-switcher"
+      aria-label="Switch vault"
+      title={snap.vault!.path}
+      onClick={(e) =>
+        model.openMenu(e, [
+          ...others.slice(0, 8).map((v) => ({ label: v.name, run: () => model.switchVault(() => api.openVaultId(v.id)) })),
+          ...(others.length ? [{ separator: true, label: '' }] : []),
+          { label: 'Manage vaults…', run: () => model.set({ modal: { kind: 'vaults' } }) },
+          { label: 'Reveal vault in Finder', run: () => api.reveal('') },
+        ])
+      }
+    >
+      <span className="vault-mark" aria-hidden>{[...name][0]?.toUpperCase()}</span>
+      <span className="vault-switcher-name">{name}</span>
+      <ChevronsUpDown size={13} strokeWidth={1.75} className="vault-switcher-chevron" />
+    </button>
+  )
+}
+
+// ---------- note context (right) ----------
+
+export function ContextPanel() {
+  const tab = useModel((s) => s.snap!.global.layout.rightTab)
+  const plugins = useModel((s) => s.snap!.prefs.corePlugins)
+  const path = useActiveNote()
+  const indexVersion = useModel((s) => s.indexVersion)
+  const backCount = useMemo(() => (path && plugins.backlinks ? model.index.backlinks(path).length : 0), [path, indexVersion, plugins.backlinks])
+  const tabs = [
+    { id: 'backlinks' as const, label: 'Backlinks', on: plugins.backlinks, count: backCount },
+    { id: 'outgoing' as const, label: 'Outgoing', on: plugins.outgoing, count: null },
+    { id: 'outline' as const, label: 'Outline', on: plugins.outline, count: null },
+  ].filter((t) => t.on)
+  const current = tabs.some((t) => t.id === tab) ? tab : tabs[0]?.id
+
+  return (
+    <div className="context">
+      <div className="dock-titlebar" />
+      {!path ? (
+        <div className="context-empty">
+          <div className="empty-heading">No note selected</div>
+          <p>Open a note to see its details, links and outline.</p>
+        </div>
+      ) : (
+        <>
+          <NoteInfo path={path} />
+          {tabs.length > 0 && (
+            <div className="segmented" role="tablist" aria-label="Note context">
+              {tabs.map((t) => (
+                <button key={t.id} role="tab" aria-selected={current === t.id} className={`segment${current === t.id ? ' is-active' : ''}`} onClick={() => model.setLayout({ rightTab: t.id })}>
+                  {t.label}
+                  {t.count !== null && t.count > 0 && <span className="segment-count tabular">{t.count}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="context-panel">
+            {current === 'backlinks' && <BacklinksPanel />}
+            {current === 'outgoing' && <OutgoingPanel />}
+            {current === 'outline' && <OutlinePanel />}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+const dateFmt = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
+/** Real metadata of the active note: location, modification time, size, tags. */
+function NoteInfo({ path }: { path: string }) {
+  const mtime = useModel((s) => s.buffers[path]?.mtime)
+  const content = useModel((s) => s.buffers[path]?.content)
+  const indexVersion = useModel((s) => s.indexVersion)
+  const tags = useMemo(() => model.index.notes.get(path)?.meta.tags ?? [], [path, indexVersion])
+  const words = useMemo(() => (content !== undefined ? wordCount(content).words : 0), [content])
+  const folder = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : 'Vault root'
+  return (
+    <section className="note-info" aria-label="Note details">
+      <div className="note-info-title">{noteTitle(path)}</div>
+      <dl className="note-info-grid">
+        <dt>Folder</dt>
+        <dd title={folder}>{folder}</dd>
+        {mtime !== undefined && (
+          <>
+            <dt>Modified</dt>
+            <dd className="tabular">{dateFmt.format(mtime)}</dd>
+          </>
+        )}
+        <dt>Length</dt>
+        <dd className="tabular">{words.toLocaleString()} {words === 1 ? 'word' : 'words'}</dd>
+      </dl>
+      {tags.length > 0 && (
+        <div className="note-info-tags">
+          {tags.map((t) => (
+            <button key={t} className="tag-chip" onClick={() => searchTag(t)}>
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function searchTag(tag: string) {
+  model.set({ searchQuery: `tag:${tag}` })
+  model.setLayout({ leftOpen: true, leftTab: 'search' })
 }
 
 // ---------- file explorer ----------
@@ -102,24 +227,24 @@ function FileExplorer() {
 
   return (
     <div className="file-explorer" data-testid="file-explorer">
-      <div className="nav-header">
+      <div className="panel-toolbar">
+        <div className="filter-box">
+          <input className="text-input" placeholder="Filter" aria-label="Filter files" value={filter} onChange={(e) => setFilter(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && setFilter('')} />
+          {filter && (
+            <button className="icon-btn clear" aria-label="Clear filter" onClick={() => setFilter('')}>
+              <X size={13} />
+            </button>
+          )}
+        </div>
         <button className="icon-btn" aria-label="New note" title="New note" onClick={() => model.createNote()}>
-          <FilePlus size={16} />
+          <FilePlus {...ICON} />
         </button>
         <button className="icon-btn" aria-label="New folder" title="New folder" onClick={() => model.createFolder()}>
-          <FolderPlus size={16} />
+          <FolderPlus {...ICON} />
         </button>
         <button className="icon-btn" aria-label="Collapse all" title="Collapse all" onClick={() => model.set({ expanded: {} })}>
-          <ChevronsDownUp size={16} />
+          <ChevronsDownUp {...ICON} />
         </button>
-      </div>
-      <div className="filter-box">
-        <input className="text-input" placeholder="Filter files…" aria-label="Filter files" value={filter} onChange={(e) => setFilter(e.target.value)} />
-        {filter && (
-          <button className="icon-btn clear" aria-label="Clear filter" onClick={() => setFilter('')}>
-            <X size={14} />
-          </button>
-        )}
       </div>
       <div
         className={`nav-files${dropRoot ? ' is-drop-target' : ''}`}
@@ -143,7 +268,16 @@ function FileExplorer() {
           if (p && p.includes('/')) model.rename(p, basename(p))
         }}
       >
-        {tree.children.length === 0 && <div className="pane-empty">{filter ? 'No matching files.' : 'This vault is empty.'}</div>}
+        {tree.children.length === 0 &&
+          (filter ? (
+            <div className="pane-empty">Nothing matches “{filter}”.</div>
+          ) : (
+            <div className="panel-empty" data-testid="empty-vault">
+              <div className="empty-heading">This vault has no notes yet</div>
+              <p>Notes are plain Markdown files in this folder.</p>
+              <button className="btn mod-cta" onClick={() => model.createNote()}>Create first note</button>
+            </div>
+          ))}
         {tree.children.map((n) => (
           <TreeItem key={n.path} node={n} depth={0} active={active} forceOpen={!!filter} />
         ))}
@@ -193,7 +327,7 @@ function TreeItem({ node, depth, active, forceOpen }: { node: TreeNode; depth: n
     <div className="tree-item" role="treeitem" aria-expanded={isFolder ? open : undefined} aria-selected={active === node.path}>
       <div
         className={`tree-item-self${active === node.path ? ' is-active' : ''}${over ? ' is-drop-target' : ''}`}
-        style={{ paddingLeft: 8 + depth * 17 }}
+        style={{ paddingLeft: 6 + depth * 14 }}
         data-path={node.path}
         tabIndex={0}
         draggable
@@ -232,7 +366,17 @@ function TreeItem({ node, depth, active, forceOpen }: { node: TreeNode; depth: n
         }}
         onContextMenu={menu}
       >
-        {isFolder ? <ChevronRight size={14} className={`tree-chevron${open ? ' is-open' : ''}`} /> : <span className="tree-file-icon">{isMd(node.name) ? <FileText size={14} /> : IMAGE_EXT.test(node.name) ? <ImageIcon size={14} /> : <FileIcon size={14} />}</span>}
+        {isFolder ? (
+          <>
+            <ChevronRight size={12} strokeWidth={2} className={`tree-chevron${open ? ' is-open' : ''}`} />
+            <span className="tree-icon is-folder">{open ? <FolderOpen {...ICON} /> : <Folder {...ICON} />}</span>
+          </>
+        ) : (
+          <>
+            <span className="tree-chevron-space" />
+            <span className="tree-icon">{isMd(node.name) ? <FileText {...ICON} /> : IMAGE_EXT.test(node.name) ? <ImageIcon {...ICON} /> : <FileIcon {...ICON} />}</span>
+          </>
+        )}
         <span className="tree-item-inner">{label}</span>
         {!isFolder && !isMd(node.name) && <span className="nav-file-tag">{node.name.split('.').pop()?.toUpperCase()}</span>}
       </div>
@@ -336,10 +480,7 @@ function TagsPanel() {
           key={tag}
           className="tag-row"
           tabIndex={0}
-          onClick={() => {
-            model.set({ searchQuery: `tag:${tag}` })
-            model.setLayout({ leftTab: 'search' })
-          }}
+          onClick={() => searchTag(tag)}
         >
           <span>{tag}</span>
           <span className="count">{count}</span>

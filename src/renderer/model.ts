@@ -54,6 +54,10 @@ export interface State {
   focusTitle: string | null
   /** bumped when a line jump is requested */
   navTick: number
+  /** caret of the focused editor, for the status bar */
+  cursor: { line: number; col: number } | null
+  /** recently opened files in this vault, newest first */
+  recent: string[]
 }
 
 let uid = 0
@@ -84,6 +88,8 @@ class Model {
     expanded: {},
     focusTitle: null,
     navTick: 0,
+    cursor: null,
+    recent: [],
   }
   index = new NoteIndex()
   editors = new Map<string, EditorView>()
@@ -126,7 +132,7 @@ class Model {
     if (this.vaultId) await this.flushAll()
     this.vaultId = s.vault?.id ?? null
     if (!s.vault) {
-      this.set({ files: [], buffers: {}, ws: defaultWs(), loading: false })
+      this.set({ files: [], buffers: {}, ws: defaultWs(), loading: false, recent: [], cursor: null })
       return
     }
     await this.loadVault()
@@ -141,7 +147,7 @@ class Model {
       this.index.setFiles(files.filter((f) => f.type === 'file').map((f) => f.path))
       for (const n of notes) this.index.upsert(n.path, n.content)
       const restored = this.restoreWorkspace(ws, new Set(files.map((f) => f.path)))
-      this.set({ files, ws: restored.ws, expanded: restored.expanded, indexVersion: this.state.indexVersion + 1, loading: false })
+      this.set({ files, ws: restored.ws, expanded: restored.expanded, recent: restored.recent, indexVersion: this.state.indexVersion + 1, loading: false })
       for (const p of this.state.ws.panes) {
         const t = p.tabs.find((x) => x.id === p.active)
         if (t?.path && t.kind === 'note') this.ensureBuffer(t.path)
@@ -153,8 +159,9 @@ class Model {
   }
 
   /** Validate persisted workspace JSON; drop tabs whose files no longer exist. */
-  private restoreWorkspace(raw: unknown, existing: Set<string>): { ws: Workspace; expanded: Record<string, boolean> } {
-    const fallback = { ws: defaultWs(), expanded: {} }
+  private restoreWorkspace(raw: unknown, existing: Set<string>): { ws: Workspace; expanded: Record<string, boolean>; recent: string[] } {
+    const recent = isObj(raw) && Array.isArray(raw.recent) ? raw.recent.filter((p): p is string => typeof p === 'string' && existing.has(p)).slice(0, 20) : []
+    const fallback = { ws: defaultWs(), expanded: {}, recent }
     if (!isObj(raw) || !Array.isArray(raw.panes)) return fallback
     const panes: Pane[] = []
     for (const p of raw.panes.slice(0, 8)) {
@@ -186,7 +193,7 @@ class Model {
     const sizes = Array.isArray(raw.paneSizes) && raw.paneSizes.length === panes.length && raw.paneSizes.every((n) => typeof n === 'number' && n > 0) ? (raw.paneSizes as number[]) : panes.map(() => 1)
     const expanded: Record<string, boolean> = {}
     if (isObj(raw.expanded)) for (const [k, v] of Object.entries(raw.expanded)) if (v === true && existing.has(k)) expanded[k] = true
-    return { ws: { panes, activePane: panes[ai].id, direction: raw.direction === 'column' ? 'column' : 'row', paneSizes: sizes }, expanded }
+    return { ws: { panes, activePane: panes[ai].id, direction: raw.direction === 'column' ? 'column' : 'row', paneSizes: sizes }, expanded, recent }
   }
 
   private persistWorkspace() {
@@ -196,7 +203,7 @@ class Model {
 
   private saveWorkspaceNow() {
     if (!this.vaultId) return Promise.resolve()
-    const { ws, expanded } = this.state
+    const { ws, expanded, recent } = this.state
     const data = {
       direction: ws.direction,
       paneSizes: ws.paneSizes,
@@ -206,6 +213,7 @@ class Model {
         tabs: p.tabs.map(({ kind, path, mode, back, fwd, cursor, scroll }) => ({ kind, path, mode, back, fwd, cursor, scroll })),
       })),
       expanded,
+      recent,
     }
     return api.saveWorkspace(data).catch((e) => console.error('workspace save failed', e))
   }
@@ -446,6 +454,7 @@ class Model {
         this.updateTab(t.id, { kind, path, mode: t.kind === 'note' && kind === 'note' ? t.mode : mode, back, fwd: [], cursor: undefined, scroll: undefined })
       }
     }
+    this.set({ recent: [path, ...this.state.recent.filter((p) => p !== path)].slice(0, 20) })
     if (opts.line !== undefined) this.pendingLine = { tabId: this.activeTab.id, line: opts.line }
     this.set({ navTick: this.state.navTick + 1 })
   }
@@ -765,6 +774,7 @@ class Model {
     this.set({ buffers })
     const mv = (p?: string) => (p && moves.has(p) ? moves.get(p)! : p)
     this.mapTabs((t) => ({ ...t, path: mv(t.path), back: t.back.map((p) => mv(p)!), fwd: t.fwd.map((p) => mv(p)!) }))
+    this.set({ recent: this.state.recent.map((p) => mv(p)!) })
     if (isFolder) {
       const expanded: Record<string, boolean> = {}
       for (const [k, v] of Object.entries(this.state.expanded)) expanded[k === from || k.startsWith(from + '/') ? to + k.slice(from.length) : k] = v
@@ -821,6 +831,7 @@ class Model {
     this.set({ buffers })
     for (const pane of this.state.ws.panes) for (const t of pane.tabs) if (gone(t.path)) this.closeTab(pane.id, t.id)
     this.mapTabs((t) => ({ ...t, back: t.back.filter((p) => !gone(p)), fwd: t.fwd.filter((p) => !gone(p)) }))
+    this.set({ recent: this.state.recent.filter((p) => !gone(p)) })
     await this.refreshFiles()
   }
 

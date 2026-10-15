@@ -35,7 +35,6 @@ export const COMMANDS: Command[] = [
   { id: 'app:go-forward', name: 'Navigate forward', hotkeys: ['Mod+Alt+ArrowRight'], when: hasVault, run: () => model.goForward() },
   { id: 'app:toggle-left-sidebar', name: 'Toggle left sidebar', when: hasVault, run: () => model.setLayout({ leftOpen: !model.layout.leftOpen }) },
   { id: 'app:toggle-right-sidebar', name: 'Toggle right sidebar', when: hasVault, run: () => model.setLayout({ rightOpen: !model.layout.rightOpen }) },
-  { id: 'app:toggle-ribbon', name: 'Toggle ribbon', when: hasVault, run: () => model.setLayout({ showRibbon: !model.layout.showRibbon }) },
   { id: 'app:delete-file', name: 'Delete current file', when: () => !!model.activeFile, run: () => model.remove(model.activeFile!) },
   { id: 'file-explorer:new-file', name: 'Create new note', hotkeys: ['Mod+N'], when: hasVault, run: () => model.createNote() },
   { id: 'file-explorer:new-file-in-new-pane', name: 'Create new note to the right', hotkeys: ['Mod+Shift+N'], when: hasVault, run: () => model.createNote({ where: 'split' }) },

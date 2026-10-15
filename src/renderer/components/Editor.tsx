@@ -143,7 +143,12 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
           keymap.of([...closeBracketsKeymap, ...completionKeymap, ...searchKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) model.edit(path, u.state.doc.toString())
-            if (u.selectionSet) model.updateTab(tab.id, { cursor: u.state.selection.main.head }, false)
+            if (u.selectionSet || u.docChanged) {
+              const head = u.state.selection.main.head
+              const line = u.state.doc.lineAt(head)
+              model.updateTab(tab.id, { cursor: head }, false)
+              model.set({ cursor: { line: line.number, col: head - line.from + 1 } })
+            }
           }),
           EditorView.domEventHandlers({
             mousedown: (e, v) => {
