@@ -533,6 +533,17 @@ body.theme-light .cm-kw { color: #8e3fa8; } body.theme-light .cm-str { color: #2
 .markdown-reading code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-ground); padding: 0.12em 0.32em; border-radius: 4px; } /* taste-skill-ignore: literal code only */
 .markdown-reading pre { background: var(--code-ground); padding: var(--s-4) var(--s-5); border-radius: var(--r-float); overflow-x: auto; margin: 0 0 1.2em; line-height: 1.55; }
 .markdown-reading pre code { background: none; padding: 0; font-size: 0.84em; }
+.markdown-reading .hljs-keyword, .markdown-reading .hljs-selector-tag, .markdown-reading .hljs-built_in, .markdown-reading .hljs-type { color: #c792ea; }
+.markdown-reading .hljs-string, .markdown-reading .hljs-regexp, .markdown-reading .hljs-attr, .markdown-reading .hljs-symbol { color: #a5d6a7; }
+.markdown-reading .hljs-number, .markdown-reading .hljs-literal { color: #f2b880; }
+.markdown-reading .hljs-comment, .markdown-reading .hljs-quote { color: var(--ink-3); font-style: italic; }
+.markdown-reading .hljs-title, .markdown-reading .hljs-function, .markdown-reading .hljs-section { color: #82b1ff; }
+body.theme-light .markdown-reading .hljs-keyword, body.theme-light .markdown-reading .hljs-selector-tag, body.theme-light .markdown-reading .hljs-built_in, body.theme-light .markdown-reading .hljs-type { color: #8e3fa8; }
+body.theme-light .markdown-reading .hljs-string, body.theme-light .markdown-reading .hljs-regexp, body.theme-light .markdown-reading .hljs-attr, body.theme-light .markdown-reading .hljs-symbol { color: #2e7d32; }
+body.theme-light .markdown-reading .hljs-number, body.theme-light .markdown-reading .hljs-literal { color: #a1520b; }
+body.theme-light .markdown-reading .hljs-title, body.theme-light .markdown-reading .hljs-function, body.theme-light .markdown-reading .hljs-section { color: #1f5fbf; }
+.markdown-reading .mermaid { display: flex; justify-content: center; margin: 0 0 1.2em; overflow-x: auto; }
+.markdown-reading pre.mermaid-src.is-error { border-left: 3px solid var(--danger, #e57373); }
 .markdown-reading blockquote { margin: 0 0 1em; padding: 0 0 0 var(--s-4); border-left: 4px solid var(--raise-2); color: var(--ink-2); font-style: italic; }
 .markdown-reading table { border-collapse: collapse; margin: 0 0 1.2em; font-family: var(--font-ui); font-size: 0.86em; }
 .markdown-reading th, .markdown-reading td { padding: 6px 14px; text-align: left; }

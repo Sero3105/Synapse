@@ -422,3 +422,28 @@ test('math renders with KaTeX in live preview and reading view', async () => {
   await expect(reading.locator('.math-block .katex-display')).toHaveCount(1)
   await app.close()
 })
+
+test('clicking a rendered wiki link in live preview opens the note', async () => {
+  fs.writeFileSync(path.join(vaultA, 'Hub.md'), 'Top\n\nGo to [[Ideas|my ideas]] now.\n')
+  seedRegistry('A')
+  const { app, win } = await launch()
+  await win.locator('.tree-item-self', { hasText: 'Hub' }).click()
+  await win.locator('.cm-content').click({ position: { x: 5, y: 5 } })
+  await win.locator('.cm-lp-link', { hasText: 'my ideas' }).click()
+  await expect(win.locator('.cm-content')).toContainText('zebracorn')
+  await app.close()
+})
+
+test('reading view highlights code and renders Mermaid', async () => {
+  fs.writeFileSync(path.join(vaultA, 'Code.md'), '```js\nconst x = 1\n```\n\n```mermaid\ngraph TD\n  A --> B\n```\n')
+  seedRegistry('A')
+  const { app, win } = await launch()
+  await win.locator('.tree-item-self', { hasText: 'Code' }).click()
+  await win.keyboard.press('Meta+P')
+  await win.keyboard.type('toggle reading')
+  await win.keyboard.press('Enter')
+  const reading = win.getByTestId('reading')
+  await expect(reading.locator('.hljs-keyword', { hasText: 'const' })).toHaveCount(1)
+  await expect(reading.locator('.mermaid svg')).toHaveCount(1)
+  await app.close()
+})
