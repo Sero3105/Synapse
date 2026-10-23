@@ -4,11 +4,13 @@ import { test, expect, _electron, ElectronApplication, Page } from '@playwright/
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import http from 'node:http'
 
 let tmp: string
 let userData: string
 let vaultA: string
 let vaultB: string
+let updateFeed = 'http://127.0.0.1:9/none'
 
 function makeVault(dir: string, extra: Record<string, string> = {}) {
   fs.mkdirSync(dir, { recursive: true })
@@ -40,7 +42,8 @@ async function launch(): Promise<{ app: ElectronApplication; win: Page }> {
   const exe = process.env.SYNAPSE_APP
   const app = await _electron.launch({
     ...(exe ? { executablePath: exe, args: [] } : { args: [path.join(__dirname, '..')] }),
-    env: { ...process.env, SYNAPSE_USER_DATA: userData },
+    // the update check talks to a closed local port unless a test serves its own feed
+    env: { ...process.env, SYNAPSE_USER_DATA: userData, SYNAPSE_UPDATE_FEED: updateFeed },
   })
   const win = await app.firstWindow()
   win.on('pageerror', (e) => console.error('pageerror', e))
@@ -446,4 +449,54 @@ test('reading view highlights code and renders Mermaid', async () => {
   await expect(reading.locator('.hljs-keyword', { hasText: 'const' })).toHaveCount(1)
   await expect(reading.locator('.mermaid svg')).toHaveCount(1)
   await app.close()
+})
+
+async function serveRelease(tag: string) {
+  const server = http.createServer((_req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ tag_name: tag, html_url: `https://github.com/Sero3105/Synapse/releases/tag/${tag}`, draft: false, prerelease: false }))
+  })
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
+  updateFeed = `http://127.0.0.1:${(server.address() as { port: number }).port}/latest`
+  return server
+}
+
+test('a newer release on GitHub shows an update notice, unless turned off', async () => {
+  seedRegistry('A')
+  const server = await serveRelease('v99.0.0')
+  try {
+    let { app, win } = await launch()
+    const notice = win.getByTestId('update-notice')
+    await expect(notice).toContainText('Synapse 99.0.0 is available')
+    await notice.getByRole('button', { name: 'Not now' }).click()
+    await expect(notice).toHaveCount(0)
+    // turn the check off in Settings → General; the next launch stays quiet
+    await openSettings(win, 'General')
+    await win.getByRole('switch', { name: 'Check for updates' }).click()
+    await expect.poll(async () => (await win.evaluate(() => (window as any).__synapse.state.snap.global.checkUpdates))).toBe(false)
+    await app.close()
+    ;({ app, win } = await launch())
+    await expect(win.getByTestId('file-explorer')).toBeVisible()
+    await win.waitForTimeout(1000)
+    await expect(win.getByTestId('update-notice')).toHaveCount(0)
+    await app.close()
+  } finally {
+    server.close()
+    updateFeed = 'http://127.0.0.1:9/none'
+  }
+})
+
+test('no notice when the published release is not newer', async () => {
+  seedRegistry('A')
+  const server = await serveRelease('v0.1.0')
+  try {
+    const { app, win } = await launch()
+    await expect(win.getByTestId('file-explorer')).toBeVisible()
+    await win.waitForTimeout(1000)
+    await expect(win.getByTestId('update-notice')).toHaveCount(0)
+    await app.close()
+  } finally {
+    server.close()
+    updateFeed = 'http://127.0.0.1:9/none'
+  }
 })

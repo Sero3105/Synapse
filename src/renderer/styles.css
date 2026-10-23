@@ -751,6 +751,10 @@ body.theme-light .markdown-reading .hljs-title, body.theme-light .markdown-readi
   font-size: var(--ui-sm); line-height: 1.45; cursor: pointer; user-select: text;
   animation: float-in var(--dur) var(--ease);
 }
+.update-notice { width: 340px; padding: 14px 16px; cursor: default; }
+.update-title { font-weight: 600; font-size: var(--ui-md); }
+.update-desc { margin-top: 4px; color: var(--ink-2); }
+.update-actions { display: flex; justify-content: flex-end; gap: var(--s-2); margin-top: var(--s-3); }
 .notice.is-error { box-shadow: var(--shadow-float), inset 3px 0 0 var(--danger); } /* taste-skill-ignore: floating layer */
 
 /* ---------- narrow windows ----------

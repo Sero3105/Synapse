@@ -6,6 +6,7 @@ import { AppStore } from './store'
 import { openVault, OpenVault, snapshot, isDir } from './session'
 import { toIpcError, VaultError } from './vault'
 import { t, setLanguage, resolveLanguage } from '../shared/i18n'
+import { RELEASES_API, updateFromRelease, UpdateInfo } from '../shared/update'
 
 app.setName('Synapse')
 // Tests point this at a temp dir; normal runs use ~/Library/Application Support/Synapse.
@@ -22,6 +23,21 @@ let watcher: fs.FSWatcher | null = null
 let quitting = false
 
 const trash = (abs: string) => shell.trashItem(abs)
+
+// One request per launch, only when the setting allows it. Failures (offline, rate limit) are silent.
+let updateCheck: Promise<UpdateInfo | null> | null = null
+function checkForUpdate(): Promise<UpdateInfo | null> {
+  if (!store.getGlobal().checkUpdates) return Promise.resolve(null)
+  updateCheck ??= net
+    .fetch(process.env.SYNAPSE_UPDATE_FEED || RELEASES_API, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': `Synapse/${app.getVersion()}` },
+      signal: AbortSignal.timeout(10_000),
+    })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((json) => updateFromRelease(json, app.getVersion()))
+    .catch(() => null)
+  return updateCheck
+}
 
 function send(channel: string, ...args: unknown[]) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, ...args)
@@ -150,6 +166,7 @@ const handlers: Record<string, Handler> = {
   'fs:reveal': (p) => shell.showItemInFolder(requireVault().vault.resolve(p, { allowRoot: true })),
   'workspace:load': () => requireVault().store.readWorkspace(),
   'workspace:save': (ws) => requireVault().store.saveWorkspace(ws),
+  'update:check': () => checkForUpdate(),
   'shell:openExternal': (url) => {
     const u = new URL(String(url))
     if (!['http:', 'https:', 'mailto:'].includes(u.protocol)) throw new VaultError('EINVAL', 'Unsupported link')

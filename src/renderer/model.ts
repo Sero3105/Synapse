@@ -2,6 +2,7 @@
 import { useSyncExternalStore } from 'react'
 import type { EditorView } from '@codemirror/view'
 import { api, ApiError, Snapshot, FileEntry } from './api'
+import type { UpdateInfo } from '../shared/update'
 import { NoteIndex, rewriteLinks, buildLookup, uniqueName, INVALID_NAME, basename, noteTitle } from '../shared/markdown'
 import { isObj, Prefs, Layout, GraphSettings } from '../shared/settings'
 import { t, tn, Key, type LanguagePref } from '../shared/i18n'
@@ -49,6 +50,8 @@ export interface State {
   modal: Modal | null
   menu: { x: number; y: number; items: MenuItem[] } | null
   notices: { id: number; text: string; error?: boolean }[]
+  /** a newer release found on GitHub at launch; null once dismissed */
+  update: UpdateInfo | null
   searchQuery: string
   expanded: Record<string, boolean>
   /** tab whose inline title should be focused (new note) */
@@ -85,6 +88,7 @@ class Model {
     modal: null,
     menu: null,
     notices: [],
+    update: null,
     searchQuery: '',
     expanded: {},
     focusTitle: null,
@@ -124,6 +128,7 @@ class Model {
     api.on('command', (id) => runCommandById(String(id)))
     api.on('app:flush', async () => api.flushed(await this.flushAll()))
     await this.onSnapshot(await api.state())
+    api.checkUpdate().then((update) => update && this.set({ update }), () => {})
   }
 
   private async onSnapshot(s: Snapshot) {
@@ -245,7 +250,7 @@ class Model {
   }
 
   // ---------- settings ----------
-  async setGlobal(patch: { language?: LanguagePref; prefs?: Partial<Prefs>; layout?: Partial<Layout>; hotkeys?: Record<string, string[] | null> }) {
+  async setGlobal(patch: { language?: LanguagePref; prefs?: Partial<Prefs>; layout?: Partial<Layout>; hotkeys?: Record<string, string[] | null>; checkUpdates?: boolean }) {
     try {
       await api.updateGlobal(patch)
     } catch (e) {

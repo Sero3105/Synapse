@@ -144,6 +144,15 @@ function General() {
       <PrefRow k="promptDelete" name={t('settings.promptDelete')} desc={t('settings.promptDeleteDesc')}>
         {(v, set) => <Toggle value={v} set={set} label={t('settings.promptDelete')} />}
       </PrefRow>
+      <div className="setting-item" data-setting="checkUpdates">
+        <div className="setting-info">
+          <div className="setting-name">{t('settings.checkUpdates')}</div>
+          <div className="setting-desc">{t('settings.checkUpdatesDesc')}</div>
+        </div>
+        <div className="setting-control">
+          <Toggle value={snap.global.checkUpdates} set={(v) => model.setGlobal({ checkUpdates: v })} label={t('settings.checkUpdates')} />
+        </div>
+      </div>
     </>
   )
 }

@@ -65,6 +65,8 @@ export interface GlobalSettings {
   layout: Layout
   /** command id -> hotkeys like "Mod+Shift+F"; [] = unbound. Missing = default. */
   hotkeys: Record<string, string[]>
+  /** Ask GitHub Releases for a newer version at launch. */
+  checkUpdates: boolean
 }
 
 export interface GraphSettings {
@@ -121,6 +123,7 @@ export const defaultGlobal = (): GlobalSettings => ({
   prefs: structuredClone(DEFAULT_PREFS),
   layout: { ...DEFAULT_LAYOUT },
   hotkeys: {},
+  checkUpdates: true,
 })
 
 export const defaultVault = (vaultId: string): VaultSettings => ({
@@ -264,6 +267,7 @@ export function normalizeGlobal(raw: unknown): GlobalSettings {
     prefs: mergePrefs(d.prefs, validPrefs(m.prefs)),
     layout: { ...d.layout, ...validLayout(m.layout) },
     hotkeys: validHotkeys(m.hotkeys),
+    checkUpdates: typeof m.checkUpdates === 'boolean' ? m.checkUpdates : d.checkUpdates,
   }
 }
 
@@ -296,6 +300,7 @@ export function applyGlobalPatch(g: GlobalSettings, patch: unknown): GlobalSetti
     prefs: isObj(patch.prefs) ? mergePrefs(g.prefs, validPrefs(patch.prefs)) : g.prefs,
     layout: isObj(patch.layout) ? { ...g.layout, ...validLayout(patch.layout) } : g.layout,
     hotkeys: isObj(patch.hotkeys) ? patchHotkeys(g.hotkeys, patch.hotkeys) : g.hotkeys,
+    checkUpdates: typeof patch.checkUpdates === 'boolean' ? patch.checkUpdates : g.checkUpdates,
   })
 }
 

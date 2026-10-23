@@ -408,8 +408,27 @@ export function ContextMenu() {
 
 export function Notices() {
   const notices = useModel((s) => s.notices)
+  const update = useModel((s) => s.update)
   return (
     <div className="notice-container" aria-live="polite">
+      {update && (
+        <div className="notice update-notice" role="status" data-testid="update-notice">
+          <div className="update-title">{t('update.available', { version: update.version })}</div>
+          <div className="update-desc">{t('update.desc')}</div>
+          <div className="update-actions">
+            <button className="btn" onClick={() => model.set({ update: null })}>{t('update.later')}</button>
+            <button
+              className="btn mod-cta"
+              onClick={() => {
+                api.openExternal(update.url).catch((e) => model.error(e))
+                model.set({ update: null })
+              }}
+            >
+              {t('update.download')}
+            </button>
+          </div>
+        </div>
+      )}
       {notices.map((n) => (
         <div key={n.id} className={`notice${n.error ? ' is-error' : ''}`} role={n.error ? 'alert' : 'status'} onClick={() => model.set({ notices: model.state.notices.filter((x) => x.id !== n.id) })}>
           {n.text}

@@ -1,5 +1,6 @@
 import type { Snapshot } from '../main/session'
 import type { FileEntry, NoteData } from '../main/vault'
+import type { UpdateInfo } from '../shared/update'
 
 export type { Snapshot, FileEntry, NoteData }
 
@@ -50,6 +51,7 @@ export const api = {
   loadWorkspace: () => call<unknown>('workspace:load'),
   saveWorkspace: (ws: unknown) => call<void>('workspace:save', ws),
   openExternal: (url: string) => call<void>('shell:openExternal', url),
+  checkUpdate: () => call<UpdateInfo | null>('update:check'),
   on: (ch: string, cb: (...a: unknown[]) => void) => window.synapse.on(ch, cb),
   flushed: (ok: boolean) => window.synapse.flushed(ok),
 }
