@@ -1,0 +1,120 @@
+---
+import Logo from './Logo.astro'
+import { links, nav, product } from '../config/site'
+
+const path = Astro.url.pathname
+---
+
+<header class="header wrap" data-site-header data-on="graphite">
+  <a class="wordmark" href="/" aria-label={`${product.name} home`}>
+    <Logo />
+    <span>{product.name}</span>
+  </a>
+  <nav class="links" aria-label="Main">
+    {nav.map((item) => <a href={item.href} aria-current={path === item.href ? 'page' : undefined}>{item.label}</a>)}
+    <a href={links.repo}>GitHub</a>
+  </nav>
+  <details class="menu">
+    <summary>Menu</summary>
+    <nav aria-label="Main, compact">
+      {nav.map((item) => <a href={item.href}>{item.label}</a>)}
+      <a href={links.repo}>GitHub</a>
+    </nav>
+  </details>
+  <a class="button action" href={links.download}>Download</a>
+</header>
+
+<style>
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    height: 64px;
+    background: var(--bg);
+    color: var(--fg);
+    transition: background-color 300ms var(--ease), color 300ms var(--ease), transform 350ms var(--ease);
+  }
+  .header[data-hidden='true'] {
+    transform: translateY(-100%);
+  }
+  .wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: auto;
+    font: 600 20px / 1 var(--font-display);
+    letter-spacing: -0.02em;
+    text-decoration: none;
+  }
+  .links {
+    display: flex;
+    gap: 28px;
+  }
+  .links a,
+  .menu summary {
+    font-size: var(--t-small);
+    font-weight: 500;
+    text-decoration: none;
+    transition: opacity 160ms var(--ease);
+  }
+  .links a:hover {
+    opacity: 0.7;
+  }
+  .links a[aria-current='page'] {
+    text-decoration: underline;
+    text-underline-offset: 6px;
+    text-decoration-thickness: 2px;
+  }
+  .action {
+    --button-bg: var(--fg);
+    --button-ink: var(--bg);
+    min-height: 40px;
+    padding: 0 16px;
+    font-size: var(--t-small);
+    transition: transform 160ms var(--ease), background-color 300ms var(--ease), color 300ms var(--ease);
+  }
+  .menu {
+    display: none;
+    position: relative;
+  }
+  .menu summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 12px 4px;
+  }
+  .menu summary::-webkit-details-marker {
+    display: none;
+  }
+  .menu nav {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    display: grid;
+    min-width: 180px;
+    padding: 8px;
+    background: var(--graphite-raise-2);
+    color: var(--ink);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55); /* taste-skill-ignore: open dropdown menu floats */
+  }
+  .menu nav a {
+    padding: 12px;
+    text-decoration: none;
+  }
+  .menu nav a:hover {
+    background: var(--graphite-raise);
+  }
+  @media (max-width: 720px) {
+    .header {
+      gap: 16px;
+    }
+    .links {
+      display: none;
+    }
+    .menu {
+      display: block;
+    }
+  }
+</style>

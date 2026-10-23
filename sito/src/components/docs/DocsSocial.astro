@@ -1,0 +1,47 @@
+---
+// Starlight header actions: links back to the site, then the default social icons.
+import Default from '@astrojs/starlight/components/SocialIcons.astro'
+import { links } from '../../config/site'
+---
+
+<nav class="site-links" aria-label="Site">
+  <a href="/">Home</a>
+  <a href={links.download} class="download">Download</a>
+</nav>
+<Default />
+
+<style>
+  .site-links {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    margin-inline-end: 0.5rem;
+    font-size: var(--sl-text-sm);
+    font-weight: 500;
+  }
+  .site-links a {
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+  .site-links a:hover {
+    color: var(--sl-color-white);
+  }
+  .site-links .download {
+    padding: 0.45rem 0.9rem;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-black);
+    font-weight: 600;
+    transition: transform 160ms ease, filter 160ms ease;
+  }
+  .site-links .download:hover {
+    color: var(--sl-color-black);
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+  }
+  @media (max-width: 50rem) {
+    .site-links a:not(.download) {
+      display: none;
+    }
+  }
+</style>

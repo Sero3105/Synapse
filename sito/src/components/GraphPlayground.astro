@@ -1,0 +1,289 @@
+---
+import { buildGraph, settle } from '../lib/graph'
+import { sampleLinks } from '../data/sample-graph'
+
+const W = 900
+const H = 560
+const graph = settle(buildGraph(sampleLinks, W, H), W, H)
+const degree = (i: number) => graph.edges.filter(([a, b]) => a === i || b === i).length
+const start = 'Spaced repetition'
+const backlinks = (id: string) => sampleLinks.filter(([, to]) => to === id).map(([from]) => from)
+const outgoing = (id: string) => sampleLinks.filter(([from]) => from === id).map(([, to]) => to)
+---
+
+<section class="graph-section wrap" data-chapter="sunk" aria-labelledby="graph-title">
+  <div class="intro" data-reveal>
+    <h2 id="graph-title">Your notes, as a graph.</h2>
+    <p>Every [[link]] becomes an edge. Drag a note, hover to see its neighbours, click to read its backlinks. This is the Research vault from the screenshots.</p>
+  </div>
+
+  <div class="playground" data-ui data-graph data-links={JSON.stringify(sampleLinks)} data-w={W} data-h={H}>
+    <svg viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Graph of the sample vault">
+      <g class="edges">
+        {graph.edges.map(([a, b]) => <line data-a={a} data-b={b} x1={graph.nodes[a]!.x} y1={graph.nodes[a]!.y} x2={graph.nodes[b]!.x} y2={graph.nodes[b]!.y} />)}
+      </g>
+      <g class="nodes">
+        {
+          graph.nodes.map((n, i) => (
+            <g class:list={['node', { 'is-selected': n.id === start }]} data-i={i} data-id={n.id} transform={`translate(${n.x} ${n.y})`} tabindex="0" role="button" aria-label={`${n.id}, ${degree(i)} links`}>
+              <circle r={6 + degree(i) * 1.8} />
+              <text y={20 + degree(i) * 1.8}>{n.id}</text>
+            </g>
+          ))
+        }
+      </g>
+    </svg>
+
+    <aside class="card" aria-live="polite">
+      <p class="card-label">Note</p>
+      <p class="card-title" data-card-title>{start}</p>
+      <p class="card-label">Backlinks</p>
+      <ul data-card-back role="list">{backlinks(start).map((b) => <li>{b}</li>)}</ul>
+      <p class="card-label">Links to</p>
+      <ul data-card-out role="list">{outgoing(start).map((b) => <li>{b}</li>)}</ul>
+    </aside>
+  </div>
+</section>
+
+<script>
+  import { buildGraph, tick, type Graph } from '../lib/graph'
+  import { prefersReducedMotion } from '../scripts/progress'
+
+  const root = document.querySelector<HTMLElement>('[data-graph]')
+  const svg = root?.querySelector('svg')
+  if (root && svg) {
+    const links = JSON.parse(root.dataset.links ?? '[]') as [string, string][]
+    const W = Number(root.dataset.w)
+    const H = Number(root.dataset.h)
+    const g: Graph = buildGraph(links, W, H)
+    const nodeEls = [...svg.querySelectorAll<SVGGElement>('.node')]
+    const edgeEls = [...svg.querySelectorAll<SVGLineElement>('.edges line')]
+    const title = root.querySelector('[data-card-title]')
+    const back = root.querySelector('[data-card-back]')
+    const out = root.querySelector('[data-card-out]')
+
+    const draw = () => {
+      g.nodes.forEach((n, i) => nodeEls[i]?.setAttribute('transform', `translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})`))
+      edgeEls.forEach((el) => {
+        const a = g.nodes[Number(el.dataset.a)]!
+        const b = g.nodes[Number(el.dataset.b)]!
+        el.setAttribute('x1', a.x.toFixed(1))
+        el.setAttribute('y1', a.y.toFixed(1))
+        el.setAttribute('x2', b.x.toFixed(1))
+        el.setAttribute('y2', b.y.toFixed(1))
+      })
+    }
+
+    // "heat" decays to zero; interactions warm the layout up again
+    let heat = 0
+    let frame = 0
+    const loop = () => {
+      tick(g, W, H, Math.min(1, heat))
+      draw()
+      heat *= 0.985
+      frame = heat > 0.02 ? requestAnimationFrame(loop) : 0
+    }
+    const warm = (h = 1) => {
+      heat = Math.max(heat, h)
+      if (!frame) frame = requestAnimationFrame(loop)
+    }
+
+    // entrance: the nodes fly from a circle into place when the section scrolls in
+    if (prefersReducedMotion()) {
+      for (let i = 0; i < 400; i++) tick(g, W, H)
+      draw()
+    } else {
+      draw()
+      new IntersectionObserver((entries, io) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          warm(1)
+          io.disconnect()
+        }
+      }, { threshold: 0.3 }).observe(root)
+    }
+
+    const neighbours = (i: number) => new Set(g.edges.flatMap(([a, b]) => (a === i ? [b] : b === i ? [a] : [])))
+    const highlight = (i: number | null) => {
+      svg.classList.toggle('is-focusing', i !== null)
+      const near = i === null ? new Set<number>() : neighbours(i)
+      nodeEls.forEach((el, j) => el.classList.toggle('is-near', j === i || near.has(j)))
+      edgeEls.forEach((el) => el.classList.toggle('is-near', i !== null && (Number(el.dataset.a) === i || Number(el.dataset.b) === i)))
+    }
+    const list = (ul: Element | null, items: string[]) =>
+      ul?.replaceChildren(...(items.length ? items : ['None']).map((t) => Object.assign(document.createElement('li'), { textContent: t })))
+    const select = (i: number) => {
+      const id = g.nodes[i]!.id
+      nodeEls.forEach((el, j) => el.classList.toggle('is-selected', j === i))
+      if (title) title.textContent = id
+      list(back, links.filter(([, to]) => to === id).map(([from]) => from))
+      list(out, links.filter(([from]) => from === id).map(([, to]) => to))
+    }
+
+    const toSvg = (e: PointerEvent) => {
+      const m = svg.getScreenCTM()?.inverse()
+      const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m)
+      return { x: p.x, y: p.y }
+    }
+
+    nodeEls.forEach((el, i) => {
+      el.addEventListener('pointerenter', () => highlight(i))
+      el.addEventListener('pointerleave', () => highlight(null))
+      el.addEventListener('focus', () => highlight(i))
+      el.addEventListener('blur', () => highlight(null))
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          select(i)
+        }
+      })
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault()
+        const n = g.nodes[i]!
+        let moved = false
+        el.setPointerCapture(e.pointerId)
+        n.fixed = true
+        svg.classList.add('is-dragging')
+        const move = (ev: PointerEvent) => {
+          const p = toSvg(ev)
+          moved = moved || Math.hypot(p.x - n.x, p.y - n.y) > 3
+          n.x = p.x
+          n.y = p.y
+          warm(0.6)
+        }
+        const up = () => {
+          n.fixed = false
+          svg.classList.remove('is-dragging')
+          el.removeEventListener('pointermove', move)
+          el.removeEventListener('pointerup', up)
+          if (!moved) select(i)
+          warm(0.5)
+        }
+        el.addEventListener('pointermove', move)
+        el.addEventListener('pointerup', up)
+      })
+    })
+  }
+</script>
+
+<style>
+  .graph-section {
+    padding-block: var(--gap-section);
+  }
+  .intro {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: 32px 64px;
+    align-items: end;
+    margin-bottom: 64px;
+  }
+  h2 {
+    font-size: var(--t-head);
+  }
+  .intro p {
+    max-width: 42ch;
+    font-size: 20px;
+  }
+  .playground {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    background: var(--graphite);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: none;
+    user-select: none;
+  }
+  .edges line {
+    stroke: #2b3036;
+    stroke-width: 1.5;
+    transition: stroke 200ms var(--ease), opacity 200ms var(--ease);
+  }
+  .node {
+    cursor: grab;
+    outline: none;
+  }
+  .is-dragging .node {
+    cursor: grabbing;
+  }
+  .node circle {
+    fill: #8b939d;
+    transition: fill 200ms var(--ease), r 200ms var(--ease);
+  }
+  .node text {
+    fill: var(--ink-2);
+    font: 500 13px var(--font-ui);
+    text-anchor: middle;
+    pointer-events: none;
+    transition: fill 200ms var(--ease), opacity 200ms var(--ease);
+  }
+  .node:hover circle,
+  .node:focus-visible circle {
+    fill: var(--ink);
+  }
+  .node:focus-visible text {
+    fill: var(--ink);
+    text-decoration: underline;
+  }
+  .node.is-selected circle {
+    fill: var(--signal);
+  }
+  .node.is-selected text {
+    fill: var(--ink);
+  }
+  .is-focusing .node:not(.is-near) {
+    opacity: 0.25;
+  }
+  .is-focusing .edges line:not(.is-near) {
+    opacity: 0.2;
+  }
+  .edges line.is-near {
+    stroke: var(--signal);
+  }
+  .node {
+    transition: opacity 200ms var(--ease);
+  }
+  .card {
+    padding: 28px;
+    background: var(--graphite-raise);
+    font: 400 15px / 1.4 var(--font-ui);
+  }
+  .card-label {
+    margin-top: 20px;
+    color: var(--ink-2);
+    font-size: 13px;
+  }
+  .card-label:first-child {
+    margin-top: 0;
+  }
+  .card-title {
+    margin-top: 6px;
+    font: 600 26px / 1.15 var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  .card ul {
+    display: grid;
+    gap: 6px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .card li {
+    color: var(--signal);
+  }
+  @media (max-width: 900px) {
+    .intro {
+      grid-template-columns: 1fr;
+      margin-bottom: 40px;
+    }
+    .playground {
+      grid-template-columns: 1fr;
+    }
+    .node text {
+      font-size: 18px;
+    }
+  }
+</style>

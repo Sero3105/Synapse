@@ -1,0 +1,87 @@
+---
+title: Installation
+description: System requirements, downloading Synapse, the first launch on macOS, updating and uninstalling.
+---
+
+import { Aside, Steps, Tabs, TabItem, LinkButton } from '@astrojs/starlight/components'
+
+## Requirements
+
+| Requirement | Details |
+|---|---|
+| System | macOS 13 Ventura or later |
+| Processor | Apple silicon (arm64). An Intel build is not published yet. |
+| Disk | about 130 MB for the download |
+
+<LinkButton href="/download/" icon="right-arrow">Go to the Download page</LinkButton>
+
+## Install
+
+<Tabs>
+  <TabItem label="From a release" icon="download">
+    <Steps>
+
+    1. Download the latest `Synapse-<version>-arm64.dmg` from the [Download page](/download/) or [GitHub Releases](https://github.com/Sero3105/Synapse/releases).
+
+    2. Open the DMG and drag **Synapse** onto **Applications**.
+
+    3. Open Synapse from Applications. The first time, macOS warns that it cannot verify the app.
+
+    4. Open **System Settings → Privacy & Security**, scroll to the message about Synapse and click **Open Anyway**.
+
+    </Steps>
+
+    <Aside type="note" title="Why the warning?">
+    Builds are ad-hoc signed and not notarized by Apple yet, so macOS cannot verify the developer. You only confirm once per installed version.
+    </Aside>
+  </TabItem>
+  <TabItem label="From source" icon="seti:git">
+    Building needs Node.js 22 or newer.
+
+    <Steps>
+
+    1. Clone and install:
+
+       ```sh
+       git clone https://github.com/Sero3105/Synapse.git
+       cd Synapse
+       npm install
+       ```
+
+    2. Build the app bundle:
+
+       ```sh
+       npm run package       # builds release/mac-arm64/Synapse.app
+       ```
+
+    3. Install it into Applications:
+
+       ```sh
+       npm run install:app   # copies it to /Applications/Synapse.app
+       ```
+
+    </Steps>
+
+    <Aside type="tip">
+    `install:app` only replaces an existing Synapse build (bundle id `com.synapse.notes`), refuses while the app is running, and never touches your notes or preferences. To update, pull and run the last two steps again.
+    </Aside>
+  </TabItem>
+</Tabs>
+
+## Update
+
+From version 1.3.0, Synapse checks GitHub Releases at launch and shows **Synapse x.y.z is available** when a newer version is out. Click **Download**, open the new DMG and drag Synapse onto Applications to replace the old one. Your notes and preferences are stored elsewhere and are not touched.
+
+The check sends no personal data and can be turned off in **Settings → General → Check for updates**. Earlier versions do not check: compare with the [Download page](/download/).
+
+## Uninstall
+
+Delete `/Applications/Synapse.app`. To also remove preferences, delete `~/Library/Application Support/Synapse`.
+
+<Aside type="caution">
+Your vaults are ordinary folders and are never stored inside the app or its preferences folder, so uninstalling does not delete notes.
+</Aside>
+
+## Build from source
+
+See the **From source** tab above.

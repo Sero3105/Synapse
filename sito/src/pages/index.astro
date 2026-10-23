@@ -1,0 +1,25 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro'
+import Hero from '../components/Hero.astro'
+import FeatureExplorer from '../components/FeatureExplorer.astro'
+import LivePreviewStory from '../components/LivePreviewStory.astro'
+import GraphPlayground from '../components/GraphPlayground.astro'
+import LinkFinder from '../components/LinkFinder.astro'
+import Screens from '../components/Screens.astro'
+import GetStarted from '../components/GetStarted.astro'
+import Faq from '../components/Faq.astro'
+import DownloadCta from '../components/DownloadCta.astro'
+import { product } from '../config/site'
+---
+
+<SiteLayout title={product.name} description={product.description}>
+  <Hero />
+  <LivePreviewStory />
+  <FeatureExplorer />
+  <GraphPlayground />
+  <LinkFinder />
+  <Screens />
+  <GetStarted />
+  <Faq />
+  <DownloadCta />
+</SiteLayout>

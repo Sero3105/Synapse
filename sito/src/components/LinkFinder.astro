@@ -1,0 +1,187 @@
+---
+import { matchNotes } from '../lib/fuzzy'
+import { sampleQueries, sampleVault } from '../data/sample-vault'
+
+const initial = sampleQueries[0]
+const results = matchNotes(sampleVault, initial)
+---
+
+<section class="finder wrap" data-chapter="paper" aria-labelledby="finder-title">
+  <h2 id="finder-title" class="visually-hidden">Link autocomplete</h2>
+  <div class="stage" data-reveal>
+    <label class="visually-hidden" for="finder-input">Type a link, the way you would after [[ in a note</label>
+    <input id="finder-input" class="line" type="text" value={initial} spellcheck="false" autocomplete="off" data-ui />
+    <div class="answer" data-ui>
+      <p class="answer-label">Link suggestions</p>
+      <ul class="results" role="list" aria-live="polite">
+        {
+          results.map((r, i) => (
+            <li class:list={['row', { 'is-selected': i === 0 }]}>
+              <span class="row-title">{r.title}</span>
+              {r.folder && <span class="row-folder">{r.folder}</span>}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+    <p class="caption">
+      Type <kbd>[[</kbd> in a note and Synapse suggests notes from the vault, ranked as you type. This is the same matching, on the Research vault from the screenshots.
+    </p>
+    <div class="examples" role="group" aria-label="Try another">
+      {sampleQueries.map((q) => <button type="button" class="example" data-query={q}>{q}</button>)}
+    </div>
+  </div>
+</section>
+
+<script>
+  import { matchNotes } from '../lib/fuzzy'
+  import { sampleVault } from '../data/sample-vault'
+
+  const input = document.querySelector<HTMLInputElement>('#finder-input')
+  const list = document.querySelector<HTMLUListElement>('.finder .results')
+
+  function render() {
+    if (!input || !list) return
+    const matches = matchNotes(sampleVault, input.value)
+    list.replaceChildren(
+      ...(matches.length
+        ? matches.map((m, i) => {
+            const li = document.createElement('li')
+            li.className = i === 0 ? 'row is-selected' : 'row'
+            const title = document.createElement('span')
+            title.className = 'row-title'
+            title.textContent = m.title
+            li.append(title)
+            if (m.folder) {
+              const folder = document.createElement('span')
+              folder.className = 'row-folder'
+              folder.textContent = m.folder
+              li.append(folder)
+            }
+            return li
+          })
+        : [Object.assign(document.createElement('li'), { className: 'row row--empty', textContent: 'No note matches yet. Following this link would create it.' })]),
+    )
+  }
+
+  input?.addEventListener('input', render)
+  for (const b of document.querySelectorAll<HTMLButtonElement>('.finder .example')) {
+    b.addEventListener('click', () => {
+      if (!input) return
+      input.value = b.dataset.query ?? ''
+      input.focus()
+      render()
+    })
+  }
+</script>
+
+<style>
+  .finder {
+    padding-block: var(--gap-section);
+  }
+  .stage {
+    display: grid;
+    grid-template-columns: minmax(0, 560px) 1fr;
+    grid-template-areas:
+      'line line'
+      'answer caption'
+      'examples examples';
+    gap: 48px 64px;
+    align-items: start;
+  }
+  .line {
+    grid-area: line;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--fg);
+    caret-color: var(--signal-dark);
+    font: 600 var(--t-display) / 1.05 var(--font-display);
+    letter-spacing: -0.04em;
+  }
+  .line:focus-visible {
+    outline: none;
+    text-decoration: underline;
+    text-decoration-thickness: 4px;
+    text-decoration-color: var(--signal);
+    text-underline-offset: 0.12em;
+  }
+  .answer {
+    grid-area: answer;
+    padding: 6px;
+    border-radius: 10px;
+    background: var(--graphite-raise);
+    color: var(--ink);
+    font: 400 15px / 1.3 var(--font-ui);
+  }
+  .answer-label {
+    padding: 8px 10px 6px;
+    color: var(--ink-2);
+    font-size: 13px;
+  }
+  .results {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .results :global(.row) {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px;
+    border-radius: 6px;
+  }
+  .results :global(.is-selected) {
+    background: var(--graphite-raise-2);
+  }
+  .results :global(.row-folder) {
+    color: var(--ink-2);
+  }
+  .results :global(.row--empty) {
+    color: var(--ink-2);
+  }
+  .caption {
+    grid-area: caption;
+    max-width: 44ch;
+    font-size: var(--t-body);
+  }
+  kbd {
+    font-family: var(--font-code);
+    font-size: 0.9em;
+    padding: 1px 6px;
+    background: var(--paper-sunk);
+  }
+  .examples {
+    grid-area: examples;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .example {
+    min-height: 44px;
+    padding: 0 18px;
+    border: 0;
+    background: var(--paper-sunk);
+    color: var(--fg);
+    font: 500 var(--t-body) / 1 var(--font-ui);
+    cursor: pointer;
+    transition: background-color 160ms var(--ease), transform 160ms var(--ease);
+  }
+  .example:hover {
+    background: #e2e5e9;
+  }
+  .example:active {
+    transform: translateY(1px);
+  }
+  @media (max-width: 820px) {
+    .stage {
+      grid-template-columns: 1fr;
+      grid-template-areas: 'line' 'answer' 'caption' 'examples';
+      gap: 28px;
+    }
+    .line {
+      font-size: 13vw;
+    }
+  }
+</style>

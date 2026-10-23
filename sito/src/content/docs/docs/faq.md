@@ -1,0 +1,47 @@
+---
+title: FAQ
+description: Common questions about price, Obsidian vaults, storage, privacy and platforms.
+---
+
+## Is Synapse free?
+
+Yes. It is open source under the MIT licence and the builds on GitHub Releases are free. There is no account and no subscription.
+
+## Can I open my Obsidian vault?
+
+Yes, a vault is any folder of Markdown files. Synapse reads wiki links, embeds, tags and front matter, writes only its own `.synapse/` folder and never modifies `.obsidian/`. Obsidian settings and community plugins are not used.
+
+## Why do my preferences not change when I switch vaults?
+
+That is the point: preferences are global. Override one for a single vault with the scope menu next to it. See [Settings](/docs/configuration/settings/).
+
+## Where are my notes stored?
+
+In the vault folder you chose, as `.md` files. Synapse has no database of its own content and no cloud copy.
+
+## Does Synapse sync between devices?
+
+Not by itself. Because notes are plain files, you can keep the vault in any folder that your own sync service manages. If a file changes on disk while you edit it, Synapse shows a conflict banner instead of overwriting.
+
+## Does Synapse go online?
+
+Only to check for updates at launch (one request to GitHub Releases, which you can turn off in Settings → General) and when a note asks it to: to load a remote image embedded with an `https://` link, or when you click a web link, which opens in your browser. There is no telemetry.
+
+## Which Macs are supported?
+
+The published release needs macOS 13 Ventura or later on Apple silicon.
+
+## Is there Windows, Linux or mobile?
+
+No. Synapse is built and tested for macOS only.
+
+## Does it update automatically?
+
+It tells you, but does not install by itself. From version 1.3.0, Synapse checks GitHub Releases at launch and shows a notice with a **Download** button when a newer version is published; you replace the app in Applications. Automatic installation would need an Apple Developer ID signature. See [Installation → Update](/docs/installation/#update).
+
+## What is not supported yet?
+
+- Raw HTML in notes is shown as text, for security.
+- Split panes run in one direction, with up to four panes.
+- Obsidian community plugins are not supported.
+- Builds are not notarized. From version 1.3.0 Synapse tells you when a new version is out, but you install it by hand.

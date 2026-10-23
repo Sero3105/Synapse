@@ -1,0 +1,47 @@
+---
+import { latestRelease, links } from '../config/site'
+
+const asset = latestRelease?.assets[0]
+---
+
+<section class="cta wrap" data-chapter="graphite" aria-labelledby="cta-title">
+  <div data-reveal>
+    <h2 id="cta-title">
+      <span>Your notes stay</span>
+      <span>yours. <a class="button inline" href={links.download}>Download</a></span>
+    </h2>
+    <p class="meta">
+      {
+        latestRelease && asset
+          ? `Synapse ${latestRelease.version} · ${asset.system} · ${asset.arch} · free and open source`
+          : 'Downloads are not published yet. Follow the repository for the first release.'
+      }
+    </p>
+  </div>
+</section>
+
+<style>
+  .cta {
+    padding-block: var(--gap-section);
+  }
+  h2 {
+    font-size: var(--t-head);
+  }
+  h2 span {
+    display: block;
+  }
+  .inline {
+    min-height: 0;
+    height: 0.95em;
+    padding: 0 0.3em;
+    vertical-align: -0.08em;
+    font: inherit;
+    font-size: 0.82em;
+    letter-spacing: -0.03em;
+  }
+  .meta {
+    margin-top: 32px;
+    color: var(--fg-2);
+    font-size: var(--t-small);
+  }
+</style>

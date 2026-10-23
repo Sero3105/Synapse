@@ -1,0 +1,31 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro'
+import { links } from '../config/site'
+---
+
+<SiteLayout title="Page not found" description="This page does not exist.">
+  <section class="wrap" data-chapter="graphite">
+    <h1><span>[[Page not</span><span>found]]</span></h1>
+    <p>This link points to a note that does not exist. Go <a class="text-link" href="/">home</a> or to the <a class="text-link" href={links.docs}>documentation</a>.</p>
+  </section>
+</SiteLayout>
+
+<style>
+  section {
+    min-height: 70svh;
+    display: grid;
+    align-content: center;
+    gap: 32px;
+    padding-block: 96px;
+  }
+  h1 {
+    font-size: var(--t-head);
+  }
+  h1 span {
+    display: block;
+  }
+  p {
+    max-width: 48ch;
+    font-size: 20px;
+  }
+</style>

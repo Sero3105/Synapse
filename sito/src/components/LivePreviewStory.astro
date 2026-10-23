@@ -1,0 +1,324 @@
+---
+// A scroll story of the editor's Live Preview, built from the note shown in the app's screenshots.
+// Each line carries its Markdown marks (.mk); "rendered" lines hide them and take their style.
+const steps = [
+  'You write plain Markdown.',
+  'Synapse renders it as you go.',
+  'The line you edit shows its syntax again.',
+  'On disk, it is still plain Markdown.',
+]
+---
+
+<section class="story" data-chapter="sunk" aria-labelledby="story-title" data-story>
+  <div class="sticky wrap">
+    <div class="text">
+      <h2 id="story-title">Markdown in.<br />Prose out.</h2>
+      <ol class="steps" role="list">
+        {steps.map((s, i) => <li data-step={i} class:list={{ 'is-active': i === 0 }}>{s}</li>)}
+      </ol>
+      <div class="meter" aria-hidden="true"><span></span></div>
+    </div>
+
+    <div class="stage" data-ui aria-hidden="true">
+      <div class="editor" data-stage="0">
+        <div class="bar"><span class="tab">Spaced repetition</span></div>
+        <div class="page">
+          <p class="ln h1" data-line="0"><span class="mk">#&nbsp;</span>Spaced repetition</p>
+          <p class="ln" data-line="1">
+            Reviewing material at <span class="mk">**</span><b>increasing intervals</b><span class="mk">**</span> moves it into long-term memory.
+          </p>
+          <p class="ln" data-line="2">It pairs naturally with <span class="mk">[[</span><a>Active recall</a><span class="mk">]]</span>.</p>
+          <p class="ln quote" data-line="3"><span class="mk">&gt;&nbsp;</span><i>Forgetting is the signal that tells you when to review.</i></p>
+          <p class="ln task done" data-line="4"><span class="mk">- [x]&nbsp;</span><span class="box"></span><s>Turn lecture notes into questions</s></p>
+          <p class="ln task" data-line="5"><span class="mk">- [ ]&nbsp;</span><span class="box"></span>Track lapses in <span class="mk">[[</span><a>Study system</a><span class="mk">]]</span></p>
+          <span class="caret"></span>
+        </div>
+        <div class="status"><span>Editing</span><span class="saved">Saved</span></div>
+      </div>
+      <pre class="disk"><span class="file">Spaced repetition.md</span>{`# Spaced repetition
+Reviewing material at **increasing intervals** moves it into long-term memory.
+It pairs naturally with [[Active recall]].
+> Forgetting is the signal that tells you when to review.
+- [x] Turn lecture notes into questions
+- [ ] Track lapses in [[Study system]]`}</pre>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { onScrollProgress } from '../scripts/progress'
+
+  const section = document.querySelector<HTMLElement>('[data-story]')
+  const lines = [...(section?.querySelectorAll<HTMLElement>('.ln') ?? [])]
+  const steps = [...(section?.querySelectorAll<HTMLElement>('.steps li') ?? [])]
+  const editor = section?.querySelector<HTMLElement>('.editor')
+  const meter = section?.querySelector<HTMLElement>('.meter span')
+
+  if (section && editor) {
+    section.classList.add('is-live')
+    onScrollProgress(section, (p) => {
+      // 0–.18 source · .18–.6 lines render one by one · .6–.82 cursor on line 2 · .82–1 the file
+      const step = p < 0.18 ? 0 : p < 0.6 ? 1 : p < 0.82 ? 2 : 3
+      const rendered = step === 0 ? 0 : step === 1 ? Math.ceil(((p - 0.18) / 0.42) * lines.length) : lines.length
+      lines.forEach((l, i) => {
+        l.classList.toggle('is-rendered', i < rendered && !(step === 2 && i === 1))
+        l.classList.toggle('is-cursor', step === 2 && i === 1)
+      })
+      steps.forEach((s, i) => s.classList.toggle('is-active', i === step))
+      editor.dataset.stage = String(step)
+      section.dataset.stage = String(step)
+      if (meter) meter.style.transform = `scaleX(${p})`
+    })
+  }
+</script>
+
+<style>
+  .story {
+    position: relative;
+  }
+  :global(.js) .story {
+    height: 320vh;
+  }
+  .sticky {
+    display: grid;
+    grid-template-columns: minmax(0, 6fr) minmax(0, 7fr);
+    gap: 64px;
+    align-items: center;
+    min-height: 100vh;
+    padding-block: 96px;
+  }
+  :global(.js) .sticky {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding-block: 64px;
+  }
+  h2 {
+    font-size: var(--t-head);
+    margin-bottom: 48px;
+  }
+  .steps {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font: 600 var(--t-statement) / 1.2 var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  .steps li {
+    color: var(--ink-2);
+  }
+  .is-live .steps li {
+    grid-area: 1 / 1;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(16px);
+    transition: opacity 400ms var(--ease), transform 400ms var(--ease), visibility 0s 400ms;
+  }
+  .is-live .steps li.is-active {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition-delay: 0s;
+    color: var(--ink);
+  }
+  .meter {
+    display: none;
+    width: 160px;
+    height: 4px;
+    margin-top: 40px;
+    background: var(--graphite-raise-2);
+  }
+  .is-live .meter {
+    display: block;
+  }
+  .meter span {
+    display: block;
+    height: 100%;
+    background: var(--signal);
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+
+  /* the editor fragment */
+  .stage {
+    position: relative;
+  }
+  .editor {
+    background: var(--graphite);
+    color: var(--ink);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 600ms var(--ease), opacity 600ms var(--ease);
+  }
+  .bar {
+    display: flex;
+    padding: 10px 16px 0;
+    background: var(--graphite-sunk);
+  }
+  .tab {
+    padding: 8px 14px;
+    border-radius: 6px 6px 0 0;
+    background: var(--graphite);
+    font: 500 13px / 1 var(--font-ui);
+  }
+  .page {
+    position: relative;
+    padding: clamp(24px, 4vw, 56px) clamp(24px, 5vw, 72px);
+    font: 400 clamp(15px, 1.25vw, 19px) / 1.7 var(--font-display);
+  }
+  .status {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 16px;
+    color: var(--ink-2);
+    font: 400 13px / 1 var(--font-ui);
+  }
+  .saved {
+    color: var(--signal);
+  }
+  .ln {
+    margin: 0 0 0.7em;
+    transition: font-size 500ms var(--ease), color 400ms var(--ease);
+  }
+  .mk {
+    display: inline-block;
+    max-width: 4em;
+    overflow: hidden;
+    vertical-align: bottom;
+    white-space: pre;
+    color: var(--ink-2);
+    font-family: var(--font-code);
+    font-size: 0.85em;
+    transition: max-width 450ms var(--ease), opacity 300ms var(--ease);
+  }
+  .ln b,
+  .ln a,
+  .ln i,
+  .ln s {
+    font-weight: inherit;
+    font-style: inherit;
+    text-decoration: none;
+    color: inherit;
+    transition: color 400ms var(--ease);
+  }
+  .box {
+    display: inline-block;
+    width: 0;
+    height: 0.9em;
+    margin-right: 0;
+    vertical-align: -0.12em;
+    border-radius: 3px;
+    background: var(--graphite-raise-2);
+    transition: width 400ms var(--ease), margin 400ms var(--ease);
+  }
+  /* rendered */
+  .is-rendered .mk {
+    max-width: 0;
+    opacity: 0;
+  }
+  .h1.is-rendered {
+    font-size: 1.9em;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+  .is-rendered b {
+    font-weight: 700;
+  }
+  .is-rendered a {
+    color: var(--signal);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .quote.is-rendered {
+    padding-left: 14px;
+    box-shadow: inset 3px 0 0 var(--graphite-raise-2); /* taste-skill-ignore: the app's quote bar, inside the interface fragment */
+  }
+  .is-rendered i {
+    font-style: italic;
+    color: var(--ink-2);
+  }
+  .is-rendered .box {
+    width: 0.9em;
+    margin-right: 0.5em;
+  }
+  .done.is-rendered .box {
+    background: var(--signal);
+  }
+  .done.is-rendered s {
+    text-decoration: line-through;
+    color: var(--ink-2);
+  }
+  .ln.is-cursor {
+    background: var(--graphite-raise);
+    margin-inline: -12px;
+    padding-inline: 12px;
+    border-radius: 4px;
+  }
+  .caret {
+    display: none;
+  }
+  /* the file on disk slides over at the end */
+  .disk {
+    position: absolute;
+    right: -16px;
+    bottom: -32px;
+    width: min(92%, 560px);
+    margin: 0;
+    padding: 20px 22px;
+    background: var(--paper);
+    color: var(--ink-dark);
+    border-radius: 10px;
+    font: 400 13px / 1.6 var(--font-code);
+    white-space: pre-wrap;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5); /* taste-skill-ignore: floats above the editor */
+    opacity: 0;
+    transform: translateY(40px) rotate(2deg);
+    transition: opacity 500ms var(--ease), transform 600ms var(--ease);
+    pointer-events: none;
+  }
+  .file {
+    display: block;
+    margin-bottom: 10px;
+    font: 600 14px / 1 var(--font-ui);
+    color: var(--ink-dark-2);
+  }
+  [data-stage='3'] .disk {
+    opacity: 1;
+    transform: rotate(-1.5deg);
+  }
+  [data-stage='3'] .editor {
+    transform: scale(0.96) translateX(-12px);
+    opacity: 0.55;
+  }
+  :global(html:not(.js)) .ln .mk {
+    max-width: 0;
+    opacity: 0;
+  }
+  @media (max-width: 900px) {
+    :global(.js) .story {
+      height: 300vh;
+    }
+    .sticky {
+      grid-template-columns: 1fr;
+      gap: 28px;
+      align-content: center;
+    }
+    h2 {
+      margin-bottom: 20px;
+      font-size: 11vw;
+    }
+    .steps {
+      font-size: 22px;
+    }
+    .meter {
+      margin-top: 16px;
+    }
+    .disk {
+      right: 0;
+      bottom: -20px;
+      font-size: 12px;
+    }
+  }
+</style>

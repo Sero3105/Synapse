@@ -1,0 +1,94 @@
+---
+// Starlight's footer (edit link, pagination) followed by a closing band that links back to the site.
+import Default from '@astrojs/starlight/components/Footer.astro'
+import Logo from '../Logo.astro'
+import { latestRelease, links, product } from '../../config/site'
+---
+
+<Default />
+
+<div class="docs-close">
+  <div class="help">
+    <p class="help-title">Still stuck?</p>
+    <p>
+      Check <a href={`${links.docs}troubleshooting/`}>Troubleshooting</a> or <a href={links.issues}>open an issue on GitHub</a> with your Synapse and macOS versions.
+    </p>
+  </div>
+
+  <div class="band">
+    <a class="brand" href="/" aria-label={`${product.name} home`}>
+      <Logo size={28} />
+      <span>{product.name}</span>
+    </a>
+    <nav aria-label="Site">
+      <a href="/">Home</a>
+      <a href={links.download}>Download{latestRelease ? ` ${latestRelease.version}` : ''}</a>
+      <a href={links.releases}>Releases</a>
+      <a href={links.repo}>GitHub</a>
+    </nav>
+    <p class="legal">{product.license} licence · Made for macOS</p>
+  </div>
+</div>
+
+<style>
+  .docs-close {
+    margin-top: 4rem;
+    padding-bottom: 4rem;
+  }
+  .help {
+    padding: 1.5rem 1.75rem;
+    border-radius: 10px;
+    background: var(--sl-color-gray-6);
+  }
+  .help-title {
+    margin: 0 0 0.35rem;
+    font: 600 1.25rem/1.2 var(--font-display);
+    color: var(--sl-color-white);
+  }
+  .help p {
+    margin: 0;
+  }
+  .help a {
+    color: var(--sl-color-text-accent);
+  }
+  .band {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 2rem;
+    margin-top: 3rem;
+    padding-top: 2rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--sl-color-white);
+    font: 600 1.25rem/1 var(--font-display);
+    text-decoration: none;
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+  }
+  nav a {
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+  nav a:hover {
+    color: var(--sl-color-text-accent);
+  }
+  .legal {
+    margin: 0 0 0 auto;
+  }
+  @media (max-width: 50rem) {
+    .legal {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+</style>

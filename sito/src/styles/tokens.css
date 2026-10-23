@@ -1,0 +1,29 @@
+/* Brand tokens, taken from the app's "Signal on graphite" design system (src/renderer/styles.css
+   in the repository). The site and the docs both read these. */
+:root {
+  --graphite: #131518;
+  --graphite-sunk: #0e1012;
+  --graphite-raise: #1a1d21;
+  --graphite-raise-2: #22262b;
+  --ink: #e4e7eb;
+  --ink-2: #a3aab3;
+  --signal: #4cc9b0;
+  --on-signal: #05211b;
+  --paper: #ffffff;
+  --paper-sunk: #f2f3f5;
+  --ink-dark: #15181c;
+  --ink-dark-2: #545b64;
+  --signal-dark: #1f7c6a;
+
+  /* fields used when a chapter changes colour; all from the app's syntax and highlight colours */
+  --field-amber: #e7c35c;
+  --field-blue: #82b1ff;
+  --field-peach: #f2b880;
+  --field-green: #a5d6a7;
+
+  --font-display: ui-serif, 'New York', 'Iowan Old Style', 'Source Serif 4 Variable', Charter, Georgia, serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-code: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; /* taste-skill-ignore: literal code and keys only */
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
