@@ -4,7 +4,7 @@ The public website and documentation for [Synapse](https://github.com/Sero3105/S
 
 ## Requirements
 
-Node.js 22.23.4 or newer (required by Astro 7). The version is pinned in `.node-version`, which Cloudflare Pages and version managers such as nvm, fnm and asdf read automatically.
+Node.js 22.23.4 or newer (required by Astro 7). The version is pinned in `.node-version`, which Cloudflare Pages and fnm read automatically (with nvm, run `nvm install 22.23.4`).
 
 ## Commands
 
