@@ -7,9 +7,9 @@ description: Fixes for the first launch warning, missing vaults, conflicts and r
 
 Builds are ad-hoc signed and not notarized yet. Open **System Settings → Privacy & Security** and click **Open Anyway** next to the message about Synapse. You only need to do this once per installed version.
 
-## “The application can't be opened” or nothing happens on an Intel Mac
+## “The application can't be opened” on an Intel Mac
 
-The published release is built for Apple silicon. An Intel build is not published yet; you can [build from source](/docs/installation/#build-from-source) on an Intel Mac.
+Make sure you downloaded `Synapse-<version>-x64.dmg`, not the `arm64` one. The Intel build exists from 1.3.0 and has not been tested on Intel hardware yet: if it still fails, [open an issue](https://github.com/Sero3105/Synapse/issues) or [build from source](/docs/installation/#build-from-source).
 
 ## A recent vault is marked unavailable
 

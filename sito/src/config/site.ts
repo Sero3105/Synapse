@@ -41,25 +41,35 @@ export interface Release {
 
 /**
  * Latest release published on GitHub. Set to `null` to show the "not available yet" state.
- * Values from https://api.github.com/repos/Sero3105/Synapse/releases (checked 2026-10-23).
+ * Values from https://api.github.com/repos/Sero3105/Synapse/releases (checked 2026-10-23, after publishing v1.3.0).
  */
 export const latestRelease: Release | null = {
-  version: '1.1.0',
-  publishedAt: '2026-10-15',
-  notesUrl: `${repo}/releases/tag/v1.1.0`,
+  version: '1.3.0',
+  publishedAt: '2026-10-23',
+  notesUrl: `${repo}/releases/tag/v1.3.0`,
   assets: [
     {
-      fileName: 'Synapse-1.1.0-arm64.dmg',
-      url: `${repo}/releases/download/v1.1.0/Synapse-1.1.0-arm64.dmg`,
-      sizeBytes: 130_475_535,
+      fileName: 'Synapse-1.3.0-arm64.dmg',
+      url: `${repo}/releases/download/v1.3.0/Synapse-1.3.0-arm64.dmg`,
+      sizeBytes: 131_986_674,
       system: 'macOS 13 Ventura or later',
       arch: 'Apple silicon (arm64)',
+    },
+    {
+      fileName: 'Synapse-1.3.0-x64.dmg',
+      url: `${repo}/releases/download/v1.3.0/Synapse-1.3.0-x64.dmg`,
+      sizeBytes: 138_633_354,
+      system: 'macOS 13 Ventura or later',
+      arch: 'Intel (x64), not yet tested on Intel hardware',
     },
   ],
 }
 
 /** Earlier published releases, newest first. */
-export const previousReleases: readonly { version: string; publishedAt: string }[] = [{ version: '1.0.0', publishedAt: '2026-10-15' }]
+export const previousReleases: readonly { version: string; publishedAt: string }[] = [
+  { version: '1.1.0', publishedAt: '2026-10-15' },
+  { version: '1.0.0', publishedAt: '2026-10-15' },
+]
 
 export const nav = [
   { label: 'Features', href: '/#features' },

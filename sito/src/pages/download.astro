@@ -6,6 +6,7 @@ import { Image } from 'astro:assets'
 import welcome from '../assets/screenshots/welcome.png'
 
 const asset = latestRelease?.assets[0]
+const others = latestRelease?.assets.slice(1) ?? []
 ---
 
 <SiteLayout title="Download" description={`Download ${product.name} for macOS: version, requirements and installation steps.`}>
@@ -20,8 +21,13 @@ const asset = latestRelease?.assets[0]
             </p>
             <div class="actions">
               <a class="button button--ink big" href={asset.url}>
-                Download for Mac · {formatBytes(asset.sizeBytes)}
+                Download for Apple silicon · {formatBytes(asset.sizeBytes)}
               </a>
+              {others.map((a) => (
+                <a class="text-link" href={a.url}>
+                  {a.arch.split(',')[0]} · {formatBytes(a.sizeBytes)}
+                </a>
+              ))}
               <a class="text-link" href={latestRelease.notesUrl}>Release notes</a>
             </div>
           </>
@@ -47,7 +53,7 @@ const asset = latestRelease?.assets[0]
           <div><dt>File</dt><dd>{asset.fileName}</dd></div>
           <div><dt>Size</dt><dd>{formatBytes(asset.sizeBytes)}</dd></div>
         </dl>
-        <p class="note">An Intel (x64) build is not published yet. Builds are ad-hoc signed and not notarized. From version 1.3.0 Synapse tells you when a new version is out; installing it is still a quick manual swap.</p>
+        <p class="note">Also available: {others.map((a) => `${a.fileName} for ${a.arch}`).join(', ')}. Builds are ad-hoc signed and not notarized. Synapse tells you when a new version is out; installing it is a quick manual swap.</p>
       </section>
     )
   }

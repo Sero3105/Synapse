@@ -21,7 +21,7 @@ Links resolve case-insensitively. When two notes share a name, the shortest path
 ## Following links
 
 - <kbd>⌘-click</kbd> a link in the editor to open it. Add <kbd>⌥</kbd> to open it in a new tab.
-- From version 1.2.0, a plain click on a link rendered by Live Preview opens it too.
+- From version 1.3.0, a plain click on a link rendered by Live Preview opens it too.
 - In the reading view, click any link.
 
 Following a link to a note that does not exist creates it.

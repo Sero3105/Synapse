@@ -27,7 +27,7 @@ export const faqs: readonly Faq[] = [
   {
     question: 'Does it run on Intel Macs?',
     answer:
-      'The published release is built for Apple silicon and needs macOS 13 Ventura or later. An Intel build is not available on the Releases page yet.',
+      'Since 1.3.0 there is an Intel (x64) build next to the Apple silicon one, both for macOS 13 Ventura or later. The Intel build has not been tested on Intel hardware yet, so please report any problem.',
   },
   {
     question: 'Does Synapse go online?',

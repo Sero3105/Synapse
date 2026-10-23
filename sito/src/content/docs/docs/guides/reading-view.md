@@ -1,6 +1,6 @@
 ---
 title: Reading view
-description: Rendered notes with links, embeds, tasks, math and, from 1.2.0, highlighted code and Mermaid diagrams.
+description: Rendered notes with links, embeds, tasks, math and, from 1.3.0, highlighted code and Mermaid diagrams.
 sidebar:
   order: 3
 ---
@@ -14,7 +14,7 @@ The reading view renders tables, code, quotes, embeds (`![[note]]`, `![[image.pn
 
 ## Code and diagrams
 
-From version 1.2.0:
+From version 1.3.0:
 
 - Fenced code with a language (for example ` ```js `) is syntax-highlighted.
 - A ` ```mermaid ` block renders as a diagram.
