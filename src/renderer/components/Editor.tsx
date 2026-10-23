@@ -155,14 +155,16 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
           }),
           EditorView.domEventHandlers({
             mousedown: (e, v) => {
-              if (!(e.metaKey || e.ctrlKey)) return false
+              // Cmd/Ctrl-click follows any link; a plain click follows links rendered by Live Preview
+              const rendered = e.button === 0 && !e.shiftKey && (e.target as HTMLElement).closest?.('.cm-lp-link')
+              if (!(e.metaKey || e.ctrlKey || rendered)) return false
               const pos = v.posAtCoords({ x: e.clientX, y: e.clientY })
               if (pos == null) return false
               const link = linkAt(v, pos)
               if (!link) return false
               e.preventDefault()
               if (link.kind === 'url') api.openExternal(link.target).catch((err) => model.error(err))
-              else model.followLink(link.target, path, e.altKey)
+              else model.followLink(link.target, path, e.altKey || (!!rendered && (e.metaKey || e.ctrlKey)))
               return true
             },
             paste: (e, v) => handleFiles(e.clipboardData?.files, v, path, e),
