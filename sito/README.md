@@ -4,7 +4,7 @@ The public website and documentation for [Synapse](https://github.com/Sero3105/S
 
 ## Requirements
 
-Node.js 22.23 or newer (required by Astro 7).
+Node.js 22.23.4 or newer (required by Astro 7). The version is pinned in `.node-version`, which Cloudflare Pages and version managers such as nvm, fnm and asdf read automatically.
 
 ## Commands
 
@@ -67,7 +67,7 @@ Without it, the build leaves those out and Astro prints one warning that the sit
    - Root directory: `sito`
    - Build command: `npm run build`
    - Build output directory: `dist`
-3. Environment variables: `NODE_VERSION` = `22.23.4` (or newer), and `SITE_URL` = your Pages URL (for example `https://synapse.pages.dev`) or custom domain.
+3. Environment variables: `SITE_URL` = your Pages URL (for example `https://synapse.pages.dev`) or custom domain. Node.js comes from `sito/.node-version`; if you also set `NODE_VERSION`, it must be `22.23.4` or newer, because it takes precedence over the file.
 4. Deploy. Every push to `main` then rebuilds the site.
 
 Any other static host works the same way: build in `sito/` and serve `dist/`. On GitHub Pages under a sub-path, also set `base` in `astro.config.mjs`.
