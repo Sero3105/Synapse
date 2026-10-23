@@ -55,8 +55,8 @@
 
 | | |
 |---|---|
-| **Editor** | Live Preview: Markdown syntax hides itself except on the line you are editing; tables are edited as tables; LaTeX math (`$inline$`, `$$block$$`) renders with KaTeX. Built on CodeMirror 6, with `[[` link autocomplete, ⌘-click to follow links, find & replace, formatting shortcuts, image paste and drop, autosave |
-| **Reading view** | Rendered Markdown with tables, code, quotes, embeds (`![[note]]`, `![[image.png]]`) and clickable task lists |
+| **Editor** | Live Preview: Markdown syntax hides itself except on the line you are editing; tables are edited as tables; LaTeX math (`$inline$`, `$$block$$`) renders with KaTeX. Built on CodeMirror 6, with `[[` link autocomplete, click a rendered link to open it (⌘-click anywhere in source), find & replace, formatting shortcuts, image paste and drop, autosave |
+| **Reading view** | Rendered Markdown with tables, syntax-highlighted code, Mermaid diagrams, math, quotes, embeds (`![[note]]`, `![[image.png]]`) and clickable task lists |
 | **Knowledge** | Backlinks with context, unlinked mentions, outgoing and unresolved links, outline, tags (inline and front-matter), graph view |
 | **Navigation** | Quick switcher (⌘O), command palette (⌘P), tabs, split panes, per-tab back/forward, recent notes, workspace restored per vault |
 | **Files** | File tree with drag-and-drop moves, rename with automatic link updates, delete to the macOS Trash, reveal in Finder |
@@ -66,11 +66,11 @@
 
 ## Install
 
-1. Download the latest **`Synapse-<version>-arm64.dmg`** from [Releases](https://github.com/Sero3105/Synapse/releases).
+1. Download the latest **`Synapse-<version>-arm64.dmg`** (Apple silicon) or **`Synapse-<version>-x64.dmg`** (Intel) from [Releases](https://github.com/Sero3105/Synapse/releases).
 2. Open it and drag **Synapse** onto **Applications**.
 3. The first time you open Synapse, macOS warns that it cannot verify the app, because builds are not notarized yet. Open **System Settings → Privacy & Security** and click **Open Anyway**. You only need to do this once.
 
-Requirements: macOS 13 Ventura or later, on Apple silicon.
+Requirements: macOS 13 Ventura or later, on Apple silicon or Intel.
 
 ### Build from source
 
@@ -159,7 +159,7 @@ SYNAPSE_APP=/Applications/Synapse.app/Contents/MacOS/Synapse npx playwright test
 
 ## Known limitations
 
-- Raw HTML in notes is not rendered, for security. There is no math, Mermaid or code highlighting in the reading view yet.
+- Raw HTML in notes is not rendered, for security.
 - Split panes run in one direction, with up to four panes.
 - Obsidian community plugins are not supported.
-- Apple Silicon only. The build is not notarized and there is no auto-update.
+- The build is not notarized and there is no auto-update. The Intel build is not yet tested on Intel hardware.

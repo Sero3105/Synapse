@@ -18,7 +18,7 @@ Legend:
 | Switch vault | One window per vault | A | ✅ (in place) | E | No simultaneous vault windows |
 | Window size/position restore | Per vault in reference | A (disk) | ✅ (global) | U | — |
 | Markdown editing (CM6) with Live Preview | CodeMirror, live preview | C | ✅ | U, E | Markup hidden except on the cursor's lines; tables edited as grids (no column add/remove yet); KaTeX math; no folding or vim |
-| Reading view | `markdown:toggle-preview` | C | ✅ | E | Raw HTML not rendered; no math, mermaid or code highlighting |
+| Reading view | `markdown:toggle-preview` | C | ✅ | E | Raw HTML not rendered; math, Mermaid and code highlighting supported |
 | Autosave + external change detection | — | Hypothesis | ✅ | U, E | — |
 | Conflict handling | — | — | ✅ banner, keep/load | E | No 3-way merge |
 | Find in note / replace | `editor:open-search` Mod+F | C | ✅ (CM search panel) | M | — |
