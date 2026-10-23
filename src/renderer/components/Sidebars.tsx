@@ -84,6 +84,8 @@ function VaultSwitcher() {
           ...(others.length ? [{ separator: true, label: '' }] : []),
           { label: t('nav.manageVaults'), run: () => model.set({ modal: { kind: 'vaults' } }) },
           { label: t('nav.revealVault'), run: () => api.reveal('') },
+          { separator: true, label: '' },
+          { label: t('settings.closeVault'), run: () => model.switchVault(() => api.closeVault()) },
         ])
       }
     >

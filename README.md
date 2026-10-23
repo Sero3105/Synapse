@@ -100,6 +100,7 @@ Requirements for building: Node.js 22 or newer.
 | Reading / editing view | ⌘E | Back / forward | ⌥⌘← / ⌥⌘→ |
 | Graph | ⌘G | Bold / italic / link | ⌘B / ⌘I / ⌘K |
 | Settings | ⌘, | Toggle checkbox | ⌘L |
+| Close vault | ⇧⌘W | | |
 
 Every shortcut can be changed in **Settings → Hotkeys**.
 

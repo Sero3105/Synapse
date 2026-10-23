@@ -21,7 +21,7 @@ Hotkeys are global: they are the same in every vault.
 | Reading / editing view | <kbd>⌘E</kbd> | Back / forward | <kbd>⌥⌘←</kbd> / <kbd>⌥⌘→</kbd> |
 | Graph | <kbd>⌘G</kbd> | Bold / italic / link | <kbd>⌘B</kbd> / <kbd>⌘I</kbd> / <kbd>⌘K</kbd> |
 | Settings | <kbd>⌘,</kbd> | Toggle checkbox | <kbd>⌘L</kbd> |
-| Rename file | <kbd>F2</kbd> | | |
+| Rename file | <kbd>F2</kbd> | Close vault | <kbd>⇧⌘W</kbd> |
 
 ## Changing a hotkey
 

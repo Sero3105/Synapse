@@ -311,6 +311,7 @@ function buildMenu() {
           { label: t('menu.newTab'), click: cmd('workspace:new-tab') },
           { type: 'separator' },
           { label: t('menu.openVault'), click: cmd('app:open-vault') },
+          { label: t('menu.closeVault'), click: cmd('app:close-vault') },
           { type: 'separator' },
           { label: t('menu.closeTab'), click: cmd('workspace:close') },
         ],

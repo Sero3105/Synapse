@@ -500,3 +500,24 @@ test('no notice when the published release is not newer', async () => {
     updateFeed = 'http://127.0.0.1:9/none'
   }
 })
+
+test('close the vault from the switcher or with the shortcut, back to the starter screen', async () => {
+  seedRegistry('A')
+  let { app, win } = await launch()
+  await expect(win.getByTestId('file-explorer')).toBeVisible()
+  // vault switcher menu
+  await win.getByRole('button', { name: 'Switch vault' }).click()
+  await win.getByRole('menuitem', { name: 'Close vault' }).click()
+  await expect(win.getByTestId('vault-manager')).toBeVisible()
+  // the starter offers creating or opening a vault, and does not reopen the closed one at next launch
+  await expect(win.getByText('Create a vault')).toBeVisible()
+  await app.close()
+  ;({ app, win } = await launch())
+  await expect(win.getByTestId('vault-manager')).toBeVisible()
+  // open it again, then close with ⇧⌘W
+  await win.locator('.vault-row', { hasText: 'Vault A' }).click()
+  await expect(win.getByTestId('file-explorer')).toBeVisible()
+  await win.keyboard.press('Meta+Shift+W')
+  await expect(win.getByTestId('vault-manager')).toBeVisible()
+  await app.close()
+})

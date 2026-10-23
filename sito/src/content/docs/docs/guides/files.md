@@ -17,7 +17,7 @@ Delete moves the file to the macOS Trash, so it can be restored from there. By d
 
 ## Switching vaults
 
-Use **Switch vault** at the top of the left dock, or **Manage vaults…** to open the starter screen. Unsaved notes and the workspace are saved before switching. Your global preferences stay the same in every vault.
+Use **Switch vault** at the top of the left dock, or **Manage vaults…** to open the starter screen. To leave the vault and go back to the starter screen, where you can create or open another one, choose **Close vault** in the same menu, in **File → Close Vault**, on an empty tab, or press <kbd>⇧⌘W</kbd> (from version 1.3.1). Unsaved notes and the workspace are saved before switching. Your global preferences stay the same in every vault.
 
 ## What Synapse writes
 

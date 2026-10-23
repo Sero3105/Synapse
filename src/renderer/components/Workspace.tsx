@@ -320,6 +320,7 @@ function EmptyTab({ paneId, tabId }: { paneId: string; tabId: string }) {
     { label: tr('empty.jump'), cmd: 'switcher:open', run: () => model.set({ modal: { kind: 'switcher' } }) },
     ...(graph ? [{ label: tr('empty.graph'), cmd: 'graph:open', run: () => model.openGraph('tab') }] : []),
     { label: tr('empty.closeTab'), cmd: 'workspace:close', run: () => model.closeTab(paneId, tabId) },
+    { label: tr('empty.closeVault'), cmd: 'app:close-vault', run: () => model.switchVault(() => api.closeVault()) },
   ]
   return (
     <div className="empty-tab" data-testid="empty-tab">

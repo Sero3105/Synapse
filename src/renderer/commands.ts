@@ -31,6 +31,7 @@ export const COMMANDS: Command[] = [
   { id: 'switcher:open', name: 'Quick switcher: Open', hotkeys: ['Mod+O'], when: hasVault, run: () => model.set({ modal: { kind: 'switcher' } }) },
   { id: 'app:open-settings', name: 'Open settings', hotkeys: ['Mod+,'], run: () => model.set({ modal: { kind: 'settings' } }) },
   { id: 'app:open-vault', name: 'Open another vault', run: () => model.set({ modal: { kind: 'vaults' } }) },
+  { id: 'app:close-vault', name: 'Close vault', hotkeys: ['Mod+Shift+W'], when: hasVault, run: () => model.switchVault(() => api.closeVault()) },
   { id: 'app:go-back', name: 'Navigate back', hotkeys: ['Mod+Alt+ArrowLeft'], when: hasVault, run: () => model.goBack() },
   { id: 'app:go-forward', name: 'Navigate forward', hotkeys: ['Mod+Alt+ArrowRight'], when: hasVault, run: () => model.goForward() },
   { id: 'app:toggle-left-sidebar', name: 'Toggle left sidebar', when: hasVault, run: () => model.setLayout({ leftOpen: !model.layout.leftOpen }) },
