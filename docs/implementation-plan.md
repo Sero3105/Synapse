@@ -13,5 +13,5 @@
 2. Arbitrary split tree, pinned and stacked tabs.
 3. Local graph, graph filters and groups; Barnes-Hut layout for large vaults.
 4. Daily notes and templates.
-5. Developer ID signing and notarization (the DMG exists, but is ad-hoc signed); auto-update.
+5. Developer ID signing and notarization (the DMG exists, but is ad-hoc signed); automatic install of updates (the app already announces new releases).
 6. On-disk index for very large vaults (currently all note text is kept in memory).

@@ -122,7 +122,7 @@ To add a language, add a dictionary to `src/shared/i18n.ts`. The type checker re
 
 ## Privacy
 
-Everything stays on your Mac: no account, no telemetry, no cloud sync. Synapse goes online only when a note asks it to, for example to load a remote image embedded with an `https://` link, or when you click a web link, which opens in your browser.
+Everything stays on your Mac: no account, no telemetry, no cloud sync. Synapse goes online only in two cases. At launch it asks GitHub Releases whether a newer version exists (no personal data is sent; turn it off in **Settings → General → Check for updates**). And when a note asks it to, for example to load a remote image embedded with an `https://` link, or when you click a web link, which opens in your browser.
 
 ## Development
 
@@ -162,4 +162,4 @@ SYNAPSE_APP=/Applications/Synapse.app/Contents/MacOS/Synapse npx playwright test
 - Raw HTML in notes is not rendered, for security.
 - Split panes run in one direction, with up to four panes.
 - Obsidian community plugins are not supported.
-- The build is not notarized and there is no auto-update. The Intel build is not yet tested on Intel hardware.
+- The build is not notarized. Updates are announced in the app but installed by hand: download the new DMG and replace the app. The Intel build is not yet tested on Intel hardware.
