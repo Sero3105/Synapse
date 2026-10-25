@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { AppStore, VaultStore } from './store'
 import { Vault, VaultError } from './vault'
+import { NoteHistory } from './history'
 import { resolvePrefs } from '../shared/settings'
 
 export interface OpenVault { id: string; vault: Vault; store: VaultStore }
@@ -61,7 +62,7 @@ export async function openVault(
   const store = new VaultStore(abs)
   const finalId = await app.touchVault(abs, id)
   await store.ensureStamped(finalId)
-  return { id: finalId, vault: new Vault(abs, trash), store }
+  return { id: finalId, vault: new Vault(abs, trash, new NoteHistory(path.join(app.dir, 'history', finalId))), store }
 }
 
 /** Snapshot sent to the renderer whenever settings or the vault change. */

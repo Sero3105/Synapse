@@ -3,7 +3,9 @@
 import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
-import { atomicWrite, VAULT_CONFIG_DIR } from './store'
+import crypto from 'node:crypto'
+import { atomicWrite } from './store'
+import type { NoteHistory } from './history'
 
 export interface FileEntry { path: string; type: 'file' | 'folder'; mtime: number; size: number }
 export interface NoteData { path: string; content: string; mtime: number }
@@ -18,11 +20,16 @@ export class VaultError extends Error {
 const isHiddenName = (name: string) => name.startsWith('.') || name === 'node_modules'
 
 export const MARKDOWN_EXT = /\.md$/i
+/** Notes larger than this are not loaded into the link/search index. */
+export const MAX_INDEXED = 10 * 1024 * 1024
 
 export class Vault {
   readonly root: string
 
-  constructor(root: string, private trash: (abs: string) => Promise<void>) {
+  /** Hash of what Synapse last wrote per file: a different disk content means an external edit. */
+  private written = new Map<string, string>()
+
+  constructor(root: string, private trash: (abs: string) => Promise<void>, private history?: NoteHistory) {
     // realpath so symlinked vault roots still pass containment checks
     this.root = fs.realpathSync(root)
   }
@@ -34,7 +41,10 @@ export class Vault {
     if (norm === '.') norm = ''
     if (path.posix.isAbsolute(norm) || norm === '..' || norm.startsWith('../')) throw new VaultError('EOUTSIDE', 'Path is outside the vault')
     if (!norm && !allowRoot) throw new VaultError('EINVAL', 'Empty path')
-    if (norm.split('/')[0] === VAULT_CONFIG_DIR) throw new VaultError('EOUTSIDE', 'Configuration folder is not editable')
+    // Hidden files and folders (.synapse in any letter case, .git, .obsidian, …) are never listed,
+    // so nothing legitimate reaches them; refusing them keeps hooks and config out of reach.
+    if (norm.split('/').some((s) => s.startsWith('.'))) throw new VaultError('EOUTSIDE', 'Hidden files and folders are not accessible')
+    if (!vaultExists(this.root)) throw new VaultError('ENOVAULT', 'The vault folder is no longer available')
     const abs = path.join(this.root, norm)
     // Follow symlinks of the nearest existing ancestor: it must still be inside the vault.
     let probe = abs
@@ -50,6 +60,7 @@ export class Vault {
 
   /** Recursive listing. Symlinks are not traversed (avoids cycles and escapes). */
   async list(): Promise<FileEntry[]> {
+    if (!vaultExists(this.root)) throw new VaultError('ENOVAULT', 'The vault folder is no longer available')
     const out: FileEntry[] = []
     const walk = async (dir: string) => {
       let ents: fs.Dirent[]
@@ -85,7 +96,8 @@ export class Vault {
 
   /** Every markdown note, for the in-memory link/search index. */
   async readAllMarkdown(): Promise<NoteData[]> {
-    const files = (await this.list()).filter((f) => f.type === 'file' && MARKDOWN_EXT.test(f.path))
+    // a huge .md (a log, a dump) would stall indexing and search; it can still be opened on its own
+    const files = (await this.list()).filter((f) => f.type === 'file' && MARKDOWN_EXT.test(f.path) && f.size <= MAX_INDEXED)
     const out: NoteData[] = []
     // shortcut: loads all note text into memory; fine for tens of thousands of notes, switch to an on-disk index beyond that.
     for (let i = 0; i < files.length; i += 64) {
@@ -99,7 +111,7 @@ export class Vault {
    * Save a note. If `expectedMtime` is given and the file changed on disk since it was
    * loaded (and differs from what we'd write), refuse with ECONFLICT instead of clobbering.
    */
-  async write(rel: unknown, content: unknown, expectedMtime?: unknown): Promise<{ mtime: number }> {
+  async write(rel: unknown, content: unknown, expectedMtime?: unknown, forceSnapshot = false): Promise<{ mtime: number }> {
     if (typeof content !== 'string') throw new VaultError('EINVAL', 'Invalid content')
     const abs = this.resolve(rel)
     if (typeof expectedMtime === 'number') {
@@ -115,8 +127,41 @@ export class Vault {
         throw e
       }
     }
+    // A forced write ("keep mine" after a conflict) replaces someone else's text: always keep it.
+    this.snapshot(abs, content, forceSnapshot || typeof expectedMtime !== 'number')
     atomicWrite(abs, content)
+    this.written.set(abs, hash(content))
     return { mtime: (await fsp.stat(abs)).mtimeMs }
+  }
+
+  /** Keep the text about to be overwritten in the version history. Never blocks the save. */
+  private snapshot(abs: string, next: string, force: boolean) {
+    if (!this.history) return
+    try {
+      const prev = fs.readFileSync(abs, 'utf8')
+      if (prev === next) return
+      // text Synapse did not write this session (external edit, or first save) bypasses the throttle
+      this.history.record(this.rel(abs), prev, force || this.written.get(abs) !== hash(prev))
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== 'ENOENT') console.error('version snapshot failed', e)
+    }
+  }
+
+  versions(rel: unknown) {
+    return this.history?.list(this.rel(this.resolve(rel))) ?? []
+  }
+
+  version(rel: unknown, id: unknown): string {
+    if (!this.history) throw new VaultError('ENOENT', 'Version not found')
+    return this.history.read(this.rel(this.resolve(rel)), id)
+  }
+
+  /** Put an earlier version back. The current text is kept as a version first; changes on disk since `expectedMtime` win. */
+  async restore(rel: unknown, id: unknown, expectedMtime: unknown): Promise<NoteData> {
+    if (typeof expectedMtime !== 'number') throw new VaultError('EINVAL', 'Invalid modification time')
+    const content = this.version(rel, id)
+    const { mtime } = await this.write(rel, content, expectedMtime, true)
+    return { path: this.rel(this.resolve(rel)), content, mtime }
   }
 
   /** Create a new file; never overwrites. */
@@ -163,6 +208,11 @@ export class Vault {
     if (b.startsWith(a + path.sep)) throw new VaultError('EINVAL', 'Cannot move a folder into itself')
     await fsp.mkdir(path.dirname(b), { recursive: true })
     await fsp.rename(a, b)
+    try {
+      this.history?.move(this.rel(a), this.rel(b))
+    } catch (e) {
+      console.error('version history not moved', e)
+    }
   }
 
   /** Move to the system trash (recoverable), never unlink. */
@@ -180,6 +230,17 @@ export class Vault {
     }
   }
 }
+
+/** False once the vault folder was moved or deleted: then nothing may be written (it would recreate it). */
+export const vaultExists = (root: string) => {
+  try {
+    return fs.statSync(root).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+const hash = (s: string) => crypto.createHash('sha256').update(s).digest('hex')
 
 /** Error shape that survives IPC. */
 export function toIpcError(e: unknown) {

@@ -5,7 +5,7 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import {
   GlobalSettings, VaultSettings, normalizeGlobal, normalizeVault, applyGlobalPatch, applyVaultPatch,
-  defaultGlobal, isObj, GLOBAL_SCHEMA_VERSION, VAULT_SCHEMA_VERSION,
+  defaultGlobal, isObj, GLOBAL_SCHEMA_VERSION, VAULT_SCHEMA_VERSION, VAULT_ID,
 } from '../shared/settings'
 
 export const VAULT_CONFIG_DIR = '.synapse'
@@ -16,8 +16,13 @@ export const newId = () => crypto.randomBytes(8).toString('hex')
 export function atomicWrite(file: string, data: string) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const tmp = `${file}.${process.pid}.${Date.now()}.tmp`
+  let mode: number | undefined
+  try {
+    mode = fs.statSync(file).mode & 0o7777 // keep the permissions of the file being replaced
+  } catch { /* new file */ }
   const fd = fs.openSync(tmp, 'w')
   try {
+    if (mode !== undefined) fs.fchmodSync(fd, mode)
     fs.writeSync(fd, data)
     fs.fsyncSync(fd)
   } finally {
@@ -199,7 +204,7 @@ export class VaultStore {
   /** The vault id stamped in the file, if the vault was opened by Synapse before. */
   static peekId(root: string): string | null {
     const d = readJson(path.join(root, VAULT_CONFIG_DIR, 'settings.json')).data
-    return isObj(d) && typeof d.vaultId === 'string' ? d.vaultId : null
+    return isObj(d) && typeof d.vaultId === 'string' && VAULT_ID.test(d.vaultId) ? d.vaultId : null
   }
 
   get(): VaultSettings {
@@ -219,6 +224,7 @@ export class VaultStore {
 
   update(patch: unknown): Promise<VaultSettings> {
     return this.enqueue(() => {
+      this.requireRoot()
       const next = applyVaultPatch(this.settings, patch)
       atomicWrite(this.file, JSON.stringify(next, null, 2))
       this.settings = next
@@ -231,7 +237,16 @@ export class VaultStore {
   }
 
   saveWorkspace(ws: unknown): Promise<void> {
-    return this.enqueue(() => atomicWrite(this.workspaceFile, JSON.stringify(ws)))
+    return this.enqueue(() => {
+      this.requireRoot()
+      atomicWrite(this.workspaceFile, JSON.stringify(ws))
+    })
+  }
+
+  /** atomicWrite creates missing folders: without this check a moved vault would be recreated empty. */
+  private requireRoot() {
+    if (!fs.existsSync(this.root) || !fs.statSync(this.root).isDirectory())
+      throw Object.assign(new Error('The vault folder is no longer available'), { code: 'ENOVAULT' })
   }
 
   private enqueue<T>(fn: () => T): Promise<T> {
