@@ -39,9 +39,14 @@ No. Synapse is built and tested for macOS only.
 
 It tells you, but does not install by itself. From version 1.3.0, Synapse checks GitHub Releases at launch and shows a notice with a **Download** button when a newer version is published; you replace the app in Applications. Automatic installation would need an Apple Developer ID signature. See [Installation → Update](/docs/installation/#update).
 
+## I read about tasks, related notes and export. Where are they?
+
+They are finished in the app code and covered by its tests, and they arrive with 1.3.1, which is not released yet. The published download is 1.3.0 and does not have them. See [Releases](/docs/releases/).
+
 ## What is not supported yet?
 
 - Raw HTML in notes is shown as text, for security.
 - Split panes run in one direction, with up to four panes.
 - Obsidian community plugins are not supported.
+- Saved graph views, task due dates and semantic (meaning-based) search are not available.
 - Builds are not notarized. From version 1.3.0 Synapse tells you when a new version is out, but you install it by hand.

@@ -5,6 +5,9 @@ import light from '../assets/screenshots/light.png'
 import palette from '../assets/screenshots/command-palette.png'
 import italian from '../assets/screenshots/italian.png'
 import welcome from '../assets/screenshots/welcome.png'
+import related from '../assets/screenshots/related.png'
+import tasks from '../assets/screenshots/tasks.png'
+import start from '../assets/screenshots/start.png'
 
 const shots = [
   { src: reading, alt: 'Reading view showing rendered Markdown with links, tags and task checkboxes', caption: 'Reading view, with clickable links, tags and tasks. ⌘E switches.' },
@@ -12,6 +15,9 @@ const shots = [
   { src: palette, alt: 'Command palette listing actions with their shortcuts', caption: 'Every action in the command palette, ⌘P.' },
   { src: welcome, alt: 'The starter screen with recent vaults', caption: 'Vaults: create, open, switch. Missing folders are never recreated empty.' },
   { src: italian, alt: 'The Synapse interface in Italian', caption: 'English or Italiano, switchable at any time.' },
+  { src: related, alt: 'Related notes suggested for the open note, each with the reason it is related', caption: 'Related notes, with the reason for each suggestion. Coming in 1.3.1.' },
+  { src: tasks, alt: 'Every checklist item in the vault in one list, grouped by note', caption: 'Every task in the vault, one list. Coming in 1.3.1.' },
+  { src: start, alt: 'The start page of a new tab with recent and recently modified notes', caption: 'A new tab starts from your recent notes. Coming in 1.3.1.' },
 ] as const
 ---
 
@@ -130,7 +136,7 @@ const shots = [
   }
   .shot img {
     width: 100%;
-    border-radius: 10px;
+    border-radius: var(--r-panel);
   }
   figcaption {
     margin-top: 16px;

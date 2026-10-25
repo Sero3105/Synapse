@@ -1,25 +1,35 @@
-/* Brand tokens, taken from the app's "Signal on graphite" design system (src/renderer/styles.css
-   in the repository). The site and the docs both read these. */
+/* Brand tokens, taken from the app's Future Minimal design system (docs/design-system.md and
+   src/renderer/styles.css in the repository). The site and the docs both read these. */
 :root {
-  --graphite: #131518;
-  --graphite-sunk: #0e1012;
-  --graphite-raise: #1a1d21;
-  --graphite-raise-2: #22262b;
-  --ink: #e4e7eb;
-  --ink-2: #a3aab3;
-  --signal: #4cc9b0;
-  --on-signal: #05211b;
-  --paper: #ffffff;
-  --paper-sunk: #f2f3f5;
-  --ink-dark: #15181c;
-  --ink-dark-2: #545b64;
-  --signal-dark: #1f7c6a;
+  --graphite: #16171c;
+  --graphite-sunk: #111217;
+  --graphite-raise: #1c1d24;
+  --graphite-raise-2: #262731;
+  --ink: #ebebf0;
+  --ink-2: #a6a7b4;
+  --signal: #9d8fff; /* app accent #8b7cff, lifted for the dark ground */
+  --accent: #8b7cff;
+  --on-signal: #171430;
+  --paper: #fdfcfa;
+  --paper-sunk: #f6f5f2;
+  --ink-dark: #1b1b21;
+  --ink-dark-2: #55565f;
+  --signal-dark: #5f52b8; /* app accent mixed towards black, for the light ground */
+  --danger: #f2706b;
+  --danger-dark: #c93c37;
 
   /* fields used when a chapter changes colour; all from the app's syntax and highlight colours */
   --field-amber: #e7c35c;
   --field-blue: #82b1ff;
   --field-peach: #f2b880;
   --field-green: #a5d6a7;
+
+  /* Future Minimal shape scale, same values as the app */
+  --r-ctl: 8px;
+  --r-panel: 12px;
+  --r-float: 14px;
+  --r-overlay: 20px;
+  --r-pill: 999px;
 
   --font-display: ui-serif, 'New York', 'Iowan Old Style', 'Source Serif 4 Variable', Charter, Georgia, serif;
   --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;

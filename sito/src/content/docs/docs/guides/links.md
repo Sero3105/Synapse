@@ -34,6 +34,15 @@ The dock on the right shows the open note's details and three panels:
 - **Outgoing**: links leaving this note, including **unresolved links**. Click an unresolved one to create the note.
 - **Outline**: the note's headings.
 
+## Related notes (1.3.1, not released yet)
+
+The **Related notes** section of the Backlinks panel (collapsed by default) suggests notes that are not linked to this one yet, scored by shared tags, notes both link to or are linked from, and shared title, heading and distinctive words. Each suggestion says why it is there.
+
+- **Insert link at cursor** writes the `[[…]]` link only when you choose it.
+- **Dismiss** hides a suggestion for this vault.
+
+Everything is computed locally from the index in memory; nothing leaves your Mac.
+
 ## Renaming
 
 Rename a note from its title, with **F2**, or from the file tree's context menu. With **Automatically update internal links** on (Settings → Files and links, on by default), every link pointing to the old name or location is rewritten across the vault.

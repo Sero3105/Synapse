@@ -110,7 +110,7 @@ const results = matchNotes(sampleVault, initial)
   .answer {
     grid-area: answer;
     padding: 6px;
-    border-radius: 10px;
+    border-radius: var(--r-panel);
     background: var(--graphite-raise);
     color: var(--ink);
     font: 400 15px / 1.3 var(--font-ui);
@@ -159,6 +159,7 @@ const results = matchNotes(sampleVault, initial)
     gap: 12px;
   }
   .example {
+    border-radius: var(--r-pill);
     min-height: 44px;
     padding: 0 18px;
     border: 0;
@@ -169,7 +170,7 @@ const results = matchNotes(sampleVault, initial)
     transition: background-color 160ms var(--ease), transform 160ms var(--ease);
   }
   .example:hover {
-    background: #e2e5e9;
+    background: #efeeea;
   }
   .example:active {
     transform: translateY(1px);

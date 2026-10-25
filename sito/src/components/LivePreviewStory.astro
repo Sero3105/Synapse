@@ -147,7 +147,7 @@ It pairs naturally with [[Active recall]].
   .editor {
     background: var(--graphite);
     color: var(--ink);
-    border-radius: 10px;
+    border-radius: var(--r-panel);
     overflow: hidden;
     transition: transform 600ms var(--ease), opacity 600ms var(--ease);
   }
@@ -158,7 +158,7 @@ It pairs naturally with [[Active recall]].
   }
   .tab {
     padding: 8px 14px;
-    border-radius: 6px 6px 0 0;
+    border-radius: var(--r-ctl) var(--r-ctl) 0 0;
     background: var(--graphite);
     font: 500 13px / 1 var(--font-ui);
   }
@@ -269,7 +269,7 @@ It pairs naturally with [[Active recall]].
     padding: 20px 22px;
     background: var(--paper);
     color: var(--ink-dark);
-    border-radius: 10px;
+    border-radius: var(--r-panel);
     font: 400 13px / 1.6 var(--font-code);
     white-space: pre-wrap;
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5); /* taste-skill-ignore: floats above the editor */

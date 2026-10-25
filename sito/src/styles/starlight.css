@@ -1,24 +1,24 @@
-/* Starlight mapped onto the Synapse palette: graphite grounds, one mint signal, serif headings. */
+/* Starlight mapped onto the Synapse palette: graphite grounds, one violet signal, serif headings. */
 :root {
   --sl-font: var(--font-ui);
   --sl-font-system-mono: var(--font-code);
-  --sl-color-accent-low: #0f2d27;
+  --sl-color-accent-low: #241f4d;
   --sl-color-accent: var(--signal);
-  --sl-color-accent-high: #b4ece0;
+  --sl-color-accent-high: #d3ccff;
   --sl-color-white: #ffffff;
   --sl-color-gray-1: var(--ink);
-  --sl-color-gray-2: #c4c9cf;
+  --sl-color-gray-2: #c9cad4;
   --sl-color-gray-3: var(--ink-2);
-  --sl-color-gray-4: #6d747d;
-  --sl-color-gray-5: #2b3036;
+  --sl-color-gray-4: #7f818e;
+  --sl-color-gray-5: #262731;
   --sl-color-gray-6: var(--graphite-raise);
   --sl-color-black: var(--graphite);
 }
 
 :root[data-theme='light'] {
-  --sl-color-accent-low: #d3f2eb;
+  --sl-color-accent-low: #e6e2ff;
   --sl-color-accent: var(--signal-dark);
-  --sl-color-accent-high: #0d3d33;
+  --sl-color-accent-high: #352a75;
   --sl-color-white: var(--ink-dark);
   --sl-color-gray-1: #24282d;
   --sl-color-gray-2: #353a40;
@@ -71,7 +71,7 @@ h1#_top,
   text-decoration-color: var(--sl-color-accent);
 }
 .sl-markdown-content img {
-  border-radius: 10px;
+  border-radius: var(--r-panel);
   background: var(--sl-color-gray-6);
 }
 .sl-markdown-content > p:has(> img:only-child) {
@@ -94,30 +94,30 @@ kbd {
 
 /* asides in the Synapse palette: note = signal, tip = green, caution = amber */
 :root {
-  --sl-color-blue-low: #0f2d27;
+  --sl-color-blue-low: #241f4d;
   --sl-color-blue: var(--signal);
-  --sl-color-blue-high: #b4ece0;
+  --sl-color-blue-high: #d3ccff;
   --sl-color-orange-low: #3a2f12;
   --sl-color-orange: var(--field-amber);
   --sl-color-orange-high: #f5e2a8;
 }
 :root[data-theme='light'] {
-  --sl-color-blue-low: #dff5f0;
+  --sl-color-blue-low: #e6e2ff;
   --sl-color-blue: var(--signal-dark);
-  --sl-color-blue-high: #0d3d33;
+  --sl-color-blue-high: #352a75;
   --sl-color-orange-low: #fbf1d6;
   --sl-color-orange: #a1520b;
   --sl-color-orange-high: #5a3006;
 }
 .starlight-aside {
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 var(--r-panel) var(--r-panel) 0;
 }
 
 /* tables: tone, no grid lines */
 .sl-markdown-content table {
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 10px;
+  border-radius: var(--r-panel);
 }
 .sl-markdown-content :is(th, td) {
   border: 0;
@@ -138,7 +138,7 @@ kbd {
 /* cards lift and light up on hover */
 .card,
 .sl-link-card {
-  border-radius: 10px;
+  border-radius: var(--r-float);
   transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 220ms ease, background-color 220ms ease;
 }
 .sl-link-card:hover {
@@ -151,7 +151,7 @@ kbd {
 }
 
 .sl-link-button {
-  border-radius: 0;
+  border-radius: var(--r-ctl);
   transition: transform 160ms ease, filter 160ms ease;
 }
 .sl-link-button:hover {
@@ -177,7 +177,7 @@ kbd {
   width: 100%;
   max-width: 720px;
   height: auto;
-  border-radius: 12px;
+  border-radius: var(--r-float);
   animation: hero-in 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 @media (min-width: 50rem) {
@@ -223,7 +223,7 @@ main .sl-markdown-content {
 
 /* previous / next */
 .pagination-links a {
-  border-radius: 10px;
+  border-radius: var(--r-float);
   transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 220ms ease, background-color 220ms ease;
 }
 .pagination-links a:hover {

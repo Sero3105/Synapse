@@ -87,6 +87,7 @@ a {
   top: 12px;
   z-index: 100;
   padding: 10px 16px;
+  border-radius: var(--r-ctl);
   background: var(--signal);
   color: var(--on-signal);
   font-weight: 600;
@@ -110,7 +111,7 @@ a {
   white-space: nowrap;
 }
 
-/* One button shape for the whole site: square corners, flat fill. */
+/* One button shape for the whole site: Future Minimal control radius, flat fill. */
 .button {
   display: inline-flex;
   align-items: center;
@@ -122,11 +123,13 @@ a {
   color: var(--button-ink, var(--on-signal));
   font: 600 16px / 1 var(--font-ui);
   text-decoration: none;
+  border-radius: var(--r-ctl);
   cursor: pointer;
-  transition: transform 160ms var(--ease), background-color 160ms var(--ease);
+  transition: transform 160ms var(--ease), background-color 160ms var(--ease), box-shadow 160ms var(--ease);
 }
 .button:hover {
   transform: translateY(-2px);
+  box-shadow: 0 8px 24px color-mix(in oklab, var(--button-bg, var(--signal)) 28%, transparent);
 }
 .button:active {
   transform: translateY(1px);
@@ -193,7 +196,7 @@ a {
 [data-on='signal'] {
   --bg: var(--signal);
   --fg: var(--on-signal);
-  --fg-2: #0b4438;
+  --fg-2: #2a2160;
   --accent: var(--graphite);
 }
 [data-chapter='paper'],

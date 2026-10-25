@@ -35,7 +35,7 @@ Changing a preference while a vault overrides it changes only that vault. Removi
 
 **Files and links**: confirm file deletion, default location for new notes, automatically update internal links.
 
-**Appearance**: base colour scheme (light, dark or adapt to macOS), accent colour, text font, monospace font, font size and interface font size. An empty text font uses the macOS serif, New York.
+**Appearance**: base colour scheme (light, dark or adapt to macOS), accent colour, text font, monospace font, font size and interface font size. An empty text font uses the macOS serif, New York. From 1.3.1 (not released yet) the font picker lists installed families grouped with live previews, and **Add fonts…** adds your own font files; a font that cannot be loaded is marked instead of failing silently.
 
 **Hotkeys**: see [Hotkeys](/docs/configuration/hotkeys/).
 

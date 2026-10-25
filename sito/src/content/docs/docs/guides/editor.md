@@ -60,3 +60,9 @@ Paste or drop a file into the editor. Synapse saves it to the vault's attachment
 ## Saving
 
 Notes autosave shortly after you stop typing, and also when you close a tab, switch vault or quit. Writes are atomic: a crash cannot leave a half-written file. If the file changed on disk while you had unsaved edits, Synapse shows a conflict banner instead of overwriting; see [Troubleshooting](/docs/troubleshooting/#a-conflict-banner-appears).
+
+## Export and version history (1.3.1, not released yet)
+
+**Export to HTML** / **Export to PDF** (command palette) writes a standalone file: images embedded, code highlighted, diagrams included, no scripts. HTML follows the app theme; PDFs are always light, for paper. The save dialog asks before replacing an existing file. Internal links become plain text. Web images are fetched from the web; a PDF export waits at most 15 seconds for them and leaves out any that have not loaded.
+
+**Show version history** (a note's context menu, the tab menu, the **⋯** menu or the command palette) lists earlier copies of the note. Synapse keeps a copy before it overwrites a note — at most once every 10 minutes per note while you type, and always when the text on disk changed outside Synapse. The newest 50 per note are kept, outside the vault in `~/Library/Application Support/Synapse/history/`, so history is not synced and does not travel with the vault folder. Pick a version, read it, and **Restore** after a confirmation; the text you replace becomes a version too, so a restore can be undone.
