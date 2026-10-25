@@ -1,10 +1,12 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
-import { Search, Hash, Folder, FolderOpen, FolderTree, Waypoints, FilePlus, FolderPlus, ChevronsDownUp, ChevronRight, ChevronsUpDown, FileText, Image as ImageIcon, File as FileIcon, X, Settings } from 'lucide-react'
+import { Search, Hash, ListChecks, Folder, FolderOpen, FolderTree, Waypoints, FilePlus, FolderPlus, ChevronsDownUp, ChevronRight, ChevronsUpDown, FileText, Image as ImageIcon, File as FileIcon, X, Settings } from 'lucide-react'
 import { model, useModel, isMd, IMAGE_EXT } from '../model'
 import { api, FileEntry } from '../api'
-import { noteTitle, basename, Link, wordCount } from '../../shared/markdown'
+import { noteTitle, basename, Link, wordCount, SEARCH_SYNTAX } from '../../shared/markdown'
 import { runCommand, hotkeysFor, formatHotkey } from '../commands'
 import { t, tn, getLanguage } from '../../shared/i18n'
+import { RelatedNotes } from './Related'
+import { TasksPanel } from './Tasks'
 
 const ICON = { size: 15, strokeWidth: 1.75 } as const
 const kbd = (id: string) => formatHotkey(hotkeysFor(id)[0] ?? '')
@@ -20,6 +22,7 @@ export function Navigator() {
     { id: 'files' as const, label: t('nav.files'), icon: <FolderTree {...ICON} />, on: true, hint: '' },
     { id: 'search' as const, label: t('nav.search'), icon: <Search {...ICON} />, on: plugins.search, hint: kbd('global-search:open') },
     { id: 'tags' as const, label: t('nav.tags'), icon: <Hash {...ICON} />, on: plugins.tags, hint: '' },
+    { id: 'tasks' as const, label: t('nav.tasks'), icon: <ListChecks {...ICON} />, on: true, hint: '' },
   ].filter((v) => v.on)
 
   return (
@@ -54,6 +57,7 @@ export function Navigator() {
         {current === 'files' && <FileExplorer />}
         {current === 'search' && <SearchPanel />}
         {current === 'tags' && <TagsPanel />}
+        {current === 'tasks' && <TasksPanel />}
       </div>
       <div className="nav-footer">
         <button className="nav-row" onClick={() => runCommand('file-explorer:new-file')}>
@@ -313,6 +317,8 @@ function TreeItem({ node, depth, active, forceOpen }: { node: TreeNode; depth: n
           { label: t('files.openRight'), run: () => model.open(node.path, 'split') },
           { separator: true, label: '' },
           { label: t('common.renameEllipsis'), run: () => model.renamePrompt(node.path) },
+          { label: model.state.pinned.includes(node.path) ? t('files.unpin') : t('files.pin'), run: () => model.togglePin(node.path) },
+          ...(isMd(node.path) ? [{ label: t('history.open'), run: () => model.set({ modal: { kind: 'history', path: node.path } }) }] : []),
           { label: t('common.revealInFinder'), run: () => api.reveal(node.path) },
           { label: t('common.copyPath'), run: () => navigator.clipboard.writeText(node.path) },
           { separator: true, label: '' },
@@ -440,6 +446,7 @@ function SearchPanel() {
           </button>
         )}
       </div>
+      {!query && <SearchSyntax />}
       {debounced && <div className="search-summary">{hits.length ? tn('search.files', hits.length) + (total ? ', ' + tn('search.matches', total) : '') : t('search.noResults')}</div>}
       <div className="search-results" data-testid="search-results">
         {hits.map((h) => (
@@ -465,6 +472,22 @@ function SearchPanel() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function SearchSyntax() {
+  return (
+    <div className="search-hint" aria-label={t('search.hintTitle')}>
+      <div className="search-hint-title">{t('search.hintTitle')}</div>
+      <dl>
+        {SEARCH_SYNTAX.map(({ example, hint }) => (
+          <div key={example} className="search-hint-row">
+            <dt><code>{example}</code></dt>
+            <dd>{t(hint)}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   )
 }
@@ -545,6 +568,7 @@ function BacklinksPanel() {
           </div>
         </div>
       ))}
+      <RelatedNotes path={path} />
     </div>
   )
 }

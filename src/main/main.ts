@@ -5,6 +5,9 @@ import { pathToFileURL } from 'node:url'
 import { AppStore } from './store'
 import { openVault, OpenVault, snapshot, isDir } from './session'
 import { toIpcError, VaultError } from './vault'
+import { saveExport } from './export'
+import { inspectFolder } from './migrate'
+import { FontStore } from './fonts'
 import { t, setLanguage, resolveLanguage } from '../shared/i18n'
 import { RELEASES_API, updateFromRelease, UpdateInfo } from '../shared/update'
 
@@ -17,6 +20,7 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 let store: AppStore
+let fonts: FontStore
 let win: BrowserWindow | null = null
 let current: OpenVault | null = null
 let watcher: fs.FSWatcher | null = null
@@ -164,6 +168,30 @@ const handlers: Record<string, Handler> = {
   'fs:trash': (p) => requireVault().vault.remove(p),
   'fs:exists': (p) => requireVault().vault.exists(p),
   'fs:reveal': (p) => shell.showItemInFolder(requireVault().vault.resolve(p, { allowRoot: true })),
+  // PDFs only: opening arbitrary vault files with their default app could launch executables
+  'fs:openFile': async (p) => {
+    // the real target must be a regular .pdf file: a symlink named x.pdf could point at an app
+    const abs = fs.realpathSync(requireVault().vault.resolve(p))
+    if (!/\.pdf$/i.test(abs) || !fs.statSync(abs).isFile()) throw new VaultError('EINVAL', 'Only PDF files can be opened')
+    const err = await shell.openPath(abs)
+    if (err) throw new VaultError('EUNKNOWN', err)
+  },
+  'vault:inspect': (folder) => inspectFolder(approvedFolder(folder)),
+  'export:save': (kind, title, body, dark) => saveExport(win!, requireVault().vault, kind, title, body, dark),
+  'fonts:list': () => fonts.list(),
+  'fonts:data': (id) => fonts.data(id),
+  'fonts:add': async () => {
+    const r = await dialog.showOpenDialog(win!, {
+      title: t('fonts.dialog'),
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Fonts', extensions: ['ttf', 'otf', 'woff', 'woff2'] }],
+    })
+    return r.canceled ? { added: [], rejected: [] } : fonts.add(r.filePaths)
+  },
+  'fonts:remove': (id) => fonts.remove(id),
+  'history:list': (p) => requireVault().vault.versions(p),
+  'history:read': (p, id) => requireVault().vault.version(p, id),
+  'history:restore': (p, id, mtime) => requireVault().vault.restore(p, id, mtime),
   'workspace:load': () => requireVault().store.readWorkspace(),
   'workspace:save': (ws) => requireVault().store.saveWorkspace(ws),
   'update:check': () => checkForUpdate(),
@@ -308,6 +336,8 @@ function buildMenu() {
         label: t('menu.file'),
         submenu: [
           { label: t('menu.newNote'), click: cmd('file-explorer:new-file') },
+          { label: t('menu.newFromTemplate'), click: cmd('templates:new-note') },
+          { label: t('menu.dailyNote'), click: cmd('daily-notes:open-today') },
           { label: t('menu.newTab'), click: cmd('workspace:new-tab') },
           { type: 'separator' },
           { label: t('menu.openVault'), click: cmd('app:open-vault') },
@@ -348,6 +378,7 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   store = new AppStore(app.getPath('userData'))
+  fonts = new FontStore(path.join(app.getPath('userData'), 'fonts'))
   // Deny web permission requests (notifications, geolocation, media, ...); the app needs none
   // except writing to the clipboard for "Copy path".
   const allowed = new Set(['clipboard-sanitized-write'])

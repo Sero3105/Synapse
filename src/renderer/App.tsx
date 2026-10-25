@@ -5,6 +5,7 @@ import { Workspace } from './components/Workspace'
 import { Navigator, ContextPanel } from './components/Sidebars'
 import { Modals, ContextMenu, Notices, VaultManager } from './components/Modals'
 import { runCommand } from './commands'
+import { loadCustomFonts } from './fonts'
 import { wordCount } from '../shared/markdown'
 import type { Prefs, Layout } from '../shared/settings'
 import { t, tn, setLanguage, resolveLanguage } from '../shared/i18n'
@@ -49,6 +50,10 @@ export function App() {
   useEffect(() => {
     document.documentElement.lang = lang
   }, [lang])
+  // fonts the user added in Settings → Appearance, so notes can use them right away
+  useEffect(() => {
+    loadCustomFonts().catch((e) => console.warn('custom fonts', e))
+  }, [])
 
   if (!snap) return <div className="app-loading" />
   // keyed by language: a language switch re-renders every string at once

@@ -4,6 +4,7 @@ import { openSearchPanel } from '@codemirror/search'
 import { model, setCommandRunner } from './model'
 import { toggleWrap, toggleChecklist, insertLink, deleteLine, setHeading, toggleLinePrefix } from './editor-commands'
 import { api } from './api'
+import { remember } from '../shared/recent'
 
 export interface Command {
   id: string
@@ -99,9 +100,26 @@ export const COMMANDS: Command[] = [
   { id: 'workspace:split-vertical', name: 'Split right', when: hasVault, run: () => model.split('row') },
   { id: 'workspace:split-horizontal', name: 'Split down', when: hasVault, run: () => model.split('column') },
   { id: 'workspace:copy-path', name: 'Copy file path', when: () => !!model.activeFile, run: () => navigator.clipboard.writeText(model.activeFile!) },
+  { id: 'daily-notes:open-today', name: 'Daily notes: Open today’s note', when: hasVault, run: () => model.openDailyNote() },
+  { id: 'daily-notes:previous', name: 'Daily notes: Open previous daily note', when: hasVault, run: () => model.openAdjacentDaily(-1) },
+  { id: 'daily-notes:next', name: 'Daily notes: Open next daily note', when: hasVault, run: () => model.openAdjacentDaily(1) },
+  { id: 'templates:insert', name: 'Templates: Insert template', when: hasEditor, run: () => model.set({ modal: { kind: 'templates', mode: 'insert' } }) },
+  { id: 'templates:new-note', name: 'Templates: Create new note from template', when: hasVault, run: () => model.set({ modal: { kind: 'templates', mode: 'new' } }) },
+  { id: 'history:open', name: 'Show version history', when: hasNote, run: () => model.set({ modal: { kind: 'history', path: model.activeFile! } }) },
+  { id: 'attachments:report', name: 'Attachments: Show missing and unused attachments', when: hasVault, run: () => model.set({ modal: { kind: 'attachments' } }) },
+  { id: 'tasks:open', name: 'Tasks: Show tasks', when: hasVault, run: () => model.setLayout({ leftOpen: true, leftTab: 'tasks' }) },
+  { id: 'export:html', name: 'Export to HTML', when: hasNote, run: () => import('./export').then((m) => m.exportNote('html')) },
+  { id: 'export:pdf', name: 'Export to PDF', when: hasNote, run: () => import('./export').then((m) => m.exportNote('pdf')) },
 ]
 
 const byId = new Map(COMMANDS.map((c) => [c.id, c]))
+
+/** Commands run from the palette this session, newest first (ids only, never what was typed). */
+export let recentCommands: string[] = []
+export function runFromPalette(id: string) {
+  recentCommands = remember(recentCommands, id)
+  runCommand(id)
+}
 
 export function hotkeysFor(id: string): string[] {
   const custom = model.state.snap?.global.hotkeys[id]

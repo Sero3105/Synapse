@@ -6,6 +6,7 @@ import type { UpdateInfo } from '../shared/update'
 import { NoteIndex, rewriteLinks, buildLookup, uniqueName, INVALID_NAME, basename, noteTitle } from '../shared/markdown'
 import { isObj, Prefs, Layout, GraphSettings } from '../shared/settings'
 import { t, tn, Key, type LanguagePref } from '../shared/i18n'
+import { TEMPLATE_FOLDER, DAILY_TEMPLATE, BUILTIN_TEMPLATES, isoDate, fillTemplate, dailyNotePath, adjacentDaily, dailyDate } from '../shared/templates'
 
 export type ViewMode = 'source' | 'preview'
 export interface Tab {
@@ -35,8 +36,15 @@ export type Modal =
   | { kind: 'switcher' }
   | { kind: 'settings'; tab?: string }
   | { kind: 'vaults' }
+  | { kind: 'templates'; mode: 'insert' | 'new' }
+  | { kind: 'history'; path: string }
+  | { kind: 'attachments' }
+  | { kind: 'import'; folder: string }
   | { kind: 'prompt'; title: string; value: string; placeholder?: string; okText?: string; resolve: (v: string | null) => void }
   | { kind: 'confirm'; title: string; message: string; okText: string; danger?: boolean; resolve: (ok: boolean) => void }
+
+/** A built-in template (`id`) or a note in the Templates folder (`path`). */
+export interface Template { name: string; id?: (typeof BUILTIN_TEMPLATES)[number]; path?: string }
 
 export interface MenuItem { label: string; run?: () => void; danger?: boolean; separator?: boolean; disabled?: boolean }
 
@@ -62,6 +70,10 @@ export interface State {
   cursor: { line: number; col: number } | null
   /** recently opened files in this vault, newest first */
   recent: string[]
+  /** notes pinned to the start page (empty tab), per vault */
+  pinned: string[]
+  /** related-note suggestions the user dismissed, as "a\u0000b" pairs (sorted), per vault */
+  dismissedRelated: string[]
 }
 
 let uid = 0
@@ -95,6 +107,8 @@ class Model {
     navTick: 0,
     cursor: null,
     recent: [],
+    pinned: [],
+    dismissedRelated: [],
   }
   index = new NoteIndex()
   editors = new Map<string, EditorView>()
@@ -138,7 +152,7 @@ class Model {
     if (this.vaultId) await this.flushAll()
     this.vaultId = s.vault?.id ?? null
     if (!s.vault) {
-      this.set({ files: [], buffers: {}, ws: defaultWs(), loading: false, recent: [], cursor: null })
+      this.set({ files: [], buffers: {}, ws: defaultWs(), loading: false, recent: [], pinned: [], dismissedRelated: [], cursor: null })
       return
     }
     await this.loadVault()
@@ -153,7 +167,7 @@ class Model {
       this.index.setFiles(files.filter((f) => f.type === 'file').map((f) => f.path))
       for (const n of notes) this.index.upsert(n.path, n.content)
       const restored = this.restoreWorkspace(ws, new Set(files.map((f) => f.path)))
-      this.set({ files, ws: restored.ws, expanded: restored.expanded, recent: restored.recent, indexVersion: this.state.indexVersion + 1, loading: false })
+      this.set({ files, ws: restored.ws, expanded: restored.expanded, recent: restored.recent, pinned: restored.pinned, dismissedRelated: restored.dismissedRelated, indexVersion: this.state.indexVersion + 1, loading: false })
       for (const p of this.state.ws.panes) {
         const t = p.tabs.find((x) => x.id === p.active)
         if (t?.path && t.kind === 'note') this.ensureBuffer(t.path)
@@ -165,9 +179,13 @@ class Model {
   }
 
   /** Validate persisted workspace JSON; drop tabs whose files no longer exist. */
-  private restoreWorkspace(raw: unknown, existing: Set<string>): { ws: Workspace; expanded: Record<string, boolean>; recent: string[] } {
-    const recent = isObj(raw) && Array.isArray(raw.recent) ? raw.recent.filter((p): p is string => typeof p === 'string' && existing.has(p)).slice(0, 20) : []
-    const fallback = { ws: defaultWs(), expanded: {}, recent }
+  private restoreWorkspace(raw: unknown, existing: Set<string>): { ws: Workspace; expanded: Record<string, boolean>; recent: string[]; pinned: string[]; dismissedRelated: string[] } {
+    const paths = (k: string, max: number) => (isObj(raw) && Array.isArray(raw[k]) ? [...new Set((raw[k] as unknown[]).filter((p): p is string => typeof p === 'string' && existing.has(p)))].slice(0, max) : [])
+    const recent = paths('recent', 20)
+    const pinned = paths('pinned', 50)
+    // pairs whose notes both still exist
+    const dismissedRelated = isObj(raw) && Array.isArray(raw.dismissedRelated) ? raw.dismissedRelated.filter((k): k is string => typeof k === 'string' && k.split('\u0000').length === 2 && k.split('\u0000').every((p) => existing.has(p))).slice(-500) : []
+    const fallback = { ws: defaultWs(), expanded: {}, recent, pinned, dismissedRelated }
     if (!isObj(raw) || !Array.isArray(raw.panes)) return fallback
     const panes: Pane[] = []
     for (const p of raw.panes.slice(0, 8)) {
@@ -199,7 +217,7 @@ class Model {
     const sizes = Array.isArray(raw.paneSizes) && raw.paneSizes.length === panes.length && raw.paneSizes.every((n) => typeof n === 'number' && n > 0) ? (raw.paneSizes as number[]) : panes.map(() => 1)
     const expanded: Record<string, boolean> = {}
     if (isObj(raw.expanded)) for (const [k, v] of Object.entries(raw.expanded)) if (v === true && existing.has(k)) expanded[k] = true
-    return { ws: { panes, activePane: panes[ai].id, direction: raw.direction === 'column' ? 'column' : 'row', paneSizes: sizes }, expanded, recent }
+    return { ws: { panes, activePane: panes[ai].id, direction: raw.direction === 'column' ? 'column' : 'row', paneSizes: sizes }, expanded, recent, pinned, dismissedRelated }
   }
 
   private persistWorkspace() {
@@ -209,7 +227,7 @@ class Model {
 
   private saveWorkspaceNow() {
     if (!this.vaultId) return Promise.resolve()
-    const { ws, expanded, recent } = this.state
+    const { ws, expanded, recent, pinned, dismissedRelated } = this.state
     const data = {
       direction: ws.direction,
       paneSizes: ws.paneSizes,
@@ -220,6 +238,8 @@ class Model {
       })),
       expanded,
       recent,
+      pinned,
+      dismissedRelated,
     }
     return api.saveWorkspace(data).catch((e) => console.error('workspace save failed', e))
   }
@@ -780,7 +800,8 @@ class Model {
     this.set({ buffers })
     const mv = (p?: string) => (p && moves.has(p) ? moves.get(p)! : p)
     this.mapTabs((t) => ({ ...t, path: mv(t.path), back: t.back.map((p) => mv(p)!), fwd: t.fwd.map((p) => mv(p)!) }))
-    this.set({ recent: this.state.recent.map((p) => mv(p)!) })
+    const mvPair = (k: string) => k.split('\u0000').map((p) => mv(p)!).sort().join('\u0000')
+    this.set({ recent: this.state.recent.map((p) => mv(p)!), pinned: this.state.pinned.map((p) => mv(p)!), dismissedRelated: this.state.dismissedRelated.map(mvPair) })
     if (isFolder) {
       const expanded: Record<string, boolean> = {}
       for (const [k, v] of Object.entries(this.state.expanded)) expanded[k === from || k.startsWith(from + '/') ? to + k.slice(from.length) : k] = v
@@ -826,18 +847,24 @@ class Model {
       const ok = await this.confirm(isFolder ? t('dialog.deleteFolder') : t('dialog.deleteFile'), t(isFolder ? 'dialog.deleteFolderBody' : 'dialog.deleteFileBody', { name: basename(path) }))
       if (!ok) return
     }
+    const gone = (p?: string) => !!p && (p === path || p.startsWith(path + '/'))
+    // finish pending saves first: a late autosave would otherwise recreate the file after it is trashed
+    for (const p of Object.keys(this.state.buffers)) if (gone(p)) await this.flush(p)
+    for (const p of Object.keys(this.state.buffers)) if (gone(p)) clearTimeout(this.saveTimers.get(p))
     try {
       await api.trash(path)
     } catch (e) {
       return this.error(e)
     }
-    const gone = (p?: string) => !!p && (p === path || p.startsWith(path + '/'))
-    for (const p of Object.keys(this.state.buffers)) if (gone(p)) clearTimeout(this.saveTimers.get(p))
     const buffers = Object.fromEntries(Object.entries(this.state.buffers).filter(([p]) => !gone(p)))
     this.set({ buffers })
     for (const pane of this.state.ws.panes) for (const t of pane.tabs) if (gone(t.path)) this.closeTab(pane.id, t.id)
     this.mapTabs((t) => ({ ...t, back: t.back.filter((p) => !gone(p)), fwd: t.fwd.filter((p) => !gone(p)) }))
-    this.set({ recent: this.state.recent.filter((p) => !gone(p)) })
+    this.set({
+      recent: this.state.recent.filter((p) => !gone(p)),
+      pinned: this.state.pinned.filter((p) => !gone(p)),
+      dismissedRelated: this.state.dismissedRelated.filter((k) => !k.split('\u0000').some(gone)),
+    })
     await this.refreshFiles()
   }
 
@@ -856,6 +883,117 @@ class Model {
     } catch (e) {
       this.error(e)
       return null
+    }
+  }
+
+  // ---------- start page: recent & pinned ----------
+  togglePin(path: string) {
+    const pinned = this.state.pinned.includes(path) ? this.state.pinned.filter((p) => p !== path) : [...this.state.pinned, path]
+    this.set({ pinned })
+    this.persistWorkspace()
+  }
+
+  /** Forget a recent entry; the file itself is untouched. */
+  forgetRecent(path: string) {
+    this.set({ recent: this.state.recent.filter((p) => p !== path) })
+    this.persistWorkspace()
+  }
+
+  /** Hide one related-note suggestion for this pair of notes (per vault, persisted). */
+  dismissRelated(a: string, b: string) {
+    const key = [a, b].sort().join('\u0000')
+    if (this.state.dismissedRelated.includes(key)) return
+    this.set({ dismissedRelated: [...this.state.dismissedRelated, key].slice(-500) })
+    this.persistWorkspace()
+  }
+
+  // ---------- daily notes & templates ----------
+  private filePaths() {
+    return this.state.files.filter((f) => f.type === 'file').map((f) => f.path)
+  }
+
+  /** Open the daily note for `date` (today by default), creating it only if no such note exists. */
+  async openDailyNote(date = isoDate(new Date())) {
+    await this.refreshFiles() // pick up notes created outside Synapse a moment ago
+    const { path, exists } = dailyNotePath(this.filePaths(), date)
+    if (exists) return this.open(path)
+    const tpl = this.state.files.some((f) => f.path === DAILY_TEMPLATE) ? await this.templateText({ name: '', path: DAILY_TEMPLATE }) : ''
+    await this.createNote({ path, content: tpl === null ? '' : fillTemplate(tpl, { title: date, now: new Date() }) })
+  }
+
+  /** Previous/next existing daily note, counted from the open daily note or else from today. */
+  openAdjacentDaily(dir: 1 | -1) {
+    const from = (this.activeFile && dailyDate(this.activeFile)) || isoDate(new Date())
+    const p = adjacentDaily(this.filePaths(), from, dir)
+    if (p) this.open(p)
+    else this.notice(t(dir < 0 ? 'notice.noPrevDaily' : 'notice.noNextDaily'))
+  }
+
+  /** Notes in the Templates folder first, then the built-in ones. */
+  templates(): Template[] {
+    const own = this.filePaths()
+      .filter((p) => p.startsWith(TEMPLATE_FOLDER + '/') && isMd(p))
+      .sort()
+      .map((path) => ({ name: noteTitle(path), path }))
+    return [...own, ...BUILTIN_TEMPLATES.map((id) => ({ name: t(`template.${id}`), id }))]
+  }
+
+  private async templateText(tpl: Template): Promise<string | null> {
+    if (tpl.id) return t(`template.${tpl.id}.body`)
+    try {
+      return this.state.buffers[tpl.path!]?.content ?? (await api.read(tpl.path!)).content
+    } catch (e) {
+      this.error(e)
+      return null
+    }
+  }
+
+  /** Insert at the cursor of the active editor, as one undoable edit; nothing is replaced. */
+  async insertTemplate(tpl: Template) {
+    const view = this.activeEditor
+    const path = this.activeFile
+    const text = await this.templateText(tpl)
+    if (!view || !path || text === null || this.activeEditor !== view) return
+    const at = view.state.selection.main.head
+    const insert = fillTemplate(text, { title: noteTitle(path), now: new Date() })
+    view.dispatch({ changes: { from: at, insert }, selection: { anchor: at + insert.length }, scrollIntoView: true })
+    view.focus()
+  }
+
+  /** Ask for a name and create a new note from the template. Never writes over an existing file. */
+  async newNoteFromTemplate(tpl: Template) {
+    const text = await this.templateText(tpl)
+    if (text === null) return
+    const name = await this.prompt(t('templates.noteName'), '', t('common.create'))
+    if (!name) return
+    if (INVALID_NAME.test(name) || name.startsWith('.')) return this.notice(t('common.invalidName'), true)
+    const folder = this.newNoteFolder()
+    const path = `${folder ? folder + '/' : ''}${name}.md`
+    if (this.state.files.some((f) => f.path.toLowerCase() === path.toLowerCase())) return this.notice(t('error.EEXIST'), true)
+    await this.createNote({ path, content: fillTemplate(text, { title: name, now: new Date() }) })
+  }
+
+  // ---------- version history ----------
+  /** Replace a note with an earlier version after saving pending edits; refuses if the note changed on disk. */
+  async restoreVersion(path: string, id: string) {
+    await this.ensureBuffer(path)
+    if (!this.state.buffers[path]) return // read error already shown
+    if (this.state.buffers[path].conflict) return this.notice(`${noteTitle(path)}: ${t('error.ECONFLICT')}`, true)
+    // a failed save shows its own error
+    if (!(await this.flush(path)) || !this.state.buffers[path] || this.state.buffers[path].conflict) return
+    const before = this.state.buffers[path].content
+    try {
+      const n = await api.restoreVersion(path, id, this.state.buffers[path].mtime)
+      const cur = this.state.buffers[path]
+      if (!cur) return
+      // text typed while the restore ran is kept: the conflict banner lets the user choose
+      if (cur.content !== before) return this.setBuffer(path, { ...cur, saved: n.content, mtime: n.mtime, conflict: 'modified' })
+      this.setBuffer(path, { ...cur, content: n.content, saved: n.content, mtime: n.mtime, conflict: undefined })
+      this.index.upsert(path, n.content)
+      this.bumpIndex()
+      this.notice(t('history.restored'))
+    } catch (e) {
+      this.error(e)
     }
   }
 

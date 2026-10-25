@@ -3,7 +3,6 @@ import { EditorView, keymap, lineNumbers, drawSelection, highlightActiveLine, De
 import { EditorState, Compartment, EditorSelection } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { languages } from '@codemirror/language-data'
 import { syntaxHighlighting, HighlightStyle, indentUnit, bracketMatching, syntaxTree } from '@codemirror/language'
 import { searchKeymap, highlightSelectionMatches, search } from '@codemirror/search'
 import { autocompletion, closeBrackets, closeBracketsKeymap, CompletionContext, completionKeymap } from '@codemirror/autocomplete'
@@ -13,6 +12,7 @@ import { api } from '../api'
 import { noteTitle, shortestLinkText, fuzzyScore } from '../../shared/markdown'
 import { t as tr } from '../../shared/i18n'
 import { livePreview, liveTables, liveMath } from '../live-preview'
+import { codeLanguage } from '../code'
 
 const hl = HighlightStyle.define([
   { tag: t.heading1, class: 'cm-h1' },
@@ -35,6 +35,9 @@ const hl = HighlightStyle.define([
   { tag: t.comment, class: 'cm-comment' },
   { tag: [t.number, t.bool, t.atom], class: 'cm-num' },
   { tag: [t.function(t.variableName), t.typeName, t.className], class: 'cm-fn' },
+  // HTML tags, CSS properties and JSON keys inside fenced code
+  { tag: t.tagName, class: 'cm-kw' },
+  { tag: [t.propertyName, t.attributeName], class: 'cm-fn' },
 ])
 
 const wikiDeco = new MatchDecorator({
@@ -134,7 +137,7 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
           bracketMatching(),
           search({ top: true }),
           EditorView.lineWrapping,
-          markdown({ base: markdownLanguage, codeLanguages: languages }),
+          markdown({ base: markdownLanguage, codeLanguages: codeLanguage }),
           syntaxHighlighting(hl),
           wikiPlugin,
           autocompletion({ override: [wikiCompletions(path)], icons: false }),

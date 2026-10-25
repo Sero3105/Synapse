@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, Fragment } from 'react'
-import { X, Plus, ArrowLeft, ArrowRight, BookOpen, Pencil, MoreHorizontal, FileText, Waypoints, Image as ImageIcon, File as FileIcon } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, Fragment } from 'react'
+import { X, Plus, ArrowLeft, ArrowRight, BookOpen, Pencil, MoreHorizontal, FileText, Waypoints, Image as ImageIcon, File as FileIcon, FilePlus, CalendarDays, Search, Pin, Clock, PenLine } from 'lucide-react'
 import { model, useModel, Pane, Tab, IMAGE_EXT, isMd } from '../model'
 import { Editor } from './Editor'
 import { Reading } from './Reading'
@@ -7,7 +7,8 @@ import { GraphView } from './Graph'
 import { fileUrl, api } from '../api'
 import { basename, noteTitle, INVALID_NAME } from '../../shared/markdown'
 import { runCommand, hotkeysFor, formatHotkey } from '../commands'
-import { t as tr } from '../../shared/i18n'
+import { t as tr, tn } from '../../shared/i18n'
+import { startLists } from '../../shared/start'
 
 export function Workspace() {
   const ws = useModel((s) => s.ws)
@@ -123,6 +124,7 @@ function PaneView({ pane, active }: { pane: Pane; active: boolean }) {
                   { label: tr('common.splitRight'), run: () => { model.selectTab(pane.id, t.id); model.split('row') } },
                   { label: tr('common.splitDown'), run: () => { model.selectTab(pane.id, t.id); model.split('column') } },
                   ...(t.path ? [{ separator: true, label: '' }, { label: tr('common.revealInFinder'), run: () => api.reveal(t.path!) }, { label: tr('common.copyPath'), run: () => navigator.clipboard.writeText(t.path!) }] : []),
+                  ...(t.kind === 'note' && t.path ? [{ label: tr('history.open'), run: () => model.set({ modal: { kind: 'history', path: t.path! } }) }] : []),
                 ])
               }
             >
@@ -207,7 +209,7 @@ function ViewHeader({ tab, paneId }: { tab: Tab; paneId: string }) {
               { label: tr('common.renameEllipsis'), run: () => model.renamePrompt(path) },
               { label: tr('common.splitRight'), run: () => model.split('row') },
               { label: tr('common.splitDown'), run: () => model.split('column') },
-              ...(isNote ? [{ label: tr('view.findInNote'), run: () => runCommand('editor:open-search') }] : []),
+              ...(isNote ? [{ label: tr('view.findInNote'), run: () => runCommand('editor:open-search') }, { label: tr('history.open'), run: () => model.set({ modal: { kind: 'history', path } }) }] : []),
               { label: tr('common.revealInFinder'), run: () => api.reveal(path) },
               { label: tr('common.copyPath'), run: () => navigator.clipboard.writeText(path) },
               { separator: true, label: '' },
@@ -307,44 +309,74 @@ function FileBody({ path }: { path: string }) {
     <div className="empty-state">
       <div className="empty-title">{basename(path)}</div>
       <div className="empty-sub">{tr('view.unsupported')}</div>
-      <button className="btn" onClick={() => api.reveal(path)}>{tr('common.revealInFinder')}</button>
+      <div className="row">
+        {/\.pdf$/i.test(path) && <button className="btn mod-cta" onClick={() => api.openFile(path).catch((e) => model.error(e))}>{tr('view.openPdf')}</button>}
+        <button className="btn" onClick={() => api.reveal(path)}>{tr('common.revealInFinder')}</button>
+      </div>
     </div>
   )
 }
 
 function EmptyTab({ paneId, tabId }: { paneId: string; tabId: string }) {
   const recent = useModel((s) => s.recent)
+  const pinned = useModel((s) => s.pinned)
+  const files = useModel((s) => s.files)
+  const vaultName = useModel((s) => s.snap?.vault?.name ?? '')
   const graph = useModel((s) => s.snap!.prefs.corePlugins.graph)
-  const actions = [
-    { label: tr('common.newNote'), cmd: 'file-explorer:new-file', run: () => model.createNote({ where: 'tab' }) },
-    { label: tr('empty.jump'), cmd: 'switcher:open', run: () => model.set({ modal: { kind: 'switcher' } }) },
-    ...(graph ? [{ label: tr('empty.graph'), cmd: 'graph:open', run: () => model.openGraph('tab') }] : []),
+  const lists = useMemo(() => startLists(files, recent, pinned), [files, recent, pinned])
+  const noteCount = useMemo(() => files.filter((f) => f.type === 'file' && isMd(f.path)).length, [files])
+  const ICON = { size: 17, strokeWidth: 1.75 } as const
+  const primary = [
+    { label: tr('common.newNote'), cmd: 'file-explorer:new-file', icon: <FilePlus {...ICON} />, run: () => model.createNote({ where: 'tab' }) },
+    { label: tr('empty.today'), cmd: 'daily-notes:open-today', icon: <CalendarDays {...ICON} />, run: () => model.openDailyNote() },
+    { label: tr('empty.jump'), cmd: 'switcher:open', icon: <Search {...ICON} />, run: () => model.set({ modal: { kind: 'switcher' } }) },
+    ...(graph ? [{ label: tr('empty.graph'), cmd: 'graph:open', icon: <Waypoints {...ICON} />, run: () => model.openGraph('tab') }] : []),
+  ]
+  const secondary = [
     { label: tr('empty.closeTab'), cmd: 'workspace:close', run: () => model.closeTab(paneId, tabId) },
     { label: tr('empty.closeVault'), cmd: 'app:close-vault', run: () => model.switchVault(() => api.closeVault()) },
   ]
+  const hotkey = (cmd: string) => formatHotkey(hotkeysFor(cmd)[0] ?? '')
+  const section = (title: string, icon: React.ReactNode, paths: string[], menu: (p: string) => { label: string; run: () => void }[]) =>
+    paths.length > 0 && (
+      <section className="empty-tab-recent" aria-label={title}>
+        <h2>{icon}{title}</h2>
+        {paths.map((p) => (
+          <button key={p} className="recent-row" onClick={(e) => model.open(p, e.metaKey ? 'new' : 'tab')} onContextMenu={(e) => model.openMenu(e, [{ label: tr('files.openNewTab'), run: () => model.open(p, 'new') }, ...menu(p)])}>
+            <FileText size={15} strokeWidth={1.75} className="recent-icon" />
+            <span className="recent-title">{isMd(p) ? noteTitle(p) : basename(p)}</span>
+            {p.includes('/') && <span className="recent-path">{p.slice(0, p.lastIndexOf('/'))}</span>}
+          </button>
+        ))}
+      </section>
+    )
   return (
     <div className="empty-tab" data-testid="empty-tab">
       <div className="empty-tab-inner">
-        <h1 className="empty-tab-title">{tr('empty.title')}</h1>
-        <div className="empty-tab-actions">
-          {actions.map((a) => (
-            <button key={a.cmd} className="action-row" onClick={a.run}>
-              <span>{a.label}</span>
-              <kbd>{formatHotkey(hotkeysFor(a.cmd)[0] ?? '')}</kbd>
+        <header className="empty-tab-head">
+          <h1 className="empty-tab-title">{vaultName || tr('empty.title')}</h1>
+          <p className="empty-tab-sub">{tr('empty.title')} · {tn('count.notes', noteCount)}</p>
+        </header>
+        <div className="quick-grid">
+          {primary.map((a) => (
+            <button key={a.cmd} className="quick-card" onClick={a.run}>
+              <span className="quick-icon">{a.icon}</span>
+              <span className="quick-label">{a.label}</span>
+              {hotkey(a.cmd) && <kbd>{hotkey(a.cmd)}</kbd>}
             </button>
           ))}
         </div>
-        {recent.length > 0 && (
-          <section className="empty-tab-recent" aria-label={tr('empty.recentLabel')}>
-            <h2>{tr('empty.recent')}</h2>
-            {recent.slice(0, 7).map((p) => (
-              <button key={p} className="recent-row" onClick={(e) => model.open(p, e.metaKey ? 'new' : 'tab')}>
-                <span className="recent-title">{isMd(p) ? noteTitle(p) : basename(p)}</span>
-                {p.includes('/') && <span className="recent-path">{p.slice(0, p.lastIndexOf('/'))}</span>}
-              </button>
-            ))}
-          </section>
-        )}
+        {section(tr('empty.pinned'), <Pin size={13} strokeWidth={2} />, lists.pinned, (p) => [{ label: tr('empty.unpin'), run: () => model.togglePin(p) }])}
+        {section(tr('empty.recent'), <Clock size={13} strokeWidth={2} />, lists.recent, (p) => [{ label: tr('files.pin'), run: () => model.togglePin(p) }, { label: tr('empty.forget'), run: () => model.forgetRecent(p) }])}
+        {section(tr('empty.modified'), <PenLine size={13} strokeWidth={2} />, lists.modified, (p) => [{ label: tr('files.pin'), run: () => model.togglePin(p) }])}
+        <div className="empty-tab-links">
+          {secondary.map((a) => (
+            <button key={a.cmd} className="link-row" onClick={a.run}>
+              {a.label}
+              {hotkey(a.cmd) && <kbd>{hotkey(a.cmd)}</kbd>}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
