@@ -48,6 +48,14 @@ async function launch(): Promise<{ app: ElectronApplication; win: Page }> {
   const win = await app.firstWindow()
   win.on('pageerror', (e) => console.error('pageerror', e))
   await win.waitForLoadState('domcontentloaded')
+  // Keep the test window away from the real keyboard: shown windows take focus, and anything typed on
+  // this Mac during a run lands in the test editor (verified with an OS-level keystroke). Playwright
+  // drives the hidden window through CDP as before.
+  await app.evaluate(async ({ BrowserWindow }) => {
+    const w = BrowserWindow.getAllWindows()[0]
+    while (!w.isVisible()) await new Promise((r) => setTimeout(r, 20))
+    w.hide()
+  })
   return { app, win }
 }
 
@@ -437,17 +445,159 @@ test('clicking a rendered wiki link in live preview opens the note', async () =>
   await app.close()
 })
 
+async function palette(win: Page, text: string) {
+  await win.keyboard.press('Meta+P')
+  await win.keyboard.type(text)
+  await win.keyboard.press('Enter')
+}
+
 test('reading view highlights code and renders Mermaid', async () => {
-  fs.writeFileSync(path.join(vaultA, 'Code.md'), '```js\nconst x = 1\n```\n\n```mermaid\ngraph TD\n  A --> B\n```\n')
+  const note = [
+    '```js\nconst x = 1\n```',
+    '```py\ndef f(): pass\n```',
+    '```klingon\n<b>qapla</b>\n```',
+    '```mermaid\ngraph TD\n  A --> B\n```',
+    '```mermaid\nflowchart TD\n  A[Start] -->\n```',
+    '```mermaid\n\n```',
+    '```mermaid\n%%{init: {"securityLevel": "loose"}}%%\nflowchart TD\n  A["<img src=x onerror=window.__pwned=1>"] --> B\n  click A call alert()\n```',
+    '```text\nmermaid\n```',
+  ].join('\n\n')
+  fs.writeFileSync(path.join(vaultA, 'Code.md'), note + '\n')
   seedRegistry('A')
   const { app, win } = await launch()
   await win.locator('.tree-item-self', { hasText: 'Code' }).click()
-  await win.keyboard.press('Meta+P')
-  await win.keyboard.type('toggle reading')
-  await win.keyboard.press('Enter')
+  // the editor loads each fence's language on demand, aliases included
+  await expect(win.locator('.cm-content .cm-kw', { hasText: 'def' })).toHaveCount(1)
+  await expect(win.locator('.cm-content .cm-kw', { hasText: 'const' })).toHaveCount(1)
+  await palette(win, 'toggle reading')
   const reading = win.getByTestId('reading')
   await expect(reading.locator('.hljs-keyword', { hasText: 'const' })).toHaveCount(1)
-  await expect(reading.locator('.mermaid svg')).toHaveCount(1)
+  await expect(reading.locator('.hljs-keyword', { hasText: 'def' })).toHaveCount(1)
+  // unknown language: plain, escaped text
+  await expect(reading.locator('code', { hasText: '<b>qapla</b>' })).toHaveCount(1)
+  // the valid diagram and the sanitized one render; invalid and empty ones keep their source with a message
+  await expect(reading.locator('.mermaid svg')).toHaveCount(2)
+  await expect(reading.locator('pre.mermaid-src.is-error')).toHaveCount(2)
+  await expect(reading.locator('.mermaid-error')).toHaveCount(2)
+  await expect(reading.locator('.mermaid-error').last()).toContainText('empty')
+  expect(await win.evaluate(() => (window as any).__pwned)).toBeUndefined()
+  // failed renders leave no temporary Mermaid elements behind
+  expect(await win.evaluate(() => document.querySelectorAll('body > [id^="dmermaid"], body > [id^="mermaid-"]').length)).toBe(0)
+  await expect(reading.locator('.mermaid [onerror], .mermaid script, .mermaid [onclick]')).toHaveCount(0)
+  // an ordinary fence that merely says "mermaid" stays code
+  await expect(reading.locator('pre:not(.mermaid-src) code', { hasText: 'mermaid' })).toHaveCount(1)
+  // switching theme redraws diagrams with the other palette
+  const fill = () => reading.locator('.mermaid svg').first().evaluate((svg) => svg.querySelector('style')?.textContent)
+  const before = await fill()
+  const wasLight = await win.evaluate(() => document.body.classList.contains('theme-light'))
+  await win.evaluate((theme) => (window as any).__synapse.setGlobal({ prefs: { theme } }), wasLight ? 'dark' : 'light')
+  await expect(win.locator(wasLight ? 'body.theme-dark' : 'body.theme-light')).toHaveCount(1)
+  await expect(reading.locator('.mermaid svg')).toHaveCount(2)
+  await expect.poll(fill).not.toBe(before)
+  // the file on disk is untouched by rendering
+  expect(fs.readFileSync(path.join(vaultA, 'Code.md'), 'utf8')).toBe(note + '\n')
+  await app.close()
+})
+
+test('daily notes: open today once, navigate between days, never duplicate', async () => {
+  const d = new Date()
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  fs.mkdirSync(path.join(vaultA, 'Daily'))
+  fs.writeFileSync(path.join(vaultA, 'Daily', '2000-01-01.md'), 'old day\n')
+  fs.mkdirSync(path.join(vaultA, 'Templates'))
+  fs.writeFileSync(path.join(vaultA, 'Templates', 'Daily note.md'), '# {{title}}\n\n## Log\n')
+  seedRegistry('A')
+  const { app, win } = await launch()
+  await expect(win.getByTestId('file-explorer')).toBeVisible()
+  await palette(win, 'open today')
+  const file = path.join(vaultA, 'Daily', `${today}.md`)
+  await expect.poll(() => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '')).toBe(`# ${today}\n\n## Log\n`)
+  await win.keyboard.type('my day')
+  await expect.poll(() => fs.readFileSync(file, 'utf8')).toContain('my day')
+  // again: opens the same note, nothing new is created or overwritten
+  await palette(win, 'open previous daily')
+  await expect(win.locator('.cm-content')).toContainText('old day')
+  await palette(win, 'open today')
+  await expect.poll(() => fs.readdirSync(path.join(vaultA, 'Daily')).sort()).toEqual(['2000-01-01.md', `${today}.md`])
+  expect(fs.readdirSync(vaultA).filter((f) => f.endsWith('.md')).sort()).toEqual(['Ideas.md', 'Welcome.md'])
+  expect(fs.readFileSync(file, 'utf8')).toContain('my day')
+  await app.close()
+})
+
+test('templates: insert at the cursor and create notes, never overwriting', async () => {
+  seedRegistry('A')
+  const { app, win } = await launch()
+  await win.locator('.tree-item-self', { hasText: 'Ideas' }).click()
+  await win.locator('.cm-content').click()
+  await win.keyboard.press('Meta+ArrowDown')
+  await palette(win, 'insert template')
+  await win.keyboard.type('meeting')
+  await win.keyboard.press('Enter')
+  const ideas = path.join(vaultA, 'Ideas.md')
+  await expect.poll(() => fs.readFileSync(ideas, 'utf8')).toContain('## Action items')
+  const text = fs.readFileSync(ideas, 'utf8')
+  expect(text.startsWith('# Ideas\n\nBack to [[Welcome]]. Unique word: zebracorn.\n# Ideas\n')).toBe(true)
+  expect(text).not.toContain('{{')
+  // undo removes the inserted template in one step
+  await win.keyboard.press('Meta+Z')
+  await expect.poll(() => fs.readFileSync(ideas, 'utf8')).toBe('# Ideas\n\nBack to [[Welcome]]. Unique word: zebracorn.\n')
+  // new note from template; an existing name is refused
+  await palette(win, 'new note from template')
+  await win.keyboard.type('study')
+  await win.keyboard.press('Enter')
+  await win.keyboard.type('Physics')
+  await win.keyboard.press('Enter')
+  const physics = path.join(vaultA, 'Physics.md')
+  // the file appears (empty) a moment before its content is written: wait for the content
+  await expect.poll(() => (fs.existsSync(physics) ? fs.readFileSync(physics, 'utf8') : '')).toMatch(/^# Physics\n\nDate: \d{4}-\d{2}-\d{2}\n/)
+  await palette(win, 'new note from template')
+  await win.keyboard.type('project')
+  await win.keyboard.press('Enter')
+  await win.keyboard.type('Welcome')
+  await win.keyboard.press('Enter')
+  await expect(win.locator('.notice.is-error')).toContainText('already exists')
+  expect(fs.readFileSync(path.join(vaultA, 'Welcome.md'), 'utf8')).toBe('# Welcome\n\nLinks to [[Ideas]].\n')
+  // names that would leave the folder or the vault are refused
+  for (const bad of ['../escape', '.hidden']) {
+    await palette(win, 'new note from template')
+    await win.keyboard.press('Enter')
+    await win.keyboard.type(bad)
+    await win.keyboard.press('Enter')
+    await expect(win.locator('.notice.is-error').last()).toContainText('Names cannot')
+  }
+  expect(fs.existsSync(path.join(tmp, 'escape.md'))).toBe(false)
+  expect(fs.readdirSync(vaultA).filter((f) => f.endsWith('.md')).sort()).toEqual(['Ideas.md', 'Physics.md', 'Welcome.md'])
+  await app.close()
+})
+
+test('version history: earlier text is kept outside the vault and restored on confirmation', async () => {
+  seedRegistry('A')
+  const { app, win } = await launch()
+  const ideas = path.join(vaultA, 'Ideas.md')
+  const original = fs.readFileSync(ideas, 'utf8')
+  await win.locator('.tree-item-self', { hasText: 'Ideas' }).click()
+  await win.locator('.cm-content').click()
+  await win.keyboard.press('Meta+ArrowDown')
+  await win.keyboard.type('new line')
+  await expect.poll(() => fs.readFileSync(ideas, 'utf8')).toContain('new line')
+  const edited = fs.readFileSync(ideas, 'utf8')
+  // file context menu → Version history…
+  await win.locator('.tree-item-self', { hasText: 'Ideas' }).click({ button: 'right' })
+  await win.getByRole('menuitem', { name: 'Version history…' }).click()
+  await expect(win.getByTestId('history-preview')).toHaveText(original)
+  // cancelling the confirmation changes nothing
+  await win.getByRole('button', { name: 'Restore' }).click()
+  await win.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click()
+  expect(fs.readFileSync(ideas, 'utf8')).toBe(edited)
+  await win.getByRole('button', { name: 'Restore' }).click()
+  await win.getByRole('alertdialog').getByRole('button', { name: 'Restore' }).click()
+  await expect.poll(() => fs.readFileSync(ideas, 'utf8')).toBe(original)
+  await expect(win.locator('.cm-content')).not.toContainText('new line')
+  // the replaced text is now a version itself; nothing was written into the vault
+  await palette(win, 'show version history')
+  await expect(win.getByTestId('history-preview')).toHaveText(edited)
+  expect(fs.readdirSync(path.join(vaultA, '.synapse')).filter((f) => !['settings.json', 'workspace.json'].includes(f))).toEqual([])
+  expect(fs.existsSync(path.join(userData, 'history'))).toBe(true)
   await app.close()
 })
 
