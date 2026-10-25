@@ -20,10 +20,12 @@ main process (Node)                         renderer (sandboxed, no Node)
 │               (settings, registry, atomic ├─ editor-commands.ts
 │               writes, migrations)         ├─ components/   Editor (CM6), Reading (markdown-it), Workspace,
 ├─ session.ts   open/create vault, moved-   │                Sidebars, Graph, Modals, Settings
-│               vault detection, snapshot   └─ App.tsx       shell, theme application, status bar
-└─ vault.ts     path-confined fs access     shared/
+│               vault detection, snapshot   ├─ code.ts       fence highlighting (both views), Mermaid
+├─ vault.ts     path-confined fs access     └─ App.tsx       shell, theme application, status bar
+└─ history.ts   note versions in app data   shared/
 preload.ts      contextBridge: invoke(channel) ├─ settings.ts  schema, defaults, validation, migrations, precedence
-                with channel allowlist         └─ markdown.ts  link/tag/heading parsing, link resolution, index, search, rename rewriting
+                with channel allowlist         ├─ markdown.ts  link/tag/heading parsing, link resolution, index, search, rename rewriting
+                                               └─ templates.ts daily note paths, template placeholders
 ```
 
 ## Security boundary
@@ -43,6 +45,23 @@ preload.ts      contextBridge: invoke(channel) ├─ settings.ts  schema, defau
 3. Edits update a per-path buffer and the index at once. Autosave runs after 800 ms with `expectedMtime`. If the file changed on disk and differs, main returns `ECONFLICT` and the renderer shows a conflict banner instead of overwriting.
 4. A recursive `fs.watch` sends `fs:changed`. Clean buffers reload, dirty buffers get a conflict, and the index updates.
 5. On window close, main asks the renderer to flush dirty buffers and the workspace. If saving fails, the user must confirm before quitting.
+
+## Code, diagrams and version history
+
+- Fenced code: the editor resolves a fence's language with `codeLanguage()` (`src/renderer/code.ts`). It uses `@codemirror/language-data`, loaded on demand, and falls back to highlight.js aliases (`py`, `md`, …). The reading view uses highlight.js with the same identifiers. Unknown languages stay plain text, and blocks over 100 000 characters are not highlighted.
+- Mermaid is imported only when a note in the reading view has a ```` ```mermaid ```` fence. It runs with `securityLevel: 'strict'` (Mermaid sanitizes the whole SVG with DOMPurify and disables click callbacks; its default `secure` list stops `%%{init}%%` from changing that) and `suppressErrorRendering`. Invalid diagrams keep their source with a message. Diagrams are redrawn when the theme changes.
+- Version history (`src/main/history.ts`): `Vault.write()` copies the text it is about to replace into `<userData>/history/<vault id>/<hash of path>/<ms>-<sha256 prefix>.md`, written atomically. A copy is skipped if it equals the newest one. It is throttled to one per 10 minutes, except when the disk text is not what this Synapse session last wrote (an external edit, or the first save after launch), on forced writes, and on restore. The newest 50 per note are kept. `Vault.rename()` moves the history along. Snapshot failures are logged and never block a save. `history:restore` goes through `write()` with the caller's `expectedMtime`, so newer changes on disk win with `ECONFLICT`.
+
+## Discovery, tasks, attachments, export, import
+
+- `src/shared/related.ts` ranks related notes from the `NoteIndex`, which now also keeps per-note terms and their document frequency, updated in `upsert`/`remove`. A query runs only while the Related section is expanded.
+- `src/shared/graph-filter.ts`: visible nodes and neighbours for the graph filters. Filter state lives in refs read by the draw loop, so filtering does not rebuild the simulation.
+- `src/shared/tasks.ts`: `parseTasks` and `toggleTaskLine(content, line, expectedRaw)`, which refuses when the line changed. Toggles go through `model.edit` and the normal autosave conflict check.
+- `src/shared/attachments.ts`: report from the in-memory index only; no disk access, no deletion.
+- `src/shared/start.ts`: start page lists. Pins and dismissed suggestions are stored in `workspace.json`, follow renames and drop deleted notes.
+- Export: the renderer renders the note (`src/renderer/export.ts`); `src/main/export.ts` inlines `synapse-file:` images through `Vault.resolve`, wraps the page with a strict CSP, saves through the native dialog, and prints PDFs in a hidden window with JavaScript off.
+- Import: `src/main/migrate.ts` `inspectFolder` reads a picked folder (no writes, no symlinks) before it becomes a vault.
+- `fs:openFile` opens PDFs only, so a click can never launch an executable in a vault.
 
 ## Rename / move
 

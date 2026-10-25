@@ -1,42 +1,48 @@
-# Design system: Signal on graphite
+# Design system: Future Minimal
 
-Synapse is a place to think and write for hours, so the interface stays quiet and the page is the brightest, calmest surface.
+Synapse is a place to think and write for hours. The page stays the calmest, brightest surface; everything around it is quiet, softly rounded and precise. Deep graphite in dark mode, warm paper in light mode, one accent.
 
-The colour of one accent, the **signal**, is reserved for *connections*: links, the caret, keyboard focus, the active note in the tree and the graph, live backlink counts, and the scope of a vault override. When something lights up, it is connected to something.
+The accent, the **signal** (electric violet by default, configurable in Settings → Appearance), marks connections, focus and selection: links, the caret, keyboard focus, the active note, live counts, the scope of a vault override. Errors and conflicts keep their own semantic red.
 
 All tokens live at the top of `src/renderer/styles.css`. Components reference tokens only.
 
-## Taste-Skill house rules applied
+## Principles
 
 | Rule | How Synapse applies it |
 |---|---|
-| No hairlines | Regions are separated by tone: sunk docks, raised rows and fields, the page as the lightest surface. Resizers are invisible until hovered, then show a 2px signal bar. |
-| No shadows at rest | Only floating layers have `--shadow-float`: menus, dialogs, palette, autocomplete, notices, graph settings, docks floating over a narrow window. Focus and validation rings are states, not shadows. |
-| No gradients, no glass | Flat surfaces only. The app icon is flat. |
-| No violet/indigo "assistant palette" | The previous violet accent was replaced by phosphor mint `#4cc9b0`. |
-| One accent, under 5% of a screen | The signal appears only on connection-related marks. Headings and icons are ink. |
-| Two typefaces | SF Pro for the interface, New York (system serif) for notes. Monospace only for literal code and YAML frontmatter. |
-| No tiny tracked caps, no eyebrows | All labels are sentence case at readable sizes. |
-| Running text in full ink | Note text uses `--ink`. Grey is for metadata only. |
-
-`node ~/.claude/skills/design-taste-frontend/scripts/lint.mjs src/renderer` reports 0 FAIL, 0 WARN. Each kept exception carries a `taste-skill-ignore` comment with its reason.
+| Tone and space first | Regions are told apart by tone (sunk docks, raised rows, the page) and spacing. A 1px `--line` is used only on floating layers, real separators (settings rows, palette input) and as the faint guide under list details. |
+| Shadows only on floating layers | `--shadow-float` (hairline + soft tinted shadow) on dialogs, palette, menus, notices, graph controls and docks floating over a narrow window. The selected segment of a segmented control is the one lifted chip. |
+| No decorative gradients, glow or glass | Focus is a thin accent line plus a soft halo; nothing else glows. |
+| One accent | `--signal` for marks and text, `--cta` (accent darkened) for filled buttons and switches so white text stays at least 4.5:1. |
+| No cards in lists | Result lists (search, tasks, backlinks, related, reports) show the note title aligned with the section header and details as quiet text on a guide line; a surface appears only on hover. |
+| Two typefaces | SF Pro for the interface, New York for notes. Monospace only for code and syntax examples. |
 
 ## Colour roles
 
 | Token | Dark | Light | Use |
 |---|---|---|---|
-| `--ground` | #131518 | #ffffff | the page: editor, reading view, status bar |
-| `--ground-sunk` | #0e1012 | #f2f3f5 | docks, tab rail, code blocks, frontmatter |
-| `--raise-1` | #1a1d21 | #e9ebee | fields, hover, segmented track |
-| `--raise-2` | #22262b | #e0e3e7 | selection, active rows, pressed |
-| `--float` | #1c1f23 | #ffffff | menus, dialogs, overlays |
-| `--ink` | #e4e7eb | #15181c | text |
-| `--ink-2` | #a3aab3 | #545b64 | secondary text, metadata |
-| `--ink-3` | #7c848e | #656c75 | hints, shortcut keys, placeholders |
-| `--signal` | accent | accent mixed 62% with black | links, caret, focus, connections |
+| `--ground` | #16171c | #fdfcfa | the page: editor, reading view, status bar |
+| `--ground-sunk` | #111217 | #f6f5f2 | docks, tab rail |
+| `--raise-1` | #1c1d24 | #efeeea | fields, hover, segmented track |
+| `--raise-2` | #262731 | #e7e5e0 | selection, active rows, pressed |
+| `--float` | #202129 | #ffffff | menus, dialogs, overlays |
+| `--line` | white 7% | ink 8% | hairlines on floating layers and separators |
+| `--ink` / `--ink-2` / `--ink-3` | #ebebf0 / #a6a7b4 / #7f818e | #1b1b21 / #55565f / #666771 | text, secondary text, hints |
+| `--signal` | accent, slightly lifted | accent mixed 66% with black | links, caret, focus, connections |
+| `--cta` | accent mixed 76% with black | same | filled buttons, switches (white text) |
 | `--danger` | #f2706b | #c93c37 | conflicts, missing vaults, destructive actions |
 
-The accent stays user-configurable (Settings → Appearance), globally or per vault. In light mode the signal is darkened automatically so links keep contrast on white.
+The default accent is `#8b7cff`. Installations that still had the previous default (`#4cc9b0`) on disk follow the new default; any other chosen colour is kept.
+
+## Shape
+
+| Token | Value | Use |
+|---|---|---|
+| `--r-ctl` | 8px | buttons, fields, rows, menu items |
+| `--r-panel` | 12px | code blocks, images, history preview |
+| `--r-float` | 14px | menus, notices, popovers, graph settings |
+| `--r-overlay` | 20px | dialogs, palette, settings, vault manager |
+| `--r-pill` | full | chips, toggles |
 
 ## Typography
 
@@ -53,7 +59,7 @@ The accent stays user-configurable (Settings → Appearance), globally or per va
 ## Space, shape, motion
 
 - Spacing on a 4pt grid: `--s-1` … `--s-7` = 4, 8, 12, 16, 24, 32, 48px.
-- Radii: 6px controls, 10px floating layers, 12px dialogs, full round for chips and toggles.
+- Radii: see Shape above.
 - Rows are 28px; the title bar zone is 44px; the status bar is 26px.
 - Motion: 110 / 180 / 260ms with `cubic-bezier(0.2, 0.8, 0.2, 1)`. Used for:
   - docks sliding open and closed;

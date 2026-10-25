@@ -18,7 +18,32 @@ All tests use temp directories. None touch real notes or the real `~/Library/App
 5. Search, quick switcher, command palette, reading view link click, graph.
 6. Security: no `require` or `process` in the renderer, out-of-vault and config paths refused, unknown IPC channels blocked.
 
-## Last results (2026-10-15)
+## Reliability check (2026-10-25)
+
+- Vault moved, deleted or recreated while open: `e2e/reliability.spec.ts`. The folder is never recreated, the typed text is kept, saving resumes when the folder returns, and a recreated empty folder gets a "deleted" conflict instead of a silent write.
+- Crash during a save: `test/vault.test.ts`. The original stays intact and the new text stays in a visible `.tmp` file, which is never removed automatically.
+- PDF export with a remote image that never answers: confirmed to hang (nothing written after 60 s). Now limited to 15 s: `e2e/export.spec.ts`.
+- Intermittent Mermaid E2E failure (one run): not reproduced in about 40 runs. Cause unknown, test unchanged.
+
+## Security audit (2026-10-25)
+
+- Electron 44.7.2 → 44.9.3 and markdown-it 15.0.2 → 15.0.3, inside the existing `package.json` ranges; only `package-lock.json` changed. `npm audit` still lists `undici` and `fast-uri`, which are used only by build tooling (electron-builder, node-gyp, the Electron downloader) and are not in the app.
+- `npm test`: 205/205. E2E: 32/32 in two full runs. One earlier full run had a single intermittent failure in the Mermaid test, which passed when repeated alone (3/3).
+
+## Last results (2026-10-25, second feature set)
+
+- `npm run typecheck`: pass
+- `npm test`: 190/190 pass, 17 files. New: `related`, `graph-filter`, `attachments`, `tasks`, `export`, `migrate`, `start`
+- `npm run test:e2e`: 31/31 pass, with the new specs `e2e/{related,attachments,tasks,export,start}.spec.ts` (shared setup in `e2e/helpers.ts`). The new specs also passed 3 runs in a row (27/27).
+
+## Earlier results (2026-10-25)
+
+- `npm run typecheck`: pass
+- `npm test`: 149/149 pass. New suites: `test/code.test.ts` (fence languages for both views, unknown languages, Mermaid config), `test/templates.test.ts` (daily note paths, duplicates, placeholders), `test/history.test.ts` (snapshots, dedupe, retention, interrupted writes, external edits, restore conflicts, renames)
+- `npm run test:e2e` (dev build): 22/22 pass, including code highlighting and Mermaid (invalid, empty, injection attempt, theme switch), daily notes, templates and version history restore
+- E2E on a production bundle built with `npx electron-builder --mac --dir --arm64` into a temp folder (no DMG, `release/` untouched): 22/22 pass; `codesign --verify --deep` ok
+
+## Earlier results (2026-10-15)
 
 - `npm run typecheck`: pass
 - `npm test`: 67/67 pass
