@@ -5,9 +5,9 @@ description: Published versions of Synapse and what changed.
 
 Downloads for every version are on [GitHub Releases](https://github.com/Sero3105/Synapse/releases).
 
-## 1.3.1 — not released yet
+## 1.4.0 — 25 October 2026
 
-Finished in the app code and covered by its tests; the published download is still 1.3.0, so 1.3.0 does not have these yet:
+Published on GitHub Releases (Apple silicon and Intel DMGs). Everything that was planned for 1.3.1 shipped here:
 
 - **Related notes:** suggestions for notes you have not linked yet, each with the reason (shared tags, shared links, shared words). Insert the link only if you agree, or dismiss the suggestion.
 - **Graph filters:** filter with `path:`, `tag:`, `file:` and plain words, show only unlinked notes, ⇧-click a note to highlight its connections, and **Reset view**.

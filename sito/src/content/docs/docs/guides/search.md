@@ -21,7 +21,7 @@ Open **Search** in the left dock or press <kbd>⇧⌘F</kbd>. Results show the m
 | `path:Projects` | notes inside a folder |
 | `file:outline` | notes whose file name matches |
 
-## Tasks and the start page (1.3.1, not released yet)
+## Tasks and the start page (from 1.4.0)
 
 The **Tasks** view in the left dock lists every `- [ ]` checklist item in the vault — open, done or all — grouped by note. Ticking a task changes only that line; if the note changed since the list was built, nothing is written and Synapse tells you. Click a task to jump to its line.
 

@@ -37,7 +37,7 @@ export const features: readonly Feature[] = [
   {
     id: 'graph',
     title: 'See the shape of your thinking',
-    body: 'The graph draws every note and link in the vault. Filter it with path:, tag:, file: and plain words, show only unlinked notes, and ⇧-click a note to light up its connections. Coming in 1.3.1.',
+    body: 'The graph draws every note and link in the vault. Filter it with path:, tag:, file: and plain words, show only unlinked notes, and ⇧-click a note to light up its connections.',
     image: graph,
     alt: 'Graph view of a vault with notes as nodes connected by their links',
     focus: '60% 40%',
@@ -53,7 +53,7 @@ export const features: readonly Feature[] = [
   {
     id: 'related',
     title: 'Notes that belong together',
-    body: 'Related notes suggests notes you have not linked yet and says why: shared tags, shared links, shared words. Insert the link only if you agree, or dismiss the suggestion. Coming in 1.3.1.',
+    body: 'Related notes suggests notes you have not linked yet and says why: shared tags, shared links, shared words. Insert the link only if you agree, or dismiss the suggestion.',
     image: related,
     alt: 'The related notes panel suggesting notes to link to, each with the reason it is related',
     focus: '100% 60%',
@@ -61,7 +61,7 @@ export const features: readonly Feature[] = [
   {
     id: 'tasks',
     title: 'Every task, one list',
-    body: 'Every checklist item in the vault in one place, grouped by note: tick it there or jump to its line. The start page adds pinned, recently opened and recently changed notes, plus a daily note for today. Coming in 1.3.1.',
+    body: 'Every checklist item in the vault in one place, grouped by note: tick it there or jump to its line. The start page adds pinned, recently opened and recently changed notes, plus a daily note for today.',
     image: tasks,
     alt: 'The tasks view listing checklist items from across the vault, grouped by note',
     focus: '0% 40%',
@@ -69,7 +69,7 @@ export const features: readonly Feature[] = [
   {
     id: 'export',
     title: 'Take a note anywhere',
-    body: 'Export a note to standalone HTML or PDF, with images, highlighted code and diagrams inside. And if an edit goes wrong, version history keeps earlier copies you can read and restore. Coming in 1.3.1.',
+    body: 'Export a note to standalone HTML or PDF, with images, highlighted code and diagrams inside. And if an edit goes wrong, version history keeps earlier copies you can read and restore.',
     image: reading,
     alt: 'A note in reading view with highlighted code and a Mermaid diagram, as exported to HTML or PDF',
     focus: '50% 60%',
@@ -77,7 +77,7 @@ export const features: readonly Feature[] = [
   {
     id: 'preferences',
     title: 'One set of preferences',
-    body: 'Theme, accent, fonts, editor and hotkeys are global, so switching vaults never resets them. Pick from installed fonts or add your own font files (font picker coming in 1.3.1). Any single setting can still be overridden for one vault.',
+    body: 'Theme, accent, fonts, editor and hotkeys are global, so switching vaults never resets them. Pick from installed fonts or add your own font files (font picker included). Any single setting can still be overridden for one vault.',
     image: settings,
     alt: 'Synapse settings, where each preference has a scope menu for all vaults or this vault only',
     focus: '50% 40%',

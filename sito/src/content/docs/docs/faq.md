@@ -41,7 +41,7 @@ It tells you, but does not install by itself. From version 1.3.0, Synapse checks
 
 ## I read about tasks, related notes and export. Where are they?
 
-They are finished in the app code and covered by its tests, and they arrive with 1.3.1, which is not released yet. The published download is 1.3.0 and does not have them. See [Releases](/docs/releases/).
+They arrived with release 1.4.0, which is the published download today. See [Releases](/docs/releases/).
 
 ## What is not supported yet?
 

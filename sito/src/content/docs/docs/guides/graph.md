@@ -12,7 +12,7 @@ Press <kbd>⌘G</kbd> to open the graph: every note is a node and every link an 
 
 - Drag nodes, scroll to zoom, click a node to open its note.
 - **Restart layout** recomputes the positions.
-- From 1.3.1 (not released yet): filter the graph from its settings panel with the search syntax (`path:`, `tag:`, `file:` and plain words), show only unlinked notes, ⇧-click a node to highlight its connections (<kbd>Esc</kbd> clears), and use **Reset view**. Saved graph views are not available.
+- From 1.4.0: filter the graph from its settings panel with the search syntax (`path:`, `tag:`, `file:` and plain words), show only unlinked notes, ⇧-click a node to highlight its connections (<kbd>Esc</kbd> clears), and use **Reset view**. Saved graph views are not available.
 
 ## Graph settings
 

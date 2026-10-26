@@ -210,3 +210,230 @@ a {
   background: var(--bg);
   color: var(--fg);
 }
+
+/* --- UI refinements (2026-10-26) -------------------------------------
+   Targeted fixes on top of the original design; animations untouched. */
+
+/* Header: a hairline so it never melts into the section below it. */
+.header {
+  border-bottom: 1px solid color-mix(in oklab, var(--fg) 11%, transparent);
+}
+.button:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+/* Pinned screenshot gallery: the sticky frame starts below the 64px
+   header, the title is capped, and photo sizes account for the caption,
+   so nothing is clipped. */
+.screens.is-pinned .sticky {
+  top: 64px;
+  height: calc(100vh - 64px);
+  height: calc(100svh - 64px);
+  gap: 22px;
+  padding-block: 14px 22px;
+}
+.screens.is-pinned .head h2 {
+  font-size: clamp(34px, 4.4vw, 60px);
+}
+.screens.is-pinned .track {
+  gap: 36px;
+}
+.screens.is-pinned .shot {
+  width: min(60vw, 1000px, calc((100svh - 345px) * 1.6));
+}
+.screens .shot img,
+.features .panel img,
+.story .editor,
+.graph-section .playground {
+  box-shadow: 0 22px 55px rgb(0 0 0 / 0.28);
+}
+
+/* Features explorer: 16/10 frame to match the screenshots (was 4/3 with
+   object-fit:cover, which cropped the app's side panels). */
+.features .stage,
+.features .panel {
+  min-width: 0;
+}
+.features .panel img {
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+.features .item {
+  transition: background-color 0.24s var(--ease), color 0.24s var(--ease), transform 0.24s var(--ease);
+}
+.features .item:hover {
+  transform: translateX(3px);
+}
+
+/* Live Preview story: all four steps stay visible as a numbered list,
+   the editor carries a stage chip and an honest status line, and the
+   disk card lands inside the frame. Original stage logic untouched. */
+.js .story .sticky {
+  top: 64px;
+  height: calc(100vh - 64px);
+  height: calc(100svh - 64px);
+}
+.story .steps {
+  counter-reset: step;
+  gap: 16px;
+}
+.story.is-live .steps li {
+  grid-area: auto;
+  visibility: visible;
+  opacity: 0.34;
+  transform: none;
+  font-size: clamp(18px, 1.5vw, 22px);
+  line-height: 1.25;
+  transition: opacity 0.4s var(--ease), color 0.4s var(--ease), font-size 0.4s var(--ease), transform 0.4s var(--ease);
+}
+.story.is-live .steps li::before {
+  counter-increment: step;
+  content: '0' counter(step);
+  display: block;
+  font: 600 12px var(--font-code);
+  letter-spacing: 0.12em;
+  color: var(--signal);
+  margin-bottom: 5px;
+}
+.story.is-live .steps li.is-active {
+  opacity: 1;
+  font-size: clamp(25px, 2.1vw, 33px);
+  transform: translateX(6px);
+}
+.story .meter {
+  width: min(260px, 60%);
+}
+.story .editor {
+  position: relative;
+}
+.story .editor::after {
+  position: absolute;
+  top: 9px;
+  right: 14px;
+  z-index: 2;
+  background: var(--graphite-raise-2);
+  color: var(--signal);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font: 600 11px var(--font-code);
+  letter-spacing: 0.1em;
+}
+.story .editor[data-stage='0']::after { content: '1 / 4 · SOURCE'; }
+.story .editor[data-stage='1']::after { content: '2 / 4 · RENDERED'; }
+.story .editor[data-stage='2']::after { content: '3 / 4 · EDITING A LINE'; }
+.story .editor[data-stage='3']::after { content: '4 / 4 · ON DISK'; }
+.story .editor .status span:first-child { font-size: 0; }
+.story .editor .status span:first-child::after { font-size: 13px; color: var(--ink-2); }
+.story .editor[data-stage='0'] .status span:first-child::after { content: 'Editing · Markdown syntax visible'; }
+.story .editor[data-stage='1'] .status span:first-child::after { content: 'Reading · rendered as prose'; }
+.story .editor[data-stage='2'] .status span:first-child::after { content: 'Editing · only this line shows syntax'; }
+.story .editor[data-stage='3'] .status span:first-child::after { content: 'Saved · plain Markdown on disk'; }
+.story .ln.is-cursor {
+  box-shadow: inset 3px 0 0 var(--signal);
+  background: var(--graphite-raise);
+}
+.story .ln.is-cursor .mk { color: var(--signal); opacity: 1; }
+.story[data-stage='3'] .editor { opacity: 0.42; transform: scale(0.985); }
+.story .disk { bottom: 14px; right: 14px; width: min(88%, 520px); }
+.story .disk::before {
+  content: 'ON DISK · PLAIN MARKDOWN';
+  display: block;
+  font: 600 11px var(--font-code);
+  letter-spacing: 0.12em;
+  color: var(--signal-dark);
+  margin-bottom: 8px;
+}
+@media (max-width: 900px) {
+  .story.is-live .steps { gap: 10px; }
+  .story.is-live .steps li { font-size: 16px; }
+  .story.is-live .steps li.is-active { font-size: 21px; }
+  .story .disk { right: 8px; bottom: 8px; }
+}
+
+/* "New in" and graph intros: one shared grid and top line. */
+.next .intro {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: start;
+  margin-bottom: 56px;
+}
+.next .intro p { padding-top: 16px; }
+.next .rows li { align-items: start; }
+.next .rows p { padding-top: 7px; }
+@media (max-width: 820px) {
+  .next .intro { grid-template-columns: 1fr; }
+  .next .intro p, .next .rows p { padding-top: 0; }
+}
+
+/* Graph: intro and playground share one width; the playground is one
+   block (single background, one border), framed on the node bounds the
+   animated physics actually settles into (see GraphPlayground viewBox). */
+.graph-section .intro {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  align-items: start;
+  margin-bottom: 48px;
+}
+.graph-section .intro p { padding-top: 16px; }
+.graph-section .intro,
+.graph-section .playground {
+  max-width: 1460px;
+  margin-inline: auto;
+}
+.graph-section .playground {
+  background: var(--graphite-raise);
+  border: 1px solid #2e2f3b;
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+.graph-section .playground svg {
+  background: transparent;
+  height: clamp(520px, 68vh, 720px);
+  align-self: center;
+}
+.graph-section .card {
+  background: rgb(255 255 255 / 0.02);
+  border-left: 1px solid #2e2f3b;
+  padding: 32px 28px;
+}
+@media (max-width: 900px) {
+  .graph-section .intro { grid-template-columns: 1fr; }
+  .graph-section .intro p { padding-top: 0; }
+  .graph-section .playground { grid-template-columns: 1fr; }
+  .graph-section .playground svg { height: auto; }
+  .graph-section .card { border-left: 0; border-top: 1px solid #2e2f3b; }
+}
+
+/* Link autocomplete: visible title, editor-like input, explanation
+   beside the demo instead of underneath it. */
+.finder h2 {
+  clip: auto;
+  white-space: normal;
+  width: auto;
+  height: auto;
+  position: static;
+  overflow: visible;
+  font-size: clamp(34px, 4.6vw, 58px);
+  margin-bottom: 40px;
+}
+.finder .stage {
+  grid-template-columns: minmax(0, 620px) minmax(0, 1fr);
+  grid-template-areas: 'line caption' 'answer caption' 'examples caption';
+  gap: 22px 64px;
+}
+.finder .line {
+  font-size: clamp(44px, 6vw, 84px);
+  background: #fff;
+  border: 1px solid #e3e1da;
+  border-radius: 12px;
+  padding: 16px 22px;
+  box-shadow: 0 16px 40px rgb(27 27 33 / 0.08);
+}
+.finder .answer { box-shadow: 0 16px 40px rgb(27 27 33 / 0.14); }
+.finder .caption { padding-top: 10px; font-size: 19px; line-height: 1.55; }
+.finder .examples { align-items: center; }
+.finder .examples::before { content: 'Try:'; font-weight: 600; color: var(--fg-2); }
+@media (max-width: 820px) {
+  .finder .stage {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'line' 'answer' 'caption' 'examples';
+  }
+  .finder h2 { margin-bottom: 28px; }
+}

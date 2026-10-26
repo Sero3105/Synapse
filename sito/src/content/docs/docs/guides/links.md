@@ -34,7 +34,7 @@ The dock on the right shows the open note's details and three panels:
 - **Outgoing**: links leaving this note, including **unresolved links**. Click an unresolved one to create the note.
 - **Outline**: the note's headings.
 
-## Related notes (1.3.1, not released yet)
+## Related notes (from 1.4.0)
 
 The **Related notes** section of the Backlinks panel (collapsed by default) suggests notes that are not linked to this one yet, scored by shared tags, notes both link to or are linked from, and shared title, heading and distinctive words. Each suggestion says why it is there.
 
