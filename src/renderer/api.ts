@@ -1,7 +1,11 @@
 import type { Snapshot } from '../main/session'
 import type { FileEntry, NoteData } from '../main/vault'
+import type { UpdateInfo } from '../shared/update'
+import type { Version } from '../main/history'
+import type { ImportReport } from '../main/migrate'
+import type { CustomFont } from '../main/fonts'
 
-export type { Snapshot, FileEntry, NoteData }
+export type { Snapshot, FileEntry, NoteData, Version, ImportReport, CustomFont }
 
 interface Bridge {
   invoke(channel: string, ...args: unknown[]): Promise<{ ok?: unknown; error?: { code: string; message: string } }>
@@ -47,9 +51,20 @@ export const api = {
   trash: (p: string) => call<void>('fs:trash', p),
   exists: (p: string) => call<boolean>('fs:exists', p),
   reveal: (p: string) => call<void>('fs:reveal', p),
+  versions: (p: string) => call<Version[]>('history:list', p),
+  readVersion: (p: string, id: string) => call<string>('history:read', p, id),
+  restoreVersion: (p: string, id: string, mtime: number) => call<NoteData>('history:restore', p, id, mtime),
+  openFile: (p: string) => call<void>('fs:openFile', p),
+  inspectFolder: (folder: string) => call<ImportReport>('vault:inspect', folder),
+  saveExport: (kind: 'html' | 'pdf', title: string, body: string, dark: boolean) => call<string | null>('export:save', kind, title, body, dark),
+  fonts: () => call<CustomFont[]>('fonts:list'),
+  fontData: (id: string) => call<Uint8Array>('fonts:data', id),
+  addFonts: () => call<{ added: CustomFont[]; rejected: string[] }>('fonts:add'),
+  removeFont: (id: string) => call<void>('fonts:remove', id),
   loadWorkspace: () => call<unknown>('workspace:load'),
   saveWorkspace: (ws: unknown) => call<void>('workspace:save', ws),
   openExternal: (url: string) => call<void>('shell:openExternal', url),
+  checkUpdate: () => call<UpdateInfo | null>('update:check'),
   on: (ch: string, cb: (...a: unknown[]) => void) => window.synapse.on(ch, cb),
   flushed: (ok: boolean) => window.synapse.flushed(ok),
 }

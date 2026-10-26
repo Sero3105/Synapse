@@ -183,13 +183,35 @@ export function shortestLinkText(path: string, lookup: Map<string, string[]>): s
 
 // ---------- index ----------
 
-export interface IndexedNote { path: string; content: string; meta: NoteMeta }
+export interface IndexedNote { path: string; content: string; meta: NoteMeta; terms?: Map<string, number> }
+
+// Common words carry no topic; dropped from term statistics (English and Italian, 4+ letters).
+const STOPWORDS = new Set(
+  ('that this with from have they will what when there their which about would these other into more some than then them been were your also only just like ' +
+    'could should after before where while being does here very much many most such each over under same well make made want need know ' +
+    'della delle degli dello sono come anche questo questa questi queste quello quella nella nelle negli alla alle dalla dalle perché però molto ' +
+    'tutti tutto tutte essere hanno fare dove quando ogni senza ancora cosa così loro sulla sulle stato stata fatto prima dopo mentre').split(' '),
+)
+
+/** Word counts of a note's prose (no code, URLs or frontmatter), lowercased, 4+ letters. */
+export function noteTerms(content: string): Map<string, number> {
+  const text = content
+    .slice(frontmatterEnd(content))
+    .replace(/^(\s{0,3})(`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^\1?\2[^\n]*$|(?![\s\S]))/gm, ' ')
+    .replace(/`[^`\n]+`|https?:\/\/\S+/g, ' ')
+    .toLowerCase()
+  const out = new Map<string, number>()
+  for (const w of text.match(/\p{L}[\p{L}\p{N}'’-]{3,}/gu) ?? []) if (!STOPWORDS.has(w)) out.set(w, (out.get(w) ?? 0) + 1)
+  return out
+}
 
 export class NoteIndex {
   notes = new Map<string, IndexedNote>()
   /** All vault file paths (notes + attachments) for resolution. */
   files: string[] = []
   lookup = new Map<string, string[]>()
+  /** Number of notes containing each term, kept in step with upsert/remove. */
+  df = new Map<string, number>()
 
   setFiles(paths: string[]) {
     this.files = paths
@@ -197,11 +219,25 @@ export class NoteIndex {
   }
 
   upsert(path: string, content: string) {
-    this.notes.set(path, { path, content, meta: parseNote(content) })
+    const prev = this.notes.get(path)
+    if (prev?.content === content) return
+    this.countTerms(prev, -1)
+    const n = { path, content, meta: parseNote(content), terms: noteTerms(content) }
+    this.countTerms(n, 1)
+    this.notes.set(path, n)
   }
 
   remove(path: string) {
+    this.countTerms(this.notes.get(path), -1)
     this.notes.delete(path)
+  }
+
+  private countTerms(n: IndexedNote | undefined, d: 1 | -1) {
+    for (const t of n?.terms?.keys() ?? []) {
+      const c = (this.df.get(t) ?? 0) + d
+      if (c > 0) this.df.set(t, c)
+      else this.df.delete(t)
+    }
   }
 
   resolve(target: string, source: string) {
@@ -288,6 +324,16 @@ export const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 export interface SearchHit { path: string; titleMatch: boolean; matches: { line: number; text: string; ranges: [number, number][] }[] }
 
 interface Term { kind: 'text' | 'tag' | 'path' | 'file'; value: string; neg: boolean }
+
+/** Examples shown under an empty search field; test/markdown.test.ts checks each one against the parser. */
+export const SEARCH_SYNTAX = [
+  { example: 'memory recall', hint: 'search.hintWords' },
+  { example: '"spaced repetition"', hint: 'search.hintPhrase' },
+  { example: '-draft', hint: 'search.hintExclude' },
+  { example: 'tag:#project', hint: 'search.hintTag' },
+  { example: 'path:Research', hint: 'search.hintPath' },
+  { example: 'file:roadmap', hint: 'search.hintFile' },
+] as const
 
 export function parseQuery(q: string): Term[] {
   const terms: Term[] = []

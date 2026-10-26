@@ -53,7 +53,7 @@ export interface Layout {
   rightOpen: boolean
   leftWidth: number
   rightWidth: number
-  leftTab: 'files' | 'search' | 'tags'
+  leftTab: 'files' | 'search' | 'tags' | 'tasks'
   rightTab: 'backlinks' | 'outgoing' | 'outline'
 }
 
@@ -65,6 +65,8 @@ export interface GlobalSettings {
   layout: Layout
   /** command id -> hotkeys like "Mod+Shift+F"; [] = unbound. Missing = default. */
   hotkeys: Record<string, string[]>
+  /** Ask GitHub Releases for a newer version at launch. */
+  checkUpdates: boolean
 }
 
 export interface GraphSettings {
@@ -85,7 +87,7 @@ export interface VaultSettings {
 
 export const DEFAULT_PREFS: Prefs = {
   theme: 'system',
-  accentColor: '#4cc9b0',
+  accentColor: '#8b7cff',
   fontSize: 16,
   interfaceFontSize: 13,
   textFont: '',
@@ -121,6 +123,7 @@ export const defaultGlobal = (): GlobalSettings => ({
   prefs: structuredClone(DEFAULT_PREFS),
   layout: { ...DEFAULT_LAYOUT },
   hotkeys: {},
+  checkUpdates: true,
 })
 
 export const defaultVault = (vaultId: string): VaultSettings => ({
@@ -178,7 +181,7 @@ const LAYOUT_VALIDATORS: { [K in keyof Layout]: V<unknown> } = {
   rightOpen: bool,
   leftWidth: num(160, 800),
   rightWidth: num(160, 800),
-  leftTab: oneOf('files', 'search', 'tags'),
+  leftTab: oneOf('files', 'search', 'tags', 'tasks'),
   rightTab: oneOf('backlinks', 'outgoing', 'outline'),
 }
 
@@ -254,6 +257,10 @@ export function migrateVault(raw: unknown): unknown {
 }
 
 /** Parse + migrate + validate a global settings object. Never throws. */
+/** Every pref is stored, so the old default accent is on disk even if nobody chose it: follow the new default. */
+const PREVIOUS_DEFAULT_ACCENT = '#4cc9b0'
+const withCurrentDefaultAccent = (p: Prefs): Prefs => (p.accentColor.toLowerCase() === PREVIOUS_DEFAULT_ACCENT ? { ...p, accentColor: DEFAULT_PREFS.accentColor } : p)
+
 export function normalizeGlobal(raw: unknown): GlobalSettings {
   const m = migrateGlobal(raw)
   const d = defaultGlobal()
@@ -261,17 +268,21 @@ export function normalizeGlobal(raw: unknown): GlobalSettings {
   return {
     version: GLOBAL_SCHEMA_VERSION,
     language: validLanguage(m.language) ?? d.language,
-    prefs: mergePrefs(d.prefs, validPrefs(m.prefs)),
+    prefs: withCurrentDefaultAccent(mergePrefs(d.prefs, validPrefs(m.prefs))),
     layout: { ...d.layout, ...validLayout(m.layout) },
     hotkeys: validHotkeys(m.hotkeys),
+    checkUpdates: typeof m.checkUpdates === 'boolean' ? m.checkUpdates : d.checkUpdates,
   }
 }
+
+/** Shape of a vault id; it also names the vault's history folder in app data. */
+export const VAULT_ID = /^[a-z0-9]{8,64}$/
 
 export function normalizeVault(raw: unknown, fallbackId: string): VaultSettings {
   const m = migrateVault(raw)
   const d = defaultVault(fallbackId)
   if (!isObj(m)) return d
-  const id = typeof m.vaultId === 'string' && /^[a-z0-9]{8,64}$/.test(m.vaultId) ? m.vaultId : fallbackId
+  const id = typeof m.vaultId === 'string' && VAULT_ID.test(m.vaultId) ? m.vaultId : fallbackId
   return {
     version: VAULT_SCHEMA_VERSION,
     vaultId: id,
@@ -296,6 +307,7 @@ export function applyGlobalPatch(g: GlobalSettings, patch: unknown): GlobalSetti
     prefs: isObj(patch.prefs) ? mergePrefs(g.prefs, validPrefs(patch.prefs)) : g.prefs,
     layout: isObj(patch.layout) ? { ...g.layout, ...validLayout(patch.layout) } : g.layout,
     hotkeys: isObj(patch.hotkeys) ? patchHotkeys(g.hotkeys, patch.hotkeys) : g.hotkeys,
+    checkUpdates: typeof patch.checkUpdates === 'boolean' ? patch.checkUpdates : g.checkUpdates,
   })
 }
 

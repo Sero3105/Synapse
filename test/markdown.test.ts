@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseNote, resolveLink, buildLookup, NoteIndex, rewriteLinks, uniqueName, fuzzyScore, searchNotes, wordCount } from '../src/shared/markdown'
+import { parseNote, resolveLink, buildLookup, NoteIndex, rewriteLinks, uniqueName, fuzzyScore, searchNotes, wordCount, parseQuery, SEARCH_SYNTAX } from '../src/shared/markdown'
+import { DICTIONARIES } from '../src/shared/i18n'
 
 describe('parseNote', () => {
   it('extracts wiki, embed and markdown links with alias and subpath', () => {
@@ -125,5 +126,33 @@ describe('helpers', () => {
     const t = performance.now()
     expect(searchNotes(notes, 'ipsum 4999', 10).length).toBeGreaterThan(0)
     expect(performance.now() - t).toBeLessThan(500)
+  })
+})
+
+describe('search syntax guide', () => {
+  it('every example shown under the empty search field is real syntax', () => {
+    const kinds = SEARCH_SYNTAX.map(({ example }) => parseQuery(example).map((t) => `${t.neg ? '-' : ''}${t.kind}:${t.value}`))
+    expect(kinds).toEqual([
+      ['text:memory', 'text:recall'],
+      ['text:spaced repetition'],
+      ['-text:draft'],
+      ['tag:#project'],
+      ['path:research'],
+      ['file:roadmap'],
+    ])
+    for (const { hint } of SEARCH_SYNTAX) for (const dict of Object.values(DICTIONARIES)) expect(dict[hint]).toBeTruthy()
+  })
+
+  it('the examples behave as described', () => {
+    const idx = new NoteIndex()
+    idx.upsert('Research/Spaced repetition.md', 'memory and recall #project/sub')
+    idx.upsert('Projects/Synapse roadmap.md', 'memory only, draft')
+    const hits = (q: string) => idx.search(q).map((h) => h.path).sort()
+    expect(hits('memory recall')).toEqual(['Research/Spaced repetition.md'])
+    expect(hits('memory -draft')).toEqual(['Research/Spaced repetition.md'])
+    expect(hits('tag:#project')).toEqual(['Research/Spaced repetition.md']) // nested tag included
+    expect(hits('path:Research')).toEqual(['Research/Spaced repetition.md'])
+    expect(hits('file:roadmap')).toEqual(['Projects/Synapse roadmap.md'])
+    expect(hits('"spaced repetition"')).toEqual(['Research/Spaced repetition.md']) // title counts as text
   })
 })

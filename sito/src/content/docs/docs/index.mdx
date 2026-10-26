@@ -1,0 +1,73 @@
+---
+title: Synapse documentation
+description: Learn Synapse, the local-first Markdown workspace for connected notes on macOS.
+template: splash
+editUrl: false
+hero:
+  title: Synapse documentation
+  tagline: Everything about writing, linking and finding your notes, from the first launch to every setting.
+  image:
+    file: ../../../assets/screenshots/editor.png
+    alt: The Synapse editor with the file navigator, a note and its backlinks
+  actions:
+    - text: Get started
+      link: /docs/getting-started/
+      icon: right-arrow
+    - text: Install Synapse
+      link: /docs/installation/
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+## What Synapse is
+
+<CardGrid>
+  <Card title="Plain files, no lock-in" icon="document">
+    Every note is a `.md` file in a normal folder. Open it in any editor, sync it however you like, back it up with Time Machine.
+  </Card>
+  <Card title="Preferences that stay put" icon="setting">
+    Theme, fonts, editor and hotkeys are global. Switching vaults never resets them; any setting can be overridden for one vault.
+  </Card>
+  <Card title="Links are the point" icon="puzzle">
+    Wiki links with autocomplete, backlinks with context, unlinked mentions, tags and a live graph.
+  </Card>
+  <Card title="Private by design" icon="approve-check">
+    No account, no telemetry, no cloud. Your notes never leave your Mac.
+  </Card>
+</CardGrid>
+
+## Start here
+
+<CardGrid>
+  <LinkCard title="Installation" href="/docs/installation/" description="Requirements, download and the first launch on macOS." />
+  <LinkCard title="Getting started" href="/docs/getting-started/" description="Open a vault, write a note, link it." />
+</CardGrid>
+
+## Guides
+
+<CardGrid>
+  <LinkCard title="The editor" href="/docs/guides/editor/" description="Live Preview, tables, math, shortcuts, attachments." />
+  <LinkCard title="Links and backlinks" href="/docs/guides/links/" description="Wiki links, embeds, backlinks, renaming, tags." />
+  <LinkCard title="Reading view" href="/docs/guides/reading-view/" description="Rendered notes, code, diagrams and tasks." />
+  <LinkCard title="Search and navigation" href="/docs/guides/search/" description="Search syntax, quick switcher, tabs and panes." />
+  <LinkCard title="Graph" href="/docs/guides/graph/" description="Every note and link, and the graph settings." />
+  <LinkCard title="Files and vaults" href="/docs/guides/files/" description="The file tree, deleting, switching, attachments, what is written." />
+</CardGrid>
+
+## Configure and fix
+
+<CardGrid>
+  <LinkCard title="Settings" href="/docs/configuration/settings/" description="Global preferences and vault overrides." />
+  <LinkCard title="Hotkeys" href="/docs/configuration/hotkeys/" description="Default shortcuts and how to change them." />
+  <LinkCard title="Troubleshooting" href="/docs/troubleshooting/" description="First-launch warning, conflicts, missing vaults." />
+  <LinkCard title="FAQ" href="/docs/faq/" description="Price, Obsidian vaults, privacy, platforms." />
+</CardGrid>
+
+## Words used in these docs
+
+- **Vault**: any folder of notes you open in Synapse. Subfolders are part of it.
+- **Note**: a Markdown file (`.md`) inside a vault.
+- **Wiki link**: a link written as `[[Note name]]`.
+- **Global setting**: a preference stored with Synapse that applies to every vault.
+- **Vault override**: a preference stored in one vault that replaces the global value there only.

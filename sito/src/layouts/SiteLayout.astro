@@ -1,0 +1,55 @@
+---
+import '../styles/tokens.css'
+import '../styles/site.css'
+import { getImage } from 'astro:assets'
+import SiteHeader from '../components/SiteHeader.astro'
+import SiteFooter from '../components/SiteFooter.astro'
+import { product } from '../config/site'
+import ogSource from '../assets/screenshots/editor.png'
+
+interface Props {
+  title: string
+  description: string
+}
+
+const { title, description } = Astro.props
+const fullTitle = title === product.name ? `${product.name} — ${product.tagline}` : `${title} · ${product.name}`
+// Absolute URLs (canonical, social image) need the public domain; without SITE_URL they are left out.
+const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined
+const og = Astro.site ? new URL((await getImage({ src: ogSource, width: 1200, format: 'png' })).src, Astro.site).href : undefined
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#16171c" />
+    {canonical && <link rel="canonical" href={canonical} />}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={product.name} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    {canonical && <meta property="og:url" content={canonical} />}
+    {og && <meta property="og:image" content={og} />}
+    {og && <meta property="og:image:alt" content="The Synapse editor with the file navigator and backlinks" />}
+    <meta name="twitter:card" content={og ? 'summary_large_image' : 'summary'} />
+    {Astro.site && <link rel="sitemap" href="/sitemap-index.xml" />}
+    <script is:inline>document.documentElement.classList.add('js')</script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <SiteHeader />
+    <main id="main">
+      <slot />
+    </main>
+    <SiteFooter />
+    <script>
+      import '../scripts/chapters'
+      import '../scripts/reveal'
+    </script>
+  </body>
+</html>

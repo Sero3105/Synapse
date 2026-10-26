@@ -307,3 +307,26 @@ describe('prototype keys', () => {
     expect(Object.getPrototypeOf(g.hotkeys)).toBe(Object.prototype)
   })
 })
+
+describe('vault store when the vault folder disappears', () => {
+  it('does not recreate the folder to save settings or the workspace', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'synapse-gone-'))
+    const root = path.join(tmp, 'v')
+    fs.mkdirSync(root)
+    const s = new VaultStore(root)
+    fs.rmSync(root, { recursive: true })
+    await expect(s.saveWorkspace({ panes: [] })).rejects.toMatchObject({ code: 'ENOVAULT' })
+    await expect(s.update({ attachmentFolder: 'x' })).rejects.toMatchObject({ code: 'ENOVAULT' })
+    expect(fs.existsSync(root)).toBe(false)
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
+})
+
+describe('accent colour of the redesign', () => {
+  it('moves the previous default accent to the new one, keeps any other choice', () => {
+    expect(defaultGlobal().prefs.accentColor).toBe('#8b7cff')
+    expect(normalizeGlobal({ version: 2, prefs: { accentColor: '#4cc9b0' } }).prefs.accentColor).toBe('#8b7cff')
+    expect(normalizeGlobal({ version: 2, prefs: { accentColor: '#4CC9B0' } }).prefs.accentColor).toBe('#8b7cff')
+    expect(normalizeGlobal({ version: 2, prefs: { accentColor: '#e06c75' } }).prefs.accentColor).toBe('#e06c75')
+  })
+})

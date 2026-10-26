@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { FolderOpen, FolderPlus, AlertTriangle, X } from 'lucide-react'
 import { model, useModel, Modal, isMd } from '../model'
-import { api } from '../api'
-import { COMMANDS, hotkeysFor, formatHotkey, runCommand } from '../commands'
+import { api, Version } from '../api'
+import { COMMANDS, hotkeysFor, formatHotkey, runFromPalette, recentCommands } from '../commands'
+import { splitRecent } from '../../shared/recent'
 import { fuzzyScore, noteTitle, INVALID_NAME } from '../../shared/markdown'
 import { SettingsModal } from './Settings'
-import { t, commandName } from '../../shared/i18n'
+import { AttachmentsReport } from './Attachments'
+import { ImportPreview } from './ImportPreview'
+import { t, commandName, getLanguage } from '../../shared/i18n'
 
 /** Left-to-right mark: keeps a path's leading "/" in place inside the rtl (start-truncated) path boxes. */
 const LRM = '\u200E'
@@ -37,6 +40,10 @@ export function Modals() {
       {modal.kind === 'prompt' && <Prompt modal={modal} />}
       {modal.kind === 'confirm' && <Confirm modal={modal} />}
       {modal.kind === 'settings' && <SettingsModal close={close} initialTab={modal.tab} />}
+      {modal.kind === 'templates' && <TemplatePicker close={close} mode={modal.mode} />}
+      {modal.kind === 'history' && <History close={close} path={modal.path} />}
+      {modal.kind === 'attachments' && <AttachmentsReport close={close} />}
+      {modal.kind === 'import' && <ImportPreview close={close} folder={modal.folder} />}
       {modal.kind === 'vaults' && (
         <div className="modal vault-modal" role="dialog" aria-modal="true" aria-label={t('vaults.manage')} onKeyDown={(e) => e.key === 'Escape' && close()}>
           <button className="icon-btn modal-close" aria-label={t('common.close')} onClick={close}>
@@ -49,7 +56,7 @@ export function Modals() {
   )
 }
 
-interface Item { key: string; label: string; detail?: string; hint?: string; run: (e: { metaKey: boolean }) => void }
+interface Item { key: string; label: string; detail?: string; hint?: string; section?: string; run: (e: { metaKey: boolean }) => void }
 
 function Picker({ items, placeholder, close, empty, onEnterEmpty, instructions }: { items: (q: string) => Item[]; placeholder: string; close: () => void; empty: string; onEnterEmpty?: (q: string) => void; instructions: string }) {
   const [q, setQ] = useState('')
@@ -58,7 +65,8 @@ function Picker({ items, placeholder, close, empty, onEnterEmpty, instructions }
   const listRef = useRef<HTMLDivElement>(null)
   useEffect(() => setSel(0), [q])
   useEffect(() => {
-    listRef.current?.children[sel]?.scrollIntoView({ block: 'nearest' })
+    // by id: section headings sit between the options
+    listRef.current?.querySelector(`#opt-${sel}`)?.scrollIntoView({ block: 'nearest' })
   }, [sel])
   const choose = (i: number, e: { metaKey: boolean }) => {
     const it = list[i]
@@ -101,13 +109,16 @@ function Picker({ items, placeholder, close, empty, onEnterEmpty, instructions }
       />
       <div className="prompt-results" id="prompt-results" role="listbox" ref={listRef}>
         {list.map((it, i) => (
-          <div key={it.key} id={`opt-${i}`} role="option" aria-selected={i === sel} className={`suggestion-item${i === sel ? ' is-selected' : ''}`} onMouseMove={() => setSel(i)} onClick={(e) => choose(i, e)}>
+          <Fragment key={it.key}>
+          {it.section && it.section !== list[i - 1]?.section && <div className="suggestion-section" role="presentation">{it.section}</div>}
+          <div id={`opt-${i}`} role="option" aria-selected={i === sel} className={`suggestion-item${i === sel ? ' is-selected' : ''}`} onMouseMove={() => setSel(i)} onClick={(e) => choose(i, e)}>
             <div className="suggestion-content">
               <div className="suggestion-title">{it.label}</div>
               {it.detail && <div className="suggestion-note">{it.detail}</div>}
             </div>
             {it.hint && <kbd className="suggestion-hotkey">{it.hint}</kbd>}
           </div>
+          </Fragment>
         ))}
         {!list.length && <div className="suggestion-empty">{empty}</div>}
       </div>
@@ -123,13 +134,21 @@ function Palette({ close }: { close: () => void }) {
       placeholder={t('palette.placeholder')}
       empty={t('palette.empty')}
       instructions={t('palette.help')}
-      items={(q) =>
-        COMMANDS.filter((c) => !c.when || c.when())
-          .map((c) => ({ c, s: fuzzyScore(q, commandName(c.id, c.name)) }))
-          .filter((x) => x.s >= 0)
-          .sort((a, b) => (q ? b.s - a.s : commandName(a.c.id, a.c.name).localeCompare(commandName(b.c.id, b.c.name))))
-          .map(({ c }) => ({ key: c.id, label: commandName(c.id, c.name), hint: hotkeysFor(c.id).map(formatHotkey)[0], run: () => runCommand(c.id) }))
-      }
+      items={(q) => {
+        const available = COMMANDS.filter((c) => !c.when || c.when())
+        const item = (c: (typeof COMMANDS)[number], section?: string): Item => ({ key: c.id, label: commandName(c.id, c.name), hint: hotkeysFor(c.id).map(formatHotkey)[0], section, run: () => runFromPalette(c.id) })
+        if (q)
+          return available
+            .map((c) => ({ c, s: fuzzyScore(q, commandName(c.id, c.name)) }))
+            .filter((x) => x.s >= 0)
+            .sort((a, b) => b.s - a.s)
+            .map(({ c }) => item(c))
+        // empty query: recently used first, then every other command once, alphabetically
+        const { recent, rest } = splitRecent(available, recentCommands)
+        const sorted = rest.sort((a, b) => commandName(a.id, a.name).localeCompare(commandName(b.id, b.name)))
+        if (!recent.length) return sorted.map((c) => item(c))
+        return [...recent.map((c) => item(c, t('palette.recent'))), ...sorted.map((c) => item(c, t('palette.all')))]
+      }}
     />
   )
 }
@@ -166,6 +185,98 @@ function Switcher({ close }: { close: () => void }) {
           .map(({ p }) => toItem(p))
       }}
     />
+  )
+}
+
+function TemplatePicker({ close, mode }: { close: () => void; mode: 'insert' | 'new' }) {
+  return (
+    <Picker
+      close={close}
+      placeholder={t('templates.placeholder')}
+      empty={t('templates.empty')}
+      instructions={t('palette.help')}
+      items={(q) =>
+        model
+          .templates()
+          .map((tpl) => ({ tpl, s: fuzzyScore(q, tpl.name) }))
+          .filter((x) => x.s >= 0)
+          .sort((a, b) => (q ? b.s - a.s : 0))
+          .map(({ tpl }) => ({
+            key: tpl.path ?? tpl.id!,
+            label: tpl.name,
+            detail: tpl.path ?? t('templates.builtin'),
+            run: () => (mode === 'insert' ? model.insertTemplate(tpl) : model.newNoteFromTemplate(tpl)),
+          }))
+      }
+    />
+  )
+}
+
+const fmtTime = (ts: number) => new Date(ts).toLocaleString(getLanguage(), { dateStyle: 'medium', timeStyle: 'short' })
+
+/** Earlier versions of a note: pick one, read it, restore it after a confirmation. */
+function History({ close, path }: { close: () => void; path: string }) {
+  const [versions, setVersions] = useState<Version[] | null>(null)
+  const [sel, setSel] = useState(0)
+  const [text, setText] = useState<string | null>(null)
+  useEffect(() => {
+    api.versions(path).then(setVersions, (e) => {
+      model.error(e)
+      setVersions([])
+    })
+  }, [path])
+  const v = versions?.[sel]
+  useEffect(() => {
+    if (!v) return
+    let live = true
+    setText(null)
+    api.readVersion(path, v.id).then((x) => live && setText(x), (e) => model.error(e))
+    return () => {
+      live = false
+    }
+  }, [path, v?.id])
+  const restore = async () => {
+    if (!v) return
+    const ok = await model.confirm(t('history.confirmTitle'), t('history.confirmBody', { date: fmtTime(v.ts) }), t('history.restore'), false)
+    if (ok) model.restoreVersion(path, v.id)
+    else model.set({ modal: { kind: 'history', path } })
+  }
+  return (
+    <div
+      className="modal history-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('history.title', { name: noteTitle(path) })}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') close()
+        else if (versions?.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+          e.preventDefault()
+          setSel(Math.min(Math.max(0, sel + (e.key === 'ArrowDown' ? 1 : -1)), versions.length - 1))
+        }
+      }}
+    >
+      <div className="modal-title">{t('history.title', { name: noteTitle(path) })}</div>
+      {versions && !versions.length ? (
+        <p className="modal-text">{t('history.empty')}</p>
+      ) : (
+        <div className="history-body">
+          <div className="history-list" role="listbox" aria-label={t('history.versions')} tabIndex={0}>
+            {versions?.map((x, i) => (
+              <div key={x.id} role="option" aria-selected={i === sel} className={`suggestion-item${i === sel ? ' is-selected' : ''}`} onClick={() => setSel(i)}>
+                <div className="suggestion-content">
+                  <div className="suggestion-title">{fmtTime(x.ts)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <pre className="history-preview" data-testid="history-preview">{text ?? ''}</pre>
+        </div>
+      )}
+      <div className="modal-buttons">
+        <button className="btn" onClick={close}>{t('common.cancel')}</button>
+        <button className="btn mod-cta" disabled={!v || text === null} onClick={restore}>{t('history.restore')}</button>
+      </div>
+    </div>
   )
 }
 
@@ -260,7 +371,8 @@ export function VaultManager() {
               className="vm-action"
               onClick={async () => {
                 const p = await api.pickFolder(t('vaults.openDialog'))
-                if (p) open(() => api.openVault(p))
+                // read-only preview first; opening a new folder is what adds .synapse/
+                if (p) model.set({ modal: { kind: 'import', folder: p } })
               }}
             >
               <FolderOpen size={17} />
@@ -408,8 +520,27 @@ export function ContextMenu() {
 
 export function Notices() {
   const notices = useModel((s) => s.notices)
+  const update = useModel((s) => s.update)
   return (
     <div className="notice-container" aria-live="polite">
+      {update && (
+        <div className="notice update-notice" role="status" data-testid="update-notice">
+          <div className="update-title">{t('update.available', { version: update.version })}</div>
+          <div className="update-desc">{t('update.desc')}</div>
+          <div className="update-actions">
+            <button className="btn" onClick={() => model.set({ update: null })}>{t('update.later')}</button>
+            <button
+              className="btn mod-cta"
+              onClick={() => {
+                api.openExternal(update.url).catch((e) => model.error(e))
+                model.set({ update: null })
+              }}
+            >
+              {t('update.download')}
+            </button>
+          </div>
+        </div>
+      )}
       {notices.map((n) => (
         <div key={n.id} className={`notice${n.error ? ' is-error' : ''}`} role={n.error ? 'alert' : 'status'} onClick={() => model.set({ notices: model.state.notices.filter((x) => x.id !== n.id) })}>
           {n.text}

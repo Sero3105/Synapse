@@ -1,0 +1,167 @@
+---
+import { Image } from 'astro:assets'
+import { features } from '../data/features'
+---
+
+<section id="features" class="features wrap" data-chapter="graphite" aria-labelledby="features-title">
+  <div class="intro" data-reveal>
+    <h2 id="features-title">Built around the link.</h2>
+    <p>Everything in Synapse starts from one idea: notes are worth more when they point to each other. Pick a feature to see it in the app.</p>
+  </div>
+
+  <div class="explorer">
+    <div class="list" role="tablist" aria-label="Features" aria-orientation="vertical">
+      {
+        features.map((f, i) => (
+          <button
+            class="item"
+            type="button"
+            role="tab"
+            id={`tab-${f.id}`}
+            aria-controls={`panel-${f.id}`}
+            aria-selected={i === 0 ? 'true' : 'false'}
+            tabindex={i === 0 ? 0 : -1}
+          >
+            <span class="item-title">{f.title}</span>
+            <span class="item-body">{f.body}</span>
+          </button>
+        ))
+      }
+    </div>
+
+    <div class="stage">
+      {
+        features.map((f, i) => (
+          <div class="panel" role="tabpanel" id={`panel-${f.id}`} aria-labelledby={`tab-${f.id}`} hidden={i !== 0}>
+            <Image src={f.image} widths={[720, 1080, 1440]} sizes="(min-width: 960px) 60vw, 100vw" alt={f.alt} style={`object-position:${f.focus}`} />
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<script>
+  const tabs = [...document.querySelectorAll<HTMLButtonElement>('.features [role="tab"]')]
+
+  function select(tab: HTMLButtonElement, focus = false) {
+    for (const t of tabs) {
+      const on = t === tab
+      t.setAttribute('aria-selected', String(on))
+      t.tabIndex = on ? 0 : -1
+      const panel = document.getElementById(t.getAttribute('aria-controls') ?? '')
+      if (panel) panel.hidden = !on
+    }
+    if (focus) tab.focus()
+  }
+
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => select(tab))
+    tab.addEventListener('keydown', (e) => {
+      const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 0
+      if (!step) return
+      e.preventDefault()
+      const next = tabs[(i + step + tabs.length) % tabs.length]
+      if (next) select(next, true)
+    })
+  })
+</script>
+
+<style>
+  .features {
+    padding-block: var(--gap-section);
+  }
+  .intro {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: 32px 64px;
+    align-items: end;
+    margin-bottom: 80px;
+  }
+  h2 {
+    font-size: var(--t-head);
+  }
+  .intro p {
+    max-width: 42ch;
+    font-size: 20px;
+    color: var(--ink);
+  }
+  .explorer {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: 64px;
+    align-items: start;
+  }
+  .list {
+    display: grid;
+    gap: 6px;
+  }
+  .item {
+    border-radius: var(--r-panel);
+    display: grid;
+    gap: 0;
+    padding: 20px 24px;
+    border: 0;
+    background: transparent;
+    color: var(--ink-2);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 240ms var(--ease), color 240ms var(--ease);
+  }
+  .item:hover {
+    background: var(--graphite-raise);
+    color: var(--ink);
+  }
+  .item[aria-selected='true'] {
+    background: var(--signal);
+    color: var(--on-signal);
+  }
+  .item-title {
+    font: 600 var(--t-statement) / 1.15 var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  .item-body {
+    display: none;
+    max-width: 46ch;
+    margin-top: 10px;
+    font: 400 var(--t-body) / 1.5 var(--font-ui);
+  }
+  .item[aria-selected='true'] .item-body,
+  :global(html:not(.js)) .item-body {
+    display: block;
+  }
+  .stage {
+    position: sticky;
+    top: 96px;
+  }
+  .panel img {
+    border-radius: var(--r-panel);
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: var(--graphite-sunk);
+    animation: show 420ms var(--ease) both;
+  }
+  @keyframes show {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
+  @media (max-width: 960px) {
+    .intro,
+    .explorer {
+      grid-template-columns: 1fr;
+    }
+    .intro {
+      margin-bottom: 48px;
+    }
+    .stage {
+      position: static;
+      order: -1;
+    }
+    .item {
+      padding: 16px 18px;
+    }
+  }
+</style>

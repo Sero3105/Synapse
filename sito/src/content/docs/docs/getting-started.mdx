@@ -1,0 +1,43 @@
+---
+title: Getting started
+description: Open or create a vault, write your first note and link notes together.
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components'
+
+![The Synapse starter screen with recent vaults and the actions to create a vault or open a folder](../../../assets/screenshots/welcome.png)
+
+<Steps>
+
+1. **Open a vault.** On the starter screen choose **Open folder as vault** to use an existing folder of Markdown files, including a vault from another app, or **Create new vault** to start a new folder.
+
+2. **Write a note.** Press <kbd>⌘N</kbd>. The note starts as `Untitled.md` with the title focused: type a name and it becomes the file name. Notes save automatically while you write.
+
+3. **Link it.** Type `[[` and a few letters of another note. Pick a suggestion with <kbd>Enter</kbd>. Linking to a note that does not exist yet and following the link creates it.
+
+4. **Follow the link back.** Open the other note: its **Backlinks** panel, on the right, lists the note you came from, with the line around the link.
+
+</Steps>
+
+<Aside type="tip" title="Opening links">
+In Live Preview a link shows only its text. <kbd>⌘</kbd>-click it to open the note; from version 1.3.0 a plain click works too.
+</Aside>
+
+## Good to know
+
+- Synapse writes only one folder inside a vault, `.synapse/`, for vault settings and open tabs. It never modifies an existing `.obsidian/` folder.
+- **Create new vault** refuses a folder that already exists, so it never mixes with other files.
+- If a recent vault was moved or deleted, it is flagged as unavailable with **Locate…** and **Remove**. Synapse never recreates a missing folder empty.
+
+## Find your way around
+
+| Action | Shortcut |
+|---|---|
+| Jump to a note | <kbd>⌘O</kbd> |
+| Command palette | <kbd>⌘P</kbd> |
+| Search all notes | <kbd>⇧⌘F</kbd> |
+| Graph | <kbd>⌘G</kbd> |
+| Reading / editing view | <kbd>⌘E</kbd> |
+| Settings | <kbd>⌘,</kbd> |
+
+Next: [the editor](/docs/guides/editor/) and [links and backlinks](/docs/guides/links/).

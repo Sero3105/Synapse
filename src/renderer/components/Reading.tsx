@@ -1,17 +1,41 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import MarkdownIt, { type StateInline, type StateCore, type Env as MdEnv } from 'markdown-it'
 import { model, useModel, IMAGE_EXT } from '../model'
 import { api, fileUrl } from '../api'
 import { noteTitle } from '../../shared/markdown'
 import { t } from '../../shared/i18n'
 import { mathPlugin } from '../math'
+import { highlightCode, isMermaidFence, renderMermaid } from '../code'
 
 interface Env extends MdEnv { source: string; depth: number }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
 // Raw HTML is disabled: notes are rendered without executing or injecting markup.
-const md = new MarkdownIt({ html: false, linkify: true, breaks: false }).use(mathPlugin)
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: false,
+  highlight: highlightCode,
+}).use(mathPlugin)
+
+// ```mermaid fences become placeholders; Reading renders them to SVG after mount.
+const fence = md.renderer.rules.fence!
+md.renderer.rules.fence = (tokens, idx, opts, env, self) => {
+  const tok = tokens[idx]
+  if (isMermaidFence(tok.info)) return `<pre class="mermaid-src">${esc(tok.content)}</pre>`
+  return fence(tokens, idx, opts, env, self)
+}
+
+const isLight = () => document.body.classList.contains('theme-light')
+/** Follows the theme class App puts on <body>, so diagrams are redrawn when it changes. */
+function useLightTheme() {
+  return useSyncExternalStore((cb) => {
+    const o = new MutationObserver(cb)
+    o.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+    return () => o.disconnect()
+  }, isLight)
+}
 
 md.inline.ruler.before('link', 'wikilink', (state: StateInline, silent: boolean) => {
   const src = state.src
@@ -143,6 +167,11 @@ export function Reading({ path }: { path: string }) {
   const content = useModel((s) => s.buffers[path]?.content)
   const indexVersion = useModel((s) => s.indexVersion)
   const html = useMemo(() => (content === undefined ? '' : renderMarkdown(content, path)), [content, path, indexVersion])
+  const root = useRef<HTMLDivElement>(null)
+  const light = useLightTheme()
+  useEffect(() => {
+    if (root.current) renderMermaid(root.current, light).catch((err) => model.error(err))
+  }, [html, light])
   if (content === undefined) return <div className="view-loading">{t('common.loading')}</div>
 
   const onClick = (e: React.MouseEvent) => {
@@ -170,5 +199,6 @@ export function Reading({ path }: { path: string }) {
     }
   }
 
-  return <div className="markdown-reading" onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} data-testid="reading" />
+  // keyed by theme: a fresh copy of the HTML brings back the Mermaid sources to redraw
+  return <div key={String(light)} className="markdown-reading" ref={root} onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} data-testid="reading" />
 }

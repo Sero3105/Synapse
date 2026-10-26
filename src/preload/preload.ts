@@ -5,7 +5,9 @@ const INVOKE = [
   'state:get', 'settings:global', 'settings:vault',
   'vault:open', 'vault:openId', 'vault:create', 'vault:remove', 'vault:close', 'vault:locate', 'dialog:folder',
   'fs:list', 'fs:read', 'fs:readAll', 'fs:write', 'fs:create', 'fs:createBinary', 'fs:mkdir', 'fs:rename', 'fs:trash', 'fs:exists', 'fs:reveal',
-  'workspace:load', 'workspace:save', 'shell:openExternal',
+  'history:list', 'history:read', 'history:restore', 'fs:openFile', 'vault:inspect', 'export:save',
+  'fonts:list', 'fonts:data', 'fonts:add', 'fonts:remove',
+  'workspace:load', 'workspace:save', 'shell:openExternal', 'update:check',
 ]
 const EVENTS = ['state', 'fs:changed', 'command', 'app:flush']
 

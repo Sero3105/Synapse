@@ -1,0 +1,151 @@
+---
+import { Image } from 'astro:assets'
+import reading from '../assets/screenshots/reading.png'
+import light from '../assets/screenshots/light.png'
+import palette from '../assets/screenshots/command-palette.png'
+import italian from '../assets/screenshots/italian.png'
+import welcome from '../assets/screenshots/welcome.png'
+import related from '../assets/screenshots/related.png'
+import tasks from '../assets/screenshots/tasks.png'
+import start from '../assets/screenshots/start.png'
+
+const shots = [
+  { src: reading, alt: 'Reading view showing rendered Markdown with links, tags and task checkboxes', caption: 'Reading view, with clickable links, tags and tasks. ⌘E switches.' },
+  { src: light, alt: 'Synapse in the light theme', caption: 'Light theme, or follow macOS.' },
+  { src: palette, alt: 'Command palette listing actions with their shortcuts', caption: 'Every action in the command palette, ⌘P.' },
+  { src: welcome, alt: 'The starter screen with recent vaults', caption: 'Vaults: create, open, switch. Missing folders are never recreated empty.' },
+  { src: italian, alt: 'The Synapse interface in Italian', caption: 'English or Italiano, switchable at any time.' },
+  { src: related, alt: 'Related notes suggested for the open note, each with the reason it is related', caption: 'Related notes, with the reason for each suggestion. Coming in 1.3.1.' },
+  { src: tasks, alt: 'Every checklist item in the vault in one list, grouped by note', caption: 'Every task in the vault, one list. Coming in 1.3.1.' },
+  { src: start, alt: 'The start page of a new tab with recent and recently modified notes', caption: 'A new tab starts from your recent notes. Coming in 1.3.1.' },
+] as const
+---
+
+<section class="screens" data-chapter="sunk" aria-labelledby="screens-title" data-pan>
+  <div class="sticky">
+    <div class="head wrap">
+      <h2 id="screens-title">Calm, in every light.</h2>
+      <p class="count" aria-hidden="true"><span data-pan-index>1</span> / {shots.length}</p>
+    </div>
+    <div class="track" data-pan-track>
+      {
+        shots.map((s) => (
+          <figure class="shot">
+            <Image src={s.src} widths={[720, 1080, 1440]} sizes="(min-width: 900px) 62vw, 100vw" alt={s.alt} />
+            <figcaption>{s.caption}</figcaption>
+          </figure>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<script>
+  import { onScrollProgress } from '../scripts/progress'
+
+  const section = document.querySelector<HTMLElement>('[data-pan]')
+  const track = section?.querySelector<HTMLElement>('[data-pan-track]')
+  const index = section?.querySelector('[data-pan-index]')
+  const wide = matchMedia('(min-width: 900px)')
+
+  if (section && track) {
+    let distance = 0
+    const size = () => {
+      section.classList.toggle('is-pinned', wide.matches)
+      distance = wide.matches ? Math.max(0, track.scrollWidth - innerWidth) : 0
+      // as tall as the horizontal distance, so one wheel step moves the same either way
+      section.style.height = wide.matches ? `${innerHeight + distance}px` : ''
+    }
+    size()
+    addEventListener('resize', size)
+    wide.addEventListener('change', size)
+    onScrollProgress(section, (p) => {
+      if (!wide.matches) {
+        track.style.transform = ''
+        return
+      }
+      track.style.transform = `translate3d(${-p * distance}px, 0, 0)`
+      const n = track.children.length
+      if (index) index.textContent = String(Math.min(n, Math.floor(p * n) + 1))
+    })
+  }
+</script>
+
+<style>
+  .screens {
+    padding-block: var(--gap-section);
+  }
+  .screens.is-pinned {
+    padding-block: 0;
+  }
+  .is-pinned .sticky {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    display: grid;
+    /* one viewport-wide column; the track overflows it instead of widening it */
+    grid-template-columns: minmax(0, 100%);
+    align-content: center;
+    gap: 48px;
+    overflow: hidden;
+  }
+  .is-pinned .head {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+  .is-pinned .track {
+    justify-self: start;
+  }
+  .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+  .is-pinned .head {
+    margin-bottom: 0;
+  }
+  h2 {
+    font-size: var(--t-head);
+  }
+  .count {
+    font: 600 var(--t-statement) / 1 var(--font-display);
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .track {
+    display: grid;
+    gap: 40px;
+    padding-inline: var(--margin);
+    will-change: transform;
+  }
+  .is-pinned .track {
+    display: flex;
+    gap: 48px;
+    width: max-content;
+    padding-inline: max(var(--margin), (100vw - 1600px) / 2);
+  }
+  .shot {
+    margin: 0;
+  }
+  .is-pinned .shot {
+    width: min(62vw, 1100px);
+  }
+  .shot img {
+    width: 100%;
+    border-radius: var(--r-panel);
+  }
+  figcaption {
+    margin-top: 16px;
+    max-width: 52ch;
+    font-size: var(--t-body);
+  }
+  @media (max-width: 899px) {
+    .count {
+      display: none;
+    }
+  }
+</style>

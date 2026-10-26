@@ -1,0 +1,201 @@
+---
+import SiteLayout from '../layouts/SiteLayout.astro'
+import { latestRelease, links, previousReleases, product } from '../config/site'
+import { formatBytes, formatDate } from '../lib/format'
+import { Image } from 'astro:assets'
+import welcome from '../assets/screenshots/welcome.png'
+
+const asset = latestRelease?.assets[0]
+const others = latestRelease?.assets.slice(1) ?? []
+---
+
+<SiteLayout title="Download" description={`Download ${product.name} for macOS: version, requirements and installation steps.`}>
+  <section class="top wrap" data-chapter="signal" aria-labelledby="dl-title">
+    <div data-reveal>
+      <h1 id="dl-title"><span>Download</span><span>Synapse.</span></h1>
+      {
+        latestRelease && asset ? (
+          <>
+            <p class="lede">
+              Version {latestRelease.version}, released {formatDate(latestRelease.publishedAt)}. Free and open source under the {product.license} licence.
+            </p>
+            <div class="actions">
+              <a class="button button--ink big" href={asset.url}>
+                Download for Apple silicon · {formatBytes(asset.sizeBytes)}
+              </a>
+              {others.map((a) => (
+                <a class="text-link" href={a.url}>
+                  {a.arch.split(',')[0]} · {formatBytes(a.sizeBytes)}
+                </a>
+              ))}
+              <a class="text-link" href={latestRelease.notesUrl}>Release notes</a>
+            </div>
+          </>
+        ) : (
+          <p class="lede">
+            No build is published yet. When the first release is out it will appear here and on{' '}
+            <a class="text-link" href={links.releases}>GitHub Releases</a>.
+          </p>
+        )
+      }
+    </div>
+  </section>
+
+  {
+    latestRelease && asset && (
+      <section class="facts wrap" data-chapter="graphite" aria-labelledby="facts-title">
+        <h2 id="facts-title">What you get</h2>
+        <dl data-reveal>
+          <div><dt>Version</dt><dd>{latestRelease.version}</dd></div>
+          <div><dt>Released</dt><dd>{formatDate(latestRelease.publishedAt)}</dd></div>
+          <div><dt>System</dt><dd>{asset.system}</dd></div>
+          <div><dt>Architecture</dt><dd>{asset.arch}</dd></div>
+          <div><dt>File</dt><dd>{asset.fileName}</dd></div>
+          <div><dt>Size</dt><dd>{formatBytes(asset.sizeBytes)}</dd></div>
+        </dl>
+        <p class="note">Also available: {others.map((a) => `${a.fileName} for ${a.arch}`).join(', ')}. Builds are ad-hoc signed and not notarized. Synapse tells you when a new version is out; installing it is a quick manual swap.</p>
+      </section>
+    )
+  }
+
+  <section class="install wrap" data-chapter="sunk" aria-labelledby="install-title">
+    <h2 id="install-title">Install it</h2>
+    <div class="install-grid">
+    <ol data-reveal>
+      <li>Open the downloaded <code>.dmg</code> and drag <strong>Synapse</strong> onto <strong>Applications</strong>.</li>
+      <li>Open Synapse. The first time, macOS says it cannot verify the app, because builds are not notarized yet.</li>
+      <li>Open <strong>System Settings → Privacy &amp; Security</strong> and click <strong>Open Anyway</strong>. You only do this once.</li>
+      <li>Choose <strong>Open folder as vault</strong> for an existing folder of notes, or <strong>Create new vault</strong>.</li>
+    </ol>
+    <figure data-reveal>
+      <Image src={welcome} widths={[480, 960, 1440]} sizes="(min-width: 900px) 50vw, 100vw" alt="The Synapse starter screen with recent vaults and the actions Create new vault and Open folder as vault" />
+      <figcaption>The starter screen you see on first launch.</figcaption>
+    </figure>
+    </div>
+    <p>
+      Updating: download the new version and replace the app in Applications. Your notes and preferences are not touched. More in the <a class="text-link" href={`${links.docs}installation/`}>installation guide</a>.
+    </p>
+  </section>
+
+  <section class="other wrap" data-chapter="graphite" aria-labelledby="other-title">
+    <h2 id="other-title">Other versions and source</h2>
+    <ul role="list" data-reveal>
+      {previousReleases.map((r) => (
+        <li>
+          <a class="text-link" href={`${links.releases}/tag/v${r.version}`}>Synapse {r.version}</a>, {formatDate(r.publishedAt)}
+        </li>
+      ))}
+      <li><a class="text-link" href={links.releases}>All releases on GitHub</a></li>
+      <li><a class="text-link" href={links.repo}>Source code</a>, to build it yourself (<a class="text-link" href={`${links.docs}installation/#build-from-source`}>how</a>)</li>
+    </ul>
+  </section>
+</SiteLayout>
+
+<style>
+  section {
+    padding-block: clamp(72px, 9vw, 140px);
+  }
+  .top {
+    min-height: 70svh;
+    display: grid;
+    align-items: end;
+  }
+  h1 {
+    font-size: var(--t-display);
+  }
+  h1 span {
+    display: block;
+  }
+  .lede {
+    max-width: 44ch;
+    margin-top: 32px;
+    font-size: 20px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 28px;
+    margin-top: 32px;
+    font-weight: 600;
+  }
+  .big {
+    min-height: 60px;
+    padding: 0 28px;
+    font-size: 18px;
+  }
+  h2 {
+    margin-bottom: 40px;
+    font-size: clamp(36px, 4.4vw, 64px);
+  }
+  dl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 40px 32px;
+    margin: 0;
+  }
+  dt {
+    color: var(--fg-2);
+    font-size: var(--t-small);
+  }
+  dd {
+    margin: 6px 0 0;
+    font: 600 clamp(20px, 2vw, 28px) / 1.2 var(--font-display);
+    overflow-wrap: anywhere;
+  }
+  .note {
+    max-width: 60ch;
+    margin-top: 48px;
+    color: var(--fg-2);
+  }
+  .install-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 64px;
+    align-items: start;
+  }
+  figure {
+    margin: 0;
+  }
+  figcaption {
+    margin-top: 12px;
+    font-size: var(--t-small);
+  }
+  ol {
+    display: grid;
+    gap: 16px;
+    max-width: 62ch;
+    margin: 0 0 32px;
+    padding-left: 1.4em;
+    font-size: 20px;
+  }
+  code {
+    font-family: var(--font-code);
+    font-size: 0.9em;
+  }
+  .install p,
+  .other ul {
+    max-width: 62ch;
+  }
+  .other ul {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 20px;
+  }
+  @media (max-width: 720px) {
+    dl {
+      grid-template-columns: 1fr 1fr;
+    }
+    .install-grid {
+      grid-template-columns: 1fr;
+      gap: 40px;
+    }
+    ol,
+    .other ul {
+      font-size: 17px;
+    }
+  }
+</style>
