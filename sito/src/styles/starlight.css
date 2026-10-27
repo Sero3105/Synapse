@@ -193,9 +193,209 @@ kbd {
 }
 
 /* ---------- search dialog ---------- */
+/* Pagefind's default UI, kept minimal: flat graphite, hairlines instead of
+   cards, and the violet reduced to a thread — focus ring, the current row's
+   edge, and the matched words. Nothing else is coloured. */
 /* the search surface rises to meet the click instead of snapping in */
+site-search dialog {
+  border: 1px solid color-mix(in oklab, var(--sl-color-gray-5) 55%, transparent);
+  border-radius: 14px;
+  background: var(--sl-color-black);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.42);
+}
 site-search dialog[open ] {
   animation: search-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+site-search .dialog-frame {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sl-color-gray-5) transparent;
+}
+@media (min-width: 50rem) {
+  site-search dialog {
+    width: min(94vw, 48rem);
+    max-width: 48rem;
+    max-height: calc(100% - 5rem);
+    margin-top: 2.5rem;
+  }
+  site-search .dialog-frame {
+    padding: 1.75rem;
+  }
+}
+
+#starlight__search {
+  --pagefind-ui-primary: var(--sl-color-accent);
+  --pagefind-ui-text: var(--sl-color-gray-2);
+  --pagefind-ui-background: var(--sl-color-black);
+  --pagefind-ui-border: var(--sl-color-gray-5);
+  --pagefind-ui-border-radius: 12px;
+  --pagefind-ui-tag: var(--sl-color-gray-6);
+  /* roomier results than the Starlight defaults */
+  --sl-search-result-spacing: 1rem;
+  --sl-search-result-pad-inline-start: 4.1rem;
+  --sl-search-result-pad-block: 1.05rem;
+  --sl-search-result-nested-pad-block: 0.8rem;
+}
+/* only the results scroll; the query stays put above them.
+   (Pagefind renders the results inside the <form>, so a sticky form cannot travel.) */
+#starlight__search .pagefind-ui__drawer {
+  max-height: calc(100dvh - 13rem);
+  overflow-y: auto;
+  padding-inline-end: 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sl-color-gray-5) transparent;
+}
+#starlight__search .pagefind-ui__search-input {
+  height: 3.9rem;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--sl-color-gray-6) 35%, transparent);
+  font-size: 1.18rem;
+  font-weight: 400;
+  color: var(--sl-color-white);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+#starlight__search .pagefind-ui__search-input::placeholder {
+  color: var(--sl-color-gray-3);
+}
+#starlight__search .pagefind-ui__search-input:focus {
+  --pagefind-ui-border: var(--sl-color-gray-4);
+  outline: none;
+  background: color-mix(in oklab, var(--sl-color-gray-6) 60%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sl-color-accent) 13%, transparent);
+}
+#starlight__search .pagefind-ui__search-clear {
+  border-radius: 8px;
+  transition: background-color 160ms ease;
+}
+#starlight__search .pagefind-ui__search-clear:hover {
+  background: var(--sl-color-gray-6);
+}
+#starlight__search .pagefind-ui__message {
+  padding-block: 1.1rem 0.45rem;
+  color: var(--sl-color-gray-3);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+/* flat result groups, separated by a hairline — no cards, no fills.
+   Groups settle in as a short cascade when a query lands. */
+#starlight__search .pagefind-ui__result {
+  border: 0;
+  background: transparent;
+  animation: result-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+#starlight__search .pagefind-ui__results > :nth-child(2) {
+  animation-delay: 45ms;
+}
+#starlight__search .pagefind-ui__results > :nth-child(3) {
+  animation-delay: 90ms;
+}
+#starlight__search .pagefind-ui__results > :nth-child(4) {
+  animation-delay: 135ms;
+}
+#starlight__search .pagefind-ui__results > :nth-child(n + 5) {
+  animation-delay: 180ms;
+}
+@keyframes result-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+#starlight__search .pagefind-ui__result + .pagefind-ui__result {
+  border-top: 1px solid color-mix(in oklab, var(--sl-color-gray-5) 42%, transparent);
+  padding-top: 0.4rem;
+}
+#starlight__search .pagefind-ui__result-inner {
+  gap: 0;
+}
+#starlight__search .pagefind-ui__result-inner > .pagefind-ui__result-title {
+  background: transparent;
+}
+#starlight__search .pagefind-ui__result-inner > .pagefind-ui__result-title::before {
+  background: var(--sl-color-gray-4);
+}
+#starlight__search .pagefind-ui__result-title .pagefind-ui__result-link {
+  font-family: var(--font-display);
+  font-size: 1.14rem;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  color: var(--sl-color-white);
+}
+#starlight__search .pagefind-ui__result-nested {
+  border-radius: 8px;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+/* hover: a whisper of surface, a thin accent edge and an arrow that
+   slides in — not Starlight's full accent outline (killed below) */
+#starlight__search .pagefind-ui__result-nested:hover,
+#starlight__search .pagefind-ui__result-title:not(:where(.pagefind-ui__result-nested *)):hover {
+  outline: none;
+}
+#starlight__search .pagefind-ui__result-nested:hover {
+  background: color-mix(in oklab, var(--sl-color-gray-6) 45%, transparent);
+  box-shadow: inset 2px 0 0 color-mix(in oklab, var(--sl-color-accent) 60%, transparent);
+}
+#starlight__search .pagefind-ui__result-nested::after {
+  content: '→';
+  position: absolute;
+  inset-block-start: 0.85rem;
+  inset-inline-end: 1rem;
+  color: var(--sl-color-gray-3);
+  font-size: 0.95rem;
+  opacity: 0;
+  transform: translateX(-5px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  pointer-events: none;
+}
+#starlight__search .pagefind-ui__result-nested:hover::after {
+  opacity: 0.8;
+  transform: none;
+}
+#starlight__search .pagefind-ui__result-nested:hover .pagefind-ui__result-link {
+  color: var(--sl-color-white);
+}
+#starlight__search .pagefind-ui__result-nested:hover .pagefind-ui__result-excerpt {
+  color: var(--sl-color-gray-2);
+}
+/* keyboard keeps a visible ring, softer than the stock accent outline */
+#starlight__search .pagefind-ui__result-nested:focus-within {
+  outline: 1px solid color-mix(in oklab, var(--sl-color-accent) 55%, transparent);
+  outline-offset: -1px;
+  background: color-mix(in oklab, var(--sl-color-gray-6) 45%, transparent);
+}
+#starlight__search .pagefind-ui__result-nested::before {
+  background: color-mix(in oklab, var(--sl-color-gray-5) 60%, transparent);
+}
+#starlight__search .pagefind-ui__result-nested .pagefind-ui__result-link {
+  font-size: 1rem;
+  font-weight: 560;
+  color: var(--sl-color-gray-1);
+  transition: color 160ms ease;
+}
+#starlight__search .pagefind-ui__result-excerpt {
+  color: var(--sl-color-gray-3);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  transition: color 160ms ease;
+}
+/* matched words: light text, no chip */
+#starlight__search mark {
+  background: transparent;
+  color: var(--sl-color-accent-high);
+  font-weight: 600;
+}
+#starlight__search .pagefind-ui__button {
+  border: 1px solid color-mix(in oklab, var(--sl-color-gray-5) 60%, transparent);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--sl-color-gray-2);
+  font-weight: 500;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+#starlight__search .pagefind-ui__button:hover {
+  border-color: var(--sl-color-gray-4);
+  background: var(--sl-color-gray-6);
+  color: var(--sl-color-white);
 }
 @keyframes search-in {
   from {
