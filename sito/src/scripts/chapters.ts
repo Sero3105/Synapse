@@ -12,17 +12,4 @@ if (header && chapters.length) {
     { rootMargin: '-32px 0px -95% 0px' },
   )
   chapters.forEach((c) => io.observe(c))
-
-  // hide the header while reading down, bring it back on the way up
-  let last = scrollY
-  addEventListener(
-    'scroll',
-    () => {
-      const y = scrollY
-      if (Math.abs(y - last) < 8) return
-      header.dataset.hidden = String(y > last && y > 400 && !header.contains(document.activeElement))
-      last = y
-    },
-    { passive: true },
-  )
 }

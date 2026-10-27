@@ -129,7 +129,7 @@ a {
 }
 .button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px color-mix(in oklab, var(--button-bg, var(--signal)) 28%, transparent);
+  box-shadow: 0 4px 12px color-mix(in oklab, var(--button-bg, var(--signal)) 16%, transparent);
 }
 .button:active {
   transform: translateY(1px);
@@ -214,10 +214,6 @@ a {
 /* --- UI refinements (2026-10-26) -------------------------------------
    Targeted fixes on top of the original design; animations untouched. */
 
-/* Header: a hairline so it never melts into the section below it. */
-.header {
-  border-bottom: 1px solid color-mix(in oklab, var(--fg) 11%, transparent);
-}
 .button:active {
   transform: translateY(1px) scale(0.99);
 }

@@ -1,8 +1,10 @@
 ---
 import Logo from './Logo.astro'
-import { links, nav, product } from '../config/site'
+import { latestRelease, links, nav, product } from '../config/site'
 
 const path = Astro.url.pathname
+// Download is the header's primary action, not a nav item: keep the pill for destinations only.
+const pillItems = nav.filter((item) => item.href !== links.download)
 ---
 
 <header class="header wrap" data-site-header data-on="graphite">
@@ -10,10 +12,18 @@ const path = Astro.url.pathname
     <Logo />
     <span>{product.name}</span>
   </a>
-  <nav class="links" aria-label="Main">
-    {nav.map((item) => <a href={item.href} aria-current={path === item.href ? 'page' : undefined}>{item.label}</a>)}
+
+  <nav class="pill" aria-label="Main">
+    {
+      pillItems.map((item) => (
+        <a href={item.href} aria-current={path === item.href ? 'page' : undefined}>
+          {item.label}
+        </a>
+      ))
+    }
     <a href={links.repo}>GitHub</a>
   </nav>
+
   <details class="menu">
     <summary>Menu</summary>
     <nav aria-label="Main, compact">
@@ -21,7 +31,23 @@ const path = Astro.url.pathname
       <a href={links.repo}>GitHub</a>
     </nav>
   </details>
-  <a class="button action" href={links.download}>Download</a>
+
+  <div class="cluster">
+    {
+      latestRelease && (
+        <a class="version" href={links.releases} aria-label={`Latest release, version ${latestRelease.version}`}>
+          v{latestRelease.version}
+        </a>
+      )
+    }
+    <a class="button action" href={links.download}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3v11m0 0 4-4m-4 4-4-4" />
+        <path d="M4 19h16" />
+      </svg>
+      Download
+    </a>
+  </div>
 </header>
 
 <style>
@@ -29,7 +55,8 @@ const path = Astro.url.pathname
     position: sticky;
     top: 0;
     z-index: 20;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 32px;
     height: 64px;
@@ -37,36 +64,84 @@ const path = Astro.url.pathname
     color: var(--fg);
     transition: background-color 300ms var(--ease), color 300ms var(--ease), transform 350ms var(--ease);
   }
-  .header[data-hidden='true'] {
-    transform: translateY(-100%);
-  }
   .wordmark {
+    justify-self: start;
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    margin-right: auto;
     font: 600 20px / 1 var(--font-display);
     letter-spacing: -0.02em;
     text-decoration: none;
   }
-  .links {
+
+  /* plain text nav, no container: an accent rule grows under the link on hover */
+  .pill {
+    justify-self: center;
     display: flex;
-    gap: 28px;
+    align-items: center;
+    gap: 34px;
   }
-  .links a,
-  .menu summary {
-    font-size: var(--t-small);
+  .pill a {
+    position: relative;
+    padding: 8px 1px;
+    font-size: 15px;
     font-weight: 500;
+    line-height: 1;
+    color: var(--fg-2);
     text-decoration: none;
-    transition: opacity 160ms var(--ease);
+    white-space: nowrap;
+    transition: color 180ms var(--ease);
   }
-  .links a:hover {
-    opacity: 0.7;
+  .pill a::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 220ms var(--ease);
   }
-  .links a[aria-current='page'] {
-    text-decoration: underline;
-    text-underline-offset: 6px;
-    text-decoration-thickness: 2px;
+  .pill a:hover {
+    color: var(--fg);
+  }
+  .pill a:hover::after {
+    transform: scaleX(1);
+  }
+  .pill a[aria-current='page'] {
+    color: var(--fg);
+    font-weight: 650;
+  }
+  .pill a[aria-current='page']::after {
+    transform: scaleX(1);
+  }
+  .pill a:focus-visible,
+  .version:focus-visible,
+  .wordmark:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .cluster {
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .version {
+    padding: 5px 9px;
+    border: 1px solid color-mix(in oklab, var(--fg) 14%, transparent);
+    border-radius: 7px;
+    color: var(--fg-2);
+    font: 500 12.5px / 1 var(--font-code);
+    text-decoration: none;
+    transition: color 160ms var(--ease), border-color 160ms var(--ease);
+  }
+  .version:hover {
+    color: var(--fg);
+    border-color: color-mix(in oklab, var(--fg) 30%, transparent);
   }
   .action {
     --button-bg: var(--fg);
@@ -76,6 +151,7 @@ const path = Astro.url.pathname
     font-size: var(--t-small);
     transition: transform 160ms var(--ease), background-color 300ms var(--ease), color 300ms var(--ease);
   }
+
   .menu {
     display: none;
     position: relative;
@@ -83,17 +159,32 @@ const path = Astro.url.pathname
   .menu summary {
     list-style: none;
     cursor: pointer;
-    padding: 12px 4px;
+    padding: 9px 14px;
+    border: 1px solid color-mix(in oklab, var(--fg) 14%, transparent);
+    border-radius: 9px;
+    font-size: var(--t-small);
+    font-weight: 500;
   }
   .menu summary::-webkit-details-marker {
     display: none;
   }
+  /* panel grows out of its trigger corner instead of appearing */
+  .menu[open ] nav {
+    animation: menu-in 200ms var(--ease) both;
+    transform-origin: top right;
+  }
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: translateY(-5px) scale(0.97);
+    }
+  }
   .menu nav {
     position: absolute;
     right: 0;
-    top: 100%;
+    top: calc(100% + 10px);
     display: grid;
-    min-width: 180px;
+    min-width: 190px;
     padding: 8px;
     border-radius: var(--r-float);
     background: var(--graphite-raise-2);
@@ -108,15 +199,22 @@ const path = Astro.url.pathname
   .menu nav a:hover {
     background: var(--graphite-raise);
   }
+
   @media (max-width: 720px) {
     .header {
-      gap: 16px;
+      grid-template-columns: auto 1fr auto;
+      gap: 14px;
     }
-    .links {
+    .pill,
+    .version {
       display: none;
     }
     .menu {
       display: block;
+      justify-self: end;
+    }
+    .cluster {
+      gap: 10px;
     }
   }
 </style>

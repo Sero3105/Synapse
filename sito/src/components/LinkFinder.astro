@@ -16,7 +16,7 @@ const results = matchNotes(sampleVault, initial)
       <ul class="results" role="list" aria-live="polite">
         {
           results.map((r, i) => (
-            <li class:list={['row', { 'is-selected': i === 0 }]}>
+            <li class:list={['row', { 'is-selected': i === 0 }]} style={`--i:${i}`}>
               <span class="row-title">{r.title}</span>
               {r.folder && <span class="row-folder">{r.folder}</span>}
             </li>
@@ -48,6 +48,7 @@ const results = matchNotes(sampleVault, initial)
         ? matches.map((m, i) => {
             const li = document.createElement('li')
             li.className = i === 0 ? 'row is-selected' : 'row'
+            li.style.setProperty('--i', String(i))
             const title = document.createElement('span')
             title.className = 'row-title'
             title.textContent = m.title
@@ -125,12 +126,21 @@ const results = matchNotes(sampleVault, initial)
     padding: 0;
     list-style: none;
   }
+  /* suggestions settle in as a short cascade while typing, like the app's autocomplete */
   .results :global(.row) {
     display: flex;
     justify-content: space-between;
     gap: 16px;
     padding: 10px;
     border-radius: 6px;
+    animation: row-in 180ms var(--ease) both;
+    animation-delay: calc(var(--i, 0) * 35ms);
+  }
+  @keyframes row-in {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
   }
   .results :global(.is-selected) {
     background: var(--graphite-raise-2);

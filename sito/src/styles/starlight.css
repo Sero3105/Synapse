@@ -192,6 +192,26 @@ kbd {
   }
 }
 
+/* ---------- search dialog ---------- */
+/* the search surface rises to meet the click instead of snapping in */
+site-search dialog[open ] {
+  animation: search-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes search-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.995);
+  }
+}
+
+/* ---------- top bar ---------- */
+/* translucent bar: page content scrolls under it, hairline stays the separator */
+.page > .header {
+  background: color-mix(in oklab, var(--sl-color-bg-nav) 86%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
+  backdrop-filter: blur(14px) saturate(1.35);
+}
+
 /* ---------- sidebar ---------- */
 nav.sidebar a[aria-current='page'] {
   border-radius: 6px;

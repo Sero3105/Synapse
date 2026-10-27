@@ -130,6 +130,16 @@ import { features } from '../data/features'
   :global(html:not(.js)) .item-body {
     display: block;
   }
+  /* the newly selected tab's copy settles in instead of snapping open */
+  .item[aria-selected='true'] .item-body {
+    animation: body-in 260ms var(--ease) both;
+  }
+  @keyframes body-in {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+  }
   .stage {
     position: sticky;
     top: 96px;

@@ -1,0 +1,110 @@
+---
+// Theme as a single cycling button, not a menu: click steps
+// Auto -> Light -> Dark -> Auto. Same storage key and data-theme
+// behaviour as Starlight's select, without the OS-drawn popup.
+import { Icon } from '@astrojs/starlight/components'
+
+const themes = [
+  { value: 'dark', label: Astro.locals.t('themeSelect.dark'), icon: 'moon' },
+  { value: 'light', label: Astro.locals.t('themeSelect.light'), icon: 'sun' },
+  { value: 'auto', label: Astro.locals.t('themeSelect.auto'), icon: 'laptop' },
+] as const
+const label = Astro.locals.t('themeSelect.accessibleLabel')
+---
+
+<docs-theme-select class="ts" data-value="auto">
+  <button class="ts-trigger" type="button" aria-label={label} title={label}>
+    {
+      themes.map(({ value, icon }) => (
+        <span class={`ts-icon ts-icon--${value}`} aria-hidden="true">
+          <Icon name={icon} size="1.05rem" />
+        </span>
+      ))
+    }
+    <span class="ts-value">Auto</span>
+  </button>
+</docs-theme-select>
+
+<script>
+  type Theme = 'auto' | 'light' | 'dark'
+  const order: Theme[] = ['auto', 'light', 'dark']
+  const storageKey = 'starlight-theme'
+  const parse = (v: unknown): Theme => (v === 'auto' || v === 'dark' || v === 'light' ? v : 'auto')
+  const load = (): Theme => parse(typeof localStorage !== 'undefined' && localStorage.getItem(storageKey))
+  const effective = (t: Theme): 'dark' | 'light' =>
+    t === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t
+
+  class DocsThemeSelect extends HTMLElement {
+    #value: Theme = 'auto'
+
+    connectedCallback() {
+      const trigger = this.querySelector<HTMLButtonElement>('.ts-trigger')!
+      const valueEl = this.querySelector('.ts-value')!
+      const labels: Record<Theme, string> = { auto: 'Auto', light: 'Light', dark: 'Dark' }
+      const apply = (theme: Theme, save = true) => {
+        this.#value = theme
+        this.dataset.value = theme
+        document.documentElement.dataset.theme = effective(theme)
+        if (save) localStorage.setItem(storageKey, theme === 'auto' ? '' : theme)
+        valueEl.textContent = labels[theme]
+        const next = order[(order.indexOf(theme) + 1) % order.length]!
+        trigger.setAttribute('aria-label', `Theme: ${labels[theme]}. Activate to switch to ${labels[next]}.`)
+        trigger.title = `Theme: ${labels[theme]} — click for ${labels[next]}`
+      }
+
+      apply(load(), false)
+      matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+        if (this.#value === 'auto') apply('auto', false)
+      })
+      trigger.addEventListener('click', () => {
+        apply(order[(order.indexOf(this.#value) + 1) % order.length]!)
+      })
+    }
+  }
+  customElements.define('docs-theme-select', DocsThemeSelect)
+</script>
+
+<style>
+  .ts {
+    display: inline-block;
+  }
+  .ts-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    height: 2.4rem;
+    padding-inline: 0.65rem;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: 500 var(--sl-text-sm) / 1 var(--sl-font);
+    cursor: pointer;
+    transition: color 160ms ease, background-color 160ms ease, transform 120ms ease;
+  }
+  .ts-trigger:hover {
+    color: var(--sl-color-white);
+    background: var(--sl-color-gray-6);
+  }
+  .ts-trigger:active {
+    transform: scale(0.96);
+  }
+  .ts-trigger:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 2px;
+  }
+  /* show only the icon of the active theme */
+  .ts-icon {
+    display: none;
+  }
+  .ts[data-value='dark'] .ts-icon--dark,
+  .ts[data-value='light'] .ts-icon--light,
+  .ts[data-value='auto'] .ts-icon--auto {
+    display: inline-flex;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ts-trigger {
+      transition: none;
+    }
+  }
+</style>
