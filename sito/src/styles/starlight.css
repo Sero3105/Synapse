@@ -244,12 +244,24 @@ site-search .dialog-frame {
   scrollbar-width: thin;
   scrollbar-color: var(--sl-color-gray-5) transparent;
 }
+/* one shared axis: lens, text and clear button all centre on the field's midline.
+   Not 50%: the form also contains the results, so the axis is half the input height. */
+#starlight__search .pagefind-ui__form::before {
+  top: calc(3.9rem / 2);
+  left: 1.25rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  transform: translateY(-50%);
+}
 #starlight__search .pagefind-ui__search-input {
   height: 3.9rem;
+  padding-block: 0;
+  padding-inline: 3.4rem 3.6rem;
   border-radius: 12px;
   background: color-mix(in oklab, var(--sl-color-gray-6) 35%, transparent);
   font-size: 1.18rem;
   font-weight: 400;
+  line-height: 1.2;
   color: var(--sl-color-white);
   transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
@@ -263,8 +275,18 @@ site-search .dialog-frame {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--sl-color-accent) 13%, transparent);
 }
 #starlight__search .pagefind-ui__search-clear {
+  inset-block-start: calc(3.9rem / 2);
+  inset-inline-end: 0.65rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  transform: translateY(-50%);
   border-radius: 8px;
   transition: background-color 160ms ease;
+}
+#starlight__search .pagefind-ui__search-clear::before {
+  -webkit-mask-size: 52%;
+  mask-size: 52%;
 }
 #starlight__search .pagefind-ui__search-clear:hover {
   background: var(--sl-color-gray-6);
@@ -404,12 +426,14 @@ site-search .dialog-frame {
   }
 }
 
-/* ---------- top bar ---------- */
-/* translucent bar: page content scrolls under it, hairline stays the separator */
+/* ---------- top bar + sidebar ---------- */
+/* no panels at all: header row, sidebar column and page share one surface
+   (--sl-color-bg); only the hairlines say where one region ends */
 .page > .header {
-  background: color-mix(in oklab, var(--sl-color-bg-nav) 86%, transparent);
-  -webkit-backdrop-filter: blur(14px) saturate(1.35);
-  backdrop-filter: blur(14px) saturate(1.35);
+  background: var(--sl-color-bg);
+}
+.sidebar-pane {
+  background: var(--sl-color-bg);
 }
 
 /* ---------- sidebar ---------- */
