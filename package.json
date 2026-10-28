@@ -14,10 +14,13 @@
     "build": "npm run build:main && npm run build:renderer",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "bench:graph": "node scripts/graph-bench.ts",
     "test:e2e": "npm run build && playwright test",
     "icon": "node scripts/make-icon.mjs",
+    "prepackage": "node scripts/sync-version.mjs",
     "package": "npm run build && npm run notices && electron-builder --mac",
     "install:app": "node scripts/install-app.mjs",
+    "sign:update": "node scripts/sign-update.mjs",
     "notices": "node scripts/third-party-notices.mjs"
   },
   "build": {
@@ -35,10 +38,18 @@
     },
     "mac": {
       "category": "public.app-category.productivity",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
       "icon": "build/icon.png",
       "target": [
         {
           "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "arm64",
             "x64"

@@ -1,0 +1,112 @@
+name: Release
+
+# Tag v1.5.0 -> build, sign, publish. In-app updates need, per arch, the zip and
+# its .sig; the release stays a draft until every asset is uploaded and verified,
+# so a half-finished publish is never visible to installed apps.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, sign and publish
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      UPDATE_KEY_PEM: ${{ secrets.SYNAPSE_UPDATE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and unit tests
+        run: |
+          npm run typecheck
+          npm test
+
+      # The tag is the only place the version is typed: it is written into
+      # package.json here (runner only, never committed back), so the app,
+      # the file names and the release all carry the tag's number.
+      - name: Set version from tag and check release is new
+        run: |
+          if ! echo "$GITHUB_REF_NAME" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Tag $GITHUB_REF_NAME is not a plain vX.Y.Z version" >&2
+            exit 1
+          fi
+          npm pkg set version="${GITHUB_REF_NAME#v}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; refusing to overwrite it" >&2
+            exit 1
+          fi
+
+      - name: Check signing key is configured
+        run: |
+          if [ -z "$UPDATE_KEY_PEM" ]; then
+            echo "Secret SYNAPSE_UPDATE_KEY is not set (Settings > Secrets and variables > Actions)" >&2
+            exit 1
+          fi
+
+      - name: Package (DMG + zip, arm64 and x64)
+        run: npm run package
+
+      - name: Sign update zips
+        run: |
+          key="$RUNNER_TEMP/update-key.pem"
+          printf '%s' "$UPDATE_KEY_PEM" > "$key"
+          chmod 600 "$key"
+          SYNAPSE_UPDATE_KEY="$key" npm run sign:update
+          rm -f "$key"
+
+      # The updater silently falls back to the browser when zip or .sig is missing
+      # or wrong, so check every asset and verify each signature against the
+      # public key compiled into the app before anything is published.
+      - name: Verify assets and signatures
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          for arch in arm64 x64; do
+            for f in "Synapse-$version-$arch.dmg" "Synapse-$version-$arch.zip" "Synapse-$version-$arch.zip.sig"; do
+              test -s "release/$f" || { echo "Missing release/$f" >&2; exit 1; }
+            done
+          done
+          node -e "
+            const c = require('node:crypto'), fs = require('node:fs');
+            const src = fs.readFileSync('src/shared/update.ts', 'utf8');
+            const pub = c.createPublicKey({ key: Buffer.from(src.match(/UPDATE_PUBLIC_KEY = '([^']+)'/)[1], 'base64'), format: 'der', type: 'spki' });
+            for (const arch of ['arm64', 'x64']) {
+              const zip = fs.readFileSync('release/Synapse-$version-' + arch + '.zip');
+              const sig = fs.readFileSync('release/Synapse-$version-' + arch + '.zip.sig', 'utf8');
+              if (!c.verify(null, zip, pub, Buffer.from(sig.trim(), 'base64'))) { console.error('Bad signature for ' + arch); process.exit(1); }
+            }
+            console.log('Both zip signatures verify against UPDATE_PUBLIC_KEY');
+          "
+          (cd release && shasum -a 256 Synapse-*.dmg Synapse-*.zip > SHA256SUMS.txt)
+
+      - name: Create draft release and upload assets
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          gh release create "$GITHUB_REF_NAME" --draft --title "Synapse $version" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" \
+            release/Synapse-*.dmg release/Synapse-*.zip release/Synapse-*.zip.sig release/SHA256SUMS.txt
+
+      - name: Check uploaded assets, then publish
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          assets="$(gh release view "$GITHUB_REF_NAME" --json assets -q '.assets[].name')"
+          for arch in arm64 x64; do
+            for f in "Synapse-$version-$arch.dmg" "Synapse-$version-$arch.zip" "Synapse-$version-$arch.zip.sig"; do
+              echo "$assets" | grep -qx "$f" || { echo "Release is missing $f; left as draft" >&2; exit 1; }
+            done
+          done
+          gh release edit "$GITHUB_REF_NAME" --draft=false
