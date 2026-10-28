@@ -44,7 +44,7 @@ Legend:
 | Quick switcher (+ create) | `switcher:open` | D | ✅ | E | — |
 | Command palette | `command-palette:open` | D | ✅ 67 commands | E | — |
 | Hotkeys (reference defaults, rebindable) | hotkeys.json per vault | B, D | ✅ global | U | — |
-| Tabs, new/close/undo close, goto N, cycle, pin | workspace commands | D | ✅ | E | No stacked tabs; a link clicked in a pinned tab opens in that tab |
+| Tabs, new/close/undo close, goto N, cycle, pin | workspace commands | D | ✅ | E | No stacked tabs; a link clicked in a pinned tab opens in that tab. File-tree single click opens a preview tab (italic, reused in its pane); double-click on the file or the tab, or typing in it, keeps it |
 | Split panes + resize | split-vertical/horizontal | D | ✅ nested splits (any mix of rows and columns) | U, E | Max 8 panes; split by command or tab menu, not by dragging a tab onto a pane edge |
 | Navigation history per tab | go-back/forward | D | ✅ | M | — |
 | Workspace restore | workspace.json | D | ✅ | E | — |

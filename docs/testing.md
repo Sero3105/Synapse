@@ -30,6 +30,14 @@ All tests use temp directories. None touch real notes or the real `~/Library/App
 - Electron 44.7.2 → 44.9.3 and markdown-it 15.0.2 → 15.0.3, inside the existing `package.json` ranges; only `package-lock.json` changed. `npm audit` still lists `undici` and `fast-uri`, which are used only by build tooling (electron-builder, node-gyp, the Electron downloader) and are not in the app.
 - `npm test`: 205/205. E2E: 32/32 in two full runs. One earlier full run had a single intermittent failure in the Mermaid test, which passed when repeated alone (3/3).
 
+## Last results (2026-10-28, 1.5.x)
+
+- `npm run typecheck`: pass
+- `npm test`: 284/284 pass, 23 files (adds `merge`, `graph-layout`, `layout`, `file-sort`, `update` suites)
+- `npm run test:e2e`: 69/69 pass, including `e2e/{autocomplete,preview-tabs,panes,pdf,windows,graph,merge}.spec.ts`
+- CI (GitHub Actions, `ci.yml`): typecheck, build and unit tests on every push — green on `main` and on the `v1.5.1` tag
+- Release (`release.yml` from a version tag): builds, signs and publishes DMG + zip + `.sig` for arm64 and x64
+
 ## Last results (2026-10-25, second feature set)
 
 - `npm run typecheck`: pass

@@ -41,23 +41,23 @@ export interface Release {
 
 /**
  * Latest release published on GitHub. Set to `null` to show the "not available yet" state.
- * Values from https://api.github.com/repos/Sero3105/Synapse/releases (checked 2026-10-26, after publishing v1.4.0).
+ * Values from https://api.github.com/repos/Sero3105/Synapse/releases (checked 2026-10-28, after publishing v1.5.1).
  */
 export const latestRelease: Release | null = {
-  version: '1.4.0',
-  publishedAt: '2026-10-25',
-  notesUrl: `${repo}/releases/tag/v1.4.0`,
+  version: '1.5.1',
+  publishedAt: '2026-10-28',
+  notesUrl: `${repo}/releases/tag/v1.5.1`,
   assets: [
     {
-      fileName: 'Synapse-1.4.0-arm64.dmg',
-      url: `${repo}/releases/download/v1.4.0/Synapse-1.4.0-arm64.dmg`,
+      fileName: 'Synapse-1.5.1-arm64.dmg',
+      url: `${repo}/releases/download/v1.5.1/Synapse-1.5.1-arm64.dmg`,
       sizeBytes: 132_191_302,
       system: 'macOS 13 Ventura or later',
       arch: 'Apple silicon (arm64)',
     },
     {
-      fileName: 'Synapse-1.4.0-x64.dmg',
-      url: `${repo}/releases/download/v1.4.0/Synapse-1.4.0-x64.dmg`,
+      fileName: 'Synapse-1.5.1-x64.dmg',
+      url: `${repo}/releases/download/v1.5.1/Synapse-1.5.1-x64.dmg`,
       sizeBytes: 139_065_012,
       system: 'macOS 13 Ventura or later',
       arch: 'Intel (x64), not yet tested on Intel hardware',

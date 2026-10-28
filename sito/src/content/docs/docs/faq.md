@@ -37,11 +37,11 @@ No. Synapse is built and tested for macOS only.
 
 ## Does it update automatically?
 
-It tells you, but does not install by itself. From version 1.3.0, Synapse checks GitHub Releases at launch and shows a notice with a **Download** button when a newer version is published; you replace the app in Applications. Automatic installation would need an Apple Developer ID signature. See [Installation → Update](/docs/installation/#update).
+From version 1.3.0, Synapse checks GitHub Releases at launch and shows a notice when a newer version is published. From 1.5.0 it can also install the update itself: the download is verified with the project's own ed25519 release key (not an Apple Developer ID signature), then Synapse restarts into the new version. See [Installation → Update](/docs/installation/#update).
 
 ## I read about tasks, related notes and export. Where are they?
 
-They arrived with release 1.4.0, which is the published download today. See [Releases](/docs/releases/).
+They arrived with release 1.4.0. The current published download is 1.5.1. See [Releases](/docs/releases/).
 
 ## What is not supported yet?
 

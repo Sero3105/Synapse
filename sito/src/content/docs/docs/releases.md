@@ -5,6 +5,22 @@ description: Published versions of Synapse and what changed.
 
 Downloads for every version are on [GitHub Releases](https://github.com/Sero3105/Synapse/releases).
 
+## 1.5.1 — 28 October 2026
+
+- **Preview tabs:** a single click in the file tree opens a preview tab (italic title) that the next click reuses. Double-click the file or the tab, or type in the note, to keep it.
+- **Fix:** on Italian and other Option-key keyboard layouts, typing `[[` could swallow the brackets and never show link suggestions. The brackets now always insert, and the suggestions open.
+- **Reading comfort:** body text renders a step firmer; KaTeX formulas render a step softer and closer in size to the text around them.
+
+## 1.5.0 — 28 October 2026
+
+- **In-app updates:** Synapse downloads a signed update, verifies it with the project release key, and restarts into it. Releases are built, signed and published automatically from a version tag.
+- **Multiple windows:** several vaults open side by side, one vault per window (File → New Window).
+- **Conflicts:** a three-way merge unites edits made in different places of a note; only lines changed on both sides ask you to choose.
+- **Graph:** local graph around the open note (depth 1–2), saved views per vault, node colours by folder or first tag, and a faster layout for vaults above 1,000 notes.
+- **Editor:** `[[` suggests headings (`#`) and block ids (`^`) and can create the note when nothing matches; tables gain and lose columns; section folding.
+- **Tabs and panes:** pinned tabs, nested split panes in any mix of rows and columns.
+- **Files:** nested tags as a tree, custom sort orders, PDFs in a read-only tab, and export of the whole vault as linked HTML pages.
+
 ## 1.4.0 — 25 October 2026
 
 Published on GitHub Releases (Apple silicon and Intel DMGs). Everything that was planned for 1.3.1 shipped here:

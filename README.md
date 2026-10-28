@@ -14,7 +14,7 @@
   <img alt="Electron" src="https://img.shields.io/badge/Electron-44-15181c?logo=electron&logoColor=4cc9b0" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-15181c?logo=typescript&logoColor=4cc9b0" />
   <img alt="Languages" src="https://img.shields.io/badge/UI-English%20%C2%B7%20Italiano-15181c" />
-  <img alt="Tests" src="https://img.shields.io/badge/tests-149%20unit%20%C2%B7%2022%20e2e-4cc9b0" />
+  <img alt="Tests" src="https://img.shields.io/badge/tests-284%20unit%20%C2%B7%2069%20e2e-4cc9b0" />
 </p>
 
 <p align="center">
@@ -55,14 +55,14 @@
 
 | | |
 |---|---|
-| **Editor** | Live Preview: Markdown syntax hides itself except on the line you are editing; tables are edited as tables; LaTeX math (`$inline$`, `$$block$$`) renders with KaTeX. Built on CodeMirror 6, with `[[` link autocomplete, click a rendered link to open it (⌘-click anywhere in source), find & replace, formatting shortcuts, image paste and drop, folding of headings, lists and code blocks (arrow in the margin, ⌘⌥[ / ⌘⌥], *Fold all*), autosave |
+| **Editor** | Live Preview: Markdown syntax hides itself except on the line you are editing; tables are edited as tables; LaTeX math (`$inline$`, `$$block$$`) renders with KaTeX. Built on CodeMirror 6, with `[[` link autocomplete (notes, headings with `#`, block ids with `^`, and *Create note* when nothing matches; never an empty popup), click a rendered link to open it (⌘-click anywhere in source), find & replace, formatting shortcuts, image paste and drop, folding of headings, lists and code blocks (arrow in the margin, ⌘⌥[ / ⌘⌥], *Fold all*), autosave |
 | **Reading view** | Rendered Markdown with tables, syntax-highlighted code, Mermaid diagrams, math, quotes, embeds (`![[note]]`, `![[image.png]]`) and clickable task lists |
 | **Tasks** | Every `- [ ]` checklist item in the vault in one list (open, done or all), grouped by note; tick it there or jump to its line |
 | **Start page** | A new tab shows today's note, pinned notes, recently opened and recently modified notes |
 | **Export** | A note to standalone HTML or to PDF, with images, code highlighting and diagrams included; the whole vault to a folder of linked HTML pages |
 | **Daily notes & templates** | Open today's note from the command palette or **File → Open Today's Note**, step to the previous or next day, and create or fill notes from built-in or your own templates |
 | **Knowledge** | Backlinks with context, unlinked mentions, related notes with the reason they are related, outgoing and unresolved links, outline, tags (inline and front-matter), graph view with filters (`path:`, `tag:`, `file:`, words), unlinked-only view and ⇧-click highlighting of a note's connections, a local graph around the open note (depth 1 or 2), node colours by folder or first tag with a legend, and saved graph views per vault |
-| **Navigation** | Quick switcher (⌘O), command palette (⌘P), tabs, split panes nested in any mix of rows and columns, per-tab back/forward, recent notes, workspace restored per vault; several vaults side by side in separate windows (*File → New Window* ⌘⇧N, or *Open in new window* on a vault in the vault manager). A vault opens in one window at a time |
+| **Navigation** | Quick switcher (⌘O), command palette (⌘P), tabs, split panes nested in any mix of rows and columns, per-tab back/forward, recent notes, workspace restored per vault; several vaults side by side in separate windows (*File → New Window* ⌘⇧N, or *Open in new window* on a vault in the vault manager). A vault opens in one window at a time. A single click in the file tree opens a *preview tab* (italic title, reused by the next click); double-click, double-clicking the tab, or typing in it keeps the tab |
 | **Files** | File tree with drag-and-drop moves, rename with automatic link updates, delete to the macOS Trash, reveal in Finder; a report of missing and possibly unused attachments; PDFs open in a read-only tab (or in your default app); opening a new folder first shows a read-only summary (links, attachments, unsupported syntax) |
 | **Safety** | Atomic writes, conflict detection when a file changes on disk, local version history with restore, path checks that keep every operation inside the vault, sandboxed renderer |
 | **Personalisation** | Light / dark / system theme, accent colour, rebindable hotkeys, core features that can be switched off globally or per vault; note and code fonts are picked from the families installed on your Mac, with a live preview, and you can add your own font files (.ttf, .otf, .woff, .woff2), which Synapse stores in its own app-data folder, never in a vault |
@@ -191,7 +191,6 @@ SYNAPSE_APP=/Applications/Synapse.app/Contents/MacOS/Synapse npx playwright test
 ## Known limitations
 
 - Raw HTML in notes is not rendered, for security.
-- Split panes run in one direction, with up to four panes.
 - Obsidian community plugins are not supported.
 - Task due dates and semantic search are not available.
 - Opening a large new folder reads every note twice: once for the read-only preview, once when it opens.

@@ -32,7 +32,7 @@ export const faqs: readonly Faq[] = [
   {
     question: 'I read about tasks, related notes and export. Where are they?',
     answer:
-      'They arrived with release 1.4.0, which is the download today. The release notes say what each published version has.',
+      'They arrived with release 1.4.0. The current published download is 1.5.1, and the release notes say what each published version has.',
   },
   {
     question: 'Does Synapse go online?',
