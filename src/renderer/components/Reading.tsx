@@ -7,7 +7,7 @@ import { t } from '../../shared/i18n'
 import { mathPlugin } from '../math'
 import { highlightCode, isMermaidFence, renderMermaid } from '../code'
 
-interface Env extends MdEnv { source: string; depth: number }
+interface Env extends MdEnv { source: string; depth: number; line0?: number }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 
@@ -76,6 +76,21 @@ md.inline.ruler.before('emphasis', 'highlight', (state: StateInline, silent: boo
 })
 
 // "- [ ] task" -> checkbox carrying its source line so clicks can toggle it.
+// Blocks carry their source line so links to `Note#Heading` and `Note^id` can scroll to them (not inside embeds).
+md.core.ruler.push('heading-lines', (state: StateCore) => {
+  const env = state.env as Env
+  if (env.depth) return
+  for (const tok of state.tokens) {
+    if ((tok.type === 'heading_open' || tok.type === 'paragraph_open' || tok.type === 'list_item_open' || tok.type === 'blockquote_open') && tok.map) tok.attrSet('data-line', String(tok.map[0] + (env.line0 ?? 0)))
+    // the ^id marker stays in the file but is not prose: hide it here
+    if (tok.type === 'inline' && /[ \t]\^[A-Za-z0-9_-]+[ \t]*$/.test(tok.content)) {
+      tok.content = tok.content.replace(/[ \t]\^[A-Za-z0-9_-]+[ \t]*$/, '')
+      const last = tok.children?.[tok.children.length - 1]
+      if (last?.type === 'text') last.content = last.content.replace(/[ \t]\^[A-Za-z0-9_-]+[ \t]*$/, '')
+    }
+  }
+})
+
 md.core.ruler.push('tasks', (state: StateCore) => {
   const toks = state.tokens
   for (let i = 2; i < toks.length; i++) {
@@ -96,7 +111,7 @@ md.renderer.rules.wikilink = (tokens, idx, _o, rawEnv) => {
   const env = rawEnv as Env
   const { inner, embed } = tokens[idx].meta as { inner: string; embed: boolean }
   const [target, alias] = inner.split('|')
-  const [linkpath] = target.split('#')
+  const [linkpath] = target.split('#')[0].split('^')
   const resolved = model.index.resolve(linkpath, env.source)
   if (embed && resolved) {
     if (IMAGE_EXT.test(resolved)) {
@@ -108,7 +123,7 @@ md.renderer.rules.wikilink = (tokens, idx, _o, rawEnv) => {
       return `<div class="markdown-embed"><div class="markdown-embed-title">${esc(noteTitle(resolved))}</div>${md.render(note, { source: resolved, depth: env.depth + 1 })}</div>`
     }
   }
-  const label = alias ?? (target.includes('#') ? target.replace('#', ' > ') : target)
+  const label = alias ?? (target.includes('#^') ? target.replace('#^', ' > ^') : target.includes('#') ? target.replace('#', ' > ') : target.replace('^', ' > ^'))
   return `<a class="internal-link${resolved ? '' : ' is-unresolved'}" data-href="${esc(target)}" href="#">${esc(label)}</a>`
 }
 md.renderer.rules.tag = (tokens, idx) => {
@@ -155,15 +170,17 @@ md.renderer.rules.image = (tokens, idx, opts, rawEnv, self) => {
 export function renderMarkdown(text: string, source: string) {
   // strip YAML frontmatter, show it as a properties block
   let fm = ''
+  let line0 = 0
   const m = /^---\r?\n([\s\S]*?)\r?\n---\s*(\r?\n|$)/.exec(text)
   if (m) {
     fm = `<pre class="frontmatter">${esc(m[1])}</pre>`
     text = text.slice(m[0].length)
+    line0 = m[0].split('\n').length - 1
   }
-  return fm + md.render(text, { source, depth: 0 } satisfies Env)
+  return fm + md.render(text, { source, depth: 0, line0 } satisfies Env)
 }
 
-export function Reading({ path }: { path: string }) {
+export function Reading({ path, tabId }: { path: string; tabId: string }) {
   const content = useModel((s) => s.buffers[path]?.content)
   const indexVersion = useModel((s) => s.indexVersion)
   const html = useMemo(() => (content === undefined ? '' : renderMarkdown(content, path)), [content, path, indexVersion])
@@ -172,6 +189,20 @@ export function Reading({ path }: { path: string }) {
   useEffect(() => {
     if (root.current) renderMermaid(root.current, light).catch((err) => model.error(err))
   }, [html, light])
+
+  // jump to a heading requested by a link/outline/search (the editor does the same in source mode)
+  useModel((s) => s.navTick)
+  useEffect(() => {
+    const pl = model.pendingLine
+    if (!root.current || !pl || pl.tabId !== tabId) return
+    model.pendingLine = null
+    // a block id sits on the last line of its block, whose element carries the first:
+    // fall back to the nearest element at or above the requested line
+    let el = root.current.querySelector(`[data-line="${pl.line}"]`)
+    if (!el) for (const c of root.current.querySelectorAll('[data-line]')) if (Number(c.getAttribute('data-line')) <= pl.line) el = c
+    el?.scrollIntoView({ block: 'start' })
+  })
+
   if (content === undefined) return <div className="view-loading">{t('common.loading')}</div>
 
   const onClick = (e: React.MouseEvent) => {
