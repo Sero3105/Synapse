@@ -19,4 +19,9 @@ describe('start page lists', () => {
     expect(r.recent).toEqual(['n0.md', 'n1.md', 'n2.md', 'n3.md', 'n4.md', 'n5.md', 'n6.md'])
     expect(r.modified).toEqual(['n29.md', 'n28.md', 'n27.md', 'n26.md', 'n25.md'])
   })
+
+  it('templates never count as recently modified notes', () => {
+    const r = startLists([{ path: 'Templates/Book.md', type: 'file', mtime: 9 }, { path: 'Note.md', type: 'file', mtime: 1 }], [], [])
+    expect(r.modified).toEqual(['Note.md'])
+  })
 })

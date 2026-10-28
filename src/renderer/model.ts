@@ -515,7 +515,8 @@ class Model {
         if (opts.mode && opts.mode !== t.mode) this.updateTab(t.id, { mode: opts.mode })
       } else {
         const back = t.path ? [...t.back, t.path].slice(-50) : t.back
-        this.updateTab(t.id, { kind, path, mode: t.kind === 'note' && kind === 'note' ? t.mode : mode, back, fwd: [], cursor: undefined, scroll: undefined })
+        // a note replacing a note keeps the tab's view, unless the caller asked for one
+        this.updateTab(t.id, { kind, path, mode: opts.mode ?? (t.kind === 'note' && kind === 'note' ? t.mode : mode), back, fwd: [], cursor: undefined, scroll: undefined })
       }
     }
     this.set({ recent: [path, ...this.state.recent.filter((p) => p !== path)].slice(0, 20) })

@@ -1,4 +1,5 @@
 // Lists for the start page (empty tab): pinned, recently opened, recently modified.
+import { TEMPLATE_FOLDER } from './templates'
 
 /**
  * Each note appears once, in the first list that has it (pinned, then opened, then modified);
@@ -19,7 +20,8 @@ export function startLists(files: { path: string; type: string; mtime: number }[
   }
   const pin = take(pinned, 50)
   const opened = take(recent, limit)
-  const byMtime = files.filter((f) => f.type === 'file' && /\.md$/i.test(f.path)).sort((a, b) => b.mtime - a.mtime || a.path.localeCompare(b.path))
+  // templates are tools, not notes you work on: they stay out of "recently modified"
+  const byMtime = files.filter((f) => f.type === 'file' && /\.md$/i.test(f.path) && !f.path.startsWith(TEMPLATE_FOLDER + '/')).sort((a, b) => b.mtime - a.mtime || a.path.localeCompare(b.path))
   const modified = take(byMtime.map((f) => f.path), 5)
   return { pinned: pin, recent: opened, modified }
 }

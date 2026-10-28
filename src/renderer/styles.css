@@ -568,6 +568,7 @@ input[type=range]:focus-visible::-webkit-slider-runnable-track { box-shadow: ins
 .cm-host .cm-line.cm-frontmatter { padding-left: 14px; padding-right: 14px; background: var(--code-ground); color: var(--ink-2); font: 0.84em/1.7 var(--font-mono); }
 .cm-host .cm-line.cm-frontmatter.is-first { border-radius: var(--r-panel) var(--r-panel) 0 0; padding-top: 6px; color: var(--ink-3); }
 .cm-host .cm-line.cm-frontmatter.is-last { border-radius: 0 0 var(--r-panel) var(--r-panel); padding-bottom: 8px; color: var(--ink-3); }
+.cm-host .cm-line.cm-after-frontmatter { padding-top: 16px; }
 .cm-host .cm-gutters { background: transparent; border: 0; color: var(--ink-3); font: var(--ui-xs) var(--font-ui); font-variant-numeric: tabular-nums; }
 .cm-host .cm-lineNumbers .cm-gutterElement { padding: 0 var(--s-3) 0 0; }
 /* fold arrows show while the pointer is over the note; a folded section keeps its arrow visible */

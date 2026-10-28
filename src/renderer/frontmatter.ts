@@ -51,6 +51,9 @@ function lines(view: EditorView): DecorationSet {
     b.add(line.from, line.from, Decoration.line({ class: cls }))
     pos = line.to + 1
   }
+  // space under the box goes on the next line: CodeMirror measures padding, not margins
+  const after = view.state.doc.lineAt(node.to).to + 1
+  if (after <= view.state.doc.length) b.add(after, after, Decoration.line({ class: 'cm-after-frontmatter' }))
   return b.finish()
 }
 
