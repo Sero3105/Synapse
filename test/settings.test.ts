@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { AppStore, VaultStore, atomicWrite } from '../src/main/store'
+import { AppStore, VaultStore, atomicWrite, placeWindow } from '../src/main/store'
 import { openVault, snapshot, listVaults } from '../src/main/session'
 import { DEFAULT_PREFS, normalizeGlobal, resolvePrefs, defaultGlobal, defaultVault } from '../src/shared/settings'
 
@@ -271,6 +271,17 @@ describe('edge cases', () => {
     expect(new AppStore(userData).getWindowState()).toEqual({ x: 10, y: 20, width: 900, height: 700, isMaximized: true })
   })
 
+  it('each vault keeps its own window size and place; others get the last one', () => {
+    const app = new AppStore(userData)
+    app.saveWindowState({ x: 0, y: 30, width: 800, height: 600, isMaximized: false }, 'aaaaaaaaaaaaaaaa')
+    app.saveWindowState({ x: 900, y: 30, width: 700, height: 500, isMaximized: false }, 'bbbbbbbbbbbbbbbb')
+    const again = new AppStore(userData)
+    expect(again.getWindowState('aaaaaaaaaaaaaaaa')).toMatchObject({ x: 0, width: 800 })
+    expect(again.getWindowState('bbbbbbbbbbbbbbbb')).toMatchObject({ x: 900, width: 700 })
+    expect(again.getWindowState('cccccccccccccccc')).toMatchObject({ x: 900, width: 700 }) // never seen: the last window
+    expect(again.getWindowState()).toMatchObject({ x: 900, width: 700 })
+  })
+
   it('create vault refuses existing folder', async () => {
     const app = new AppStore(userData)
     await expect(openVault(app, vaultA, trash, { create: true })).rejects.toThrow(/exists/)
@@ -328,5 +339,76 @@ describe('accent colour of the redesign', () => {
     expect(normalizeGlobal({ version: 2, prefs: { accentColor: '#4cc9b0' } }).prefs.accentColor).toBe('#8b7cff')
     expect(normalizeGlobal({ version: 2, prefs: { accentColor: '#4CC9B0' } }).prefs.accentColor).toBe('#8b7cff')
     expect(normalizeGlobal({ version: 2, prefs: { accentColor: '#e06c75' } }).prefs.accentColor).toBe('#e06c75')
+  })
+})
+
+describe('graph: local mode and saved views', () => {
+  const view = (name: string, extra: Record<string, unknown> = {}) => ({ id: name.toLowerCase(), name, graph: { local: true, depth: 2 }, query: 'tag:#lavoro', orphansOnly: false, ...extra })
+
+  it('defaults to the global graph with no views', () => {
+    const v = defaultVault('abcdef0123456789')
+    expect(v.graph.local).toBe(false)
+    expect(v.graph.depth).toBe(1)
+    expect(v.graphViews).toEqual([])
+  })
+
+  it('views persist per vault across restarts, with full graph options', async () => {
+    const app = new AppStore(userData)
+    const a = await openVault(app, vaultA, trash)
+    await a.store.update({ graphViews: [view('Lavoro', { center: 'a.md' })] })
+    await openVault(app, vaultB, trash) // another vault has its own (empty) list
+    expect(new VaultStore(vaultB).get().graphViews).toEqual([])
+    const back = new VaultStore(vaultA).get().graphViews
+    expect(back).toHaveLength(1)
+    expect(back[0]).toMatchObject({ name: 'Lavoro', query: 'tag:#lavoro', center: 'a.md' })
+    // missing graph options take the defaults, so applying a view always sets every option
+    expect(back[0].graph).toEqual({ showOrphans: true, showUnresolved: false, linkDistance: 80, repel: 600, local: true, depth: 2, colorBy: 'none' })
+    // the views live in the vault's own settings file
+    expect(JSON.parse(fs.readFileSync(path.join(vaultA, '.synapse', 'settings.json'), 'utf8')).graphViews[0].name).toBe('Lavoro')
+  })
+
+  it('drops invalid views and depths instead of the whole file', async () => {
+    const s = new VaultStore(vaultA)
+    await s.update({
+      graph: { depth: 7, local: 'yes' },
+      graphViews: [view('ok'), { id: 'x' }, { id: 'y', name: '   ' }, 'junk', view('bad graph', { graph: { depth: 9, repel: 1e9 } })],
+    })
+    const v = new VaultStore(vaultA).get()
+    expect(v.graph.depth).toBe(1)
+    expect(v.graph.local).toBe(false)
+    expect(v.graphViews.map((x) => x.name)).toEqual(['ok', 'bad graph'])
+    expect(v.graphViews[1].graph.depth).toBe(1)
+    expect(v.graphViews[1].graph.repel).toBe(600)
+  })
+
+  it('a patch without views keeps them', async () => {
+    const s = new VaultStore(vaultA)
+    await s.update({ graphViews: [view('Keep')] })
+    await s.update({ graph: { local: true } })
+    expect(new VaultStore(vaultA).get().graphViews.map((x) => x.name)).toEqual(['Keep'])
+  })
+})
+
+describe('placing a new window', () => {
+  const screen = [{ x: 0, y: 25, width: 1440, height: 875 }]
+  const saved = { x: 100, y: 60, width: 800, height: 600, isMaximized: false }
+  it('uses the saved place when it is free and on screen', () => {
+    expect(placeWindow(saved, screen, [])).toEqual(saved)
+  })
+  it('never covers a window exactly: moves down-right', () => {
+    expect(placeWindow(saved, screen, [{ x: 100, y: 60, width: 800, height: 600 }])).toMatchObject({ x: 128, y: 88 })
+    expect(placeWindow(saved, screen, [{ x: 100, y: 60, width: 800, height: 600 }, { x: 128, y: 88, width: 800, height: 600 }])).toMatchObject({ x: 156, y: 116 })
+  })
+  it('a place on a monitor that is gone is not used', () => {
+    expect(placeWindow({ ...saved, x: 2500 }, screen, [])).toEqual({ width: 800, height: 600, isMaximized: false }) // centred by macOS
+    expect(placeWindow({ ...saved, x: 2500 }, screen, [{ x: 300, y: 100, width: 800, height: 600 }])).toMatchObject({ x: 328, y: 128 })
+  })
+  it('the cascade wraps before leaving the screen', () => {
+    const p = placeWindow({ ...saved, x: 1000, y: 500 }, screen, [{ x: 1000, y: 500, width: 800, height: 600 }])
+    expect(p.x! + 400).toBeLessThanOrEqual(1440)
+    expect(p.y! + 300).toBeLessThanOrEqual(900)
+  })
+  it('no saved place and no other window: macOS centres it', () => {
+    expect(placeWindow(null, screen, [])).toEqual({ width: 1200, height: 800, isMaximized: false })
   })
 })

@@ -1,4 +1,5 @@
 import type { LanguagePref } from './i18n'
+import type { FileSort } from './file-sort'
 
 // Settings schema shared by main (persistence) and renderer (UI).
 //
@@ -55,6 +56,8 @@ export interface Layout {
   rightWidth: number
   leftTab: 'files' | 'search' | 'tags' | 'tasks'
   rightTab: 'backlinks' | 'outgoing' | 'outline'
+  /** File explorer ordering, global like the rest of the layout. */
+  fileSort: FileSort
 }
 
 export interface GlobalSettings {
@@ -74,6 +77,23 @@ export interface GraphSettings {
   showUnresolved: boolean
   linkDistance: number
   repel: number
+  /** Local graph: only the reference note and the notes within `depth` links of it. */
+  local: boolean
+  depth: number
+  /** Node colour by top-level folder or by first tag. */
+  colorBy: 'none' | 'folder' | 'tag'
+}
+
+/** A named graph configuration, stored per vault. */
+export interface SavedGraphView {
+  id: string
+  name: string
+  graph: GraphSettings
+  /** Filter query, same syntax as search. */
+  query: string
+  orphansOnly: boolean
+  /** Local graph centred on this note instead of the open one. */
+  center?: string
 }
 
 export interface VaultSettings {
@@ -82,6 +102,9 @@ export interface VaultSettings {
   vaultId: string
   overrides: Partial<Prefs>
   graph: GraphSettings
+  graphViews: SavedGraphView[]
+  /** Colours the user picked for graph groups (folder name, or "#tag"), over the automatic ones. */
+  graphColors: Record<string, string>
   attachmentFolder: string
 }
 
@@ -113,9 +136,10 @@ export const DEFAULT_LAYOUT: Layout = {
   rightWidth: 300,
   leftTab: 'files',
   rightTab: 'backlinks',
+  fileSort: 'name',
 }
 
-export const DEFAULT_GRAPH: GraphSettings = { showOrphans: true, showUnresolved: false, linkDistance: 80, repel: 600 }
+export const DEFAULT_GRAPH: GraphSettings = { showOrphans: true, showUnresolved: false, linkDistance: 80, repel: 600, local: false, depth: 1, colorBy: 'none' }
 
 export const defaultGlobal = (): GlobalSettings => ({
   version: GLOBAL_SCHEMA_VERSION,
@@ -131,6 +155,8 @@ export const defaultVault = (vaultId: string): VaultSettings => ({
   vaultId,
   overrides: {},
   graph: { ...DEFAULT_GRAPH },
+  graphViews: [],
+  graphColors: {},
   attachmentFolder: '',
 })
 
@@ -142,7 +168,7 @@ type V<T> = (x: unknown) => T | undefined
 const bool: V<boolean> = (x) => (typeof x === 'boolean' ? x : undefined)
 const num = (min: number, max: number): V<number> => (x) =>
   typeof x === 'number' && Number.isFinite(x) && x >= min && x <= max ? x : undefined
-const oneOf = <T extends string>(...vals: T[]): V<T> => (x) => (vals.includes(x as T) ? (x as T) : undefined)
+const oneOf = <T extends string | number>(...vals: T[]): V<T> => (x) => (vals.includes(x as T) ? (x as T) : undefined)
 const str = (max = 500): V<string> => (x) => (typeof x === 'string' && x.length <= max ? x : undefined)
 const color: V<string> = (x) => (typeof x === 'string' && /^#[0-9a-f]{6}$/i.test(x) ? x : undefined)
 const strList: V<string[]> = (x) =>
@@ -183,6 +209,7 @@ const LAYOUT_VALIDATORS: { [K in keyof Layout]: V<unknown> } = {
   rightWidth: num(160, 800),
   leftTab: oneOf('files', 'search', 'tags', 'tasks'),
   rightTab: oneOf('backlinks', 'outgoing', 'outline'),
+  fileSort: oneOf('name', 'modified', 'created'),
 }
 
 const GRAPH_VALIDATORS: { [K in keyof GraphSettings]: V<unknown> } = {
@@ -190,6 +217,9 @@ const GRAPH_VALIDATORS: { [K in keyof GraphSettings]: V<unknown> } = {
   showUnresolved: bool,
   linkDistance: num(20, 400),
   repel: num(50, 3000),
+  local: bool,
+  depth: oneOf(1, 2),
+  colorBy: oneOf('none', 'folder', 'tag'),
 }
 
 export function isObj(x: unknown): x is Record<string, unknown> {
@@ -212,6 +242,28 @@ const validLanguage = oneOf<LanguagePref>('system', 'en', 'it')
 export const validPrefs = (x: unknown) => pick<Prefs>(x, PREF_VALIDATORS)
 export const validLayout = (x: unknown) => pick<Layout>(x, LAYOUT_VALIDATORS)
 export const validGraph = (x: unknown) => pick<GraphSettings>(x, GRAPH_VALIDATORS)
+
+function validColors(x: unknown): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!isObj(x)) return out
+  for (const [k, v] of Object.entries(x).slice(0, 500)) if (k.length <= 200 && k !== '__proto__' && color(v)) out[k] = v as string
+  return out
+}
+
+/** Saved views: invalid entries are dropped, missing graph options take the defaults. */
+function validViews(x: unknown): SavedGraphView[] {
+  if (!Array.isArray(x)) return []
+  const out: SavedGraphView[] = []
+  for (const v of x.slice(0, 100)) {
+    if (!isObj(v)) continue
+    const id = str(64)(v.id)
+    const name = str(100)(v.name)?.trim()
+    if (!id || !name) continue
+    const center = str(1024)(v.center)
+    out.push({ id, name, graph: { ...DEFAULT_GRAPH, ...validGraph(v.graph) }, query: str(500)(v.query) ?? '', orphansOnly: bool(v.orphansOnly) ?? false, ...(center ? { center } : {}) })
+  }
+  return out
+}
 
 function validHotkeys(x: unknown): Record<string, string[]> {
   const out: Record<string, string[]> = {}
@@ -288,6 +340,8 @@ export function normalizeVault(raw: unknown, fallbackId: string): VaultSettings 
     vaultId: id,
     overrides: validPrefs(m.overrides),
     graph: { ...d.graph, ...validGraph(m.graph) },
+    graphViews: validViews(m.graphViews),
+    graphColors: validColors(m.graphColors),
     attachmentFolder: str(300)(m.attachmentFolder) ?? '',
   }
 }
@@ -321,6 +375,10 @@ function patchHotkeys(cur: Record<string, string[]>, patch: Record<string, unkno
 export interface VaultPatch {
   overrides?: Partial<Record<keyof Prefs, unknown>>
   graph?: Partial<GraphSettings>
+  /** Replaces the whole list. */
+  graphViews?: SavedGraphView[]
+  /** Replaces the whole map. */
+  graphColors?: Record<string, string>
   attachmentFolder?: string
 }
 
@@ -340,6 +398,8 @@ export function applyVaultPatch(v: VaultSettings, patch: unknown): VaultSettings
       ...v,
       overrides,
       graph: isObj(patch.graph) ? { ...v.graph, ...patch.graph } : v.graph,
+      graphViews: Array.isArray(patch.graphViews) ? patch.graphViews : v.graphViews,
+      graphColors: isObj(patch.graphColors) ? patch.graphColors : v.graphColors,
       attachmentFolder: patch.attachmentFolder ?? v.attachmentFolder,
     },
     v.vaultId,
