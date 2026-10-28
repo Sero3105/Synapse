@@ -46,7 +46,6 @@ They arrived with release 1.4.0. The current published download is 1.5.1. See [R
 ## What is not supported yet?
 
 - Raw HTML in notes is shown as text, for security.
-- Split panes run in one direction, with up to four panes.
 - Obsidian community plugins are not supported.
-- Saved graph views, task due dates and semantic (meaning-based) search are not available.
-- Builds are not notarized. From version 1.3.0 Synapse tells you when a new version is out, but you install it by hand.
+- Task due dates and semantic (meaning-based) search are not available.
+- Builds are not notarized, so the first launch needs **Open Anyway** once. From 1.5.0, updates install from inside the app.

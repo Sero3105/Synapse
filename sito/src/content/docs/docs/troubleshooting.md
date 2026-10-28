@@ -19,6 +19,7 @@ The folder was moved, renamed or deleted. On the starter screen, use **Locate…
 
 The note changed on disk while you had unsaved edits in Synapse, for example because a sync service or another editor wrote it. Synapse does not overwrite either version. Choose:
 
+- **Merge changes** (from 1.5.0) to keep both: edits in different places of the note merge on their own, and for lines changed on both sides you pick which version to keep. If the note changes again while you choose, the merge stops and asks you to try again.
 - **Load disk version** to take the file as it is on disk, or
 - **Keep my version** to write your edits over it.
 

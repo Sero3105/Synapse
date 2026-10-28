@@ -38,6 +38,7 @@ Daily notes and templates have their own commands: **Daily notes: Open today's n
 
 - <kbd>⌘T</kbd> opens a tab, <kbd>⌘W</kbd> closes it, <kbd>⇧⌘T</kbd> reopens the last closed one.
 - <kbd>⌃⇥</kbd> and <kbd>⌃⇧⇥</kbd> move between tabs; <kbd>⌥⌘←</kbd> and <kbd>⌥⌘→</kbd> go back and forward in a tab's history.
-- **Split right** or **Split down** from a tab's menu, or **Open to the right** from the file tree. Panes run in one direction, up to four.
+- **Split right** or **Split down** from a tab's menu, or **Open to the right** from the file tree. From 1.5.0 each split divides only the active pane, so rows and columns mix freely (up to eight panes); drag a border to resize the two panes next to it.
+- Right-click a tab and choose **Pin**: a pinned tab shrinks to its icon, stays on the left, and **Close others** leaves it open.
 
 Open tabs, panes and recent notes are remembered per vault.

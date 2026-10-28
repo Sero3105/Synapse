@@ -22,7 +22,8 @@
     "install:app": "node scripts/install-app.mjs",
     "sign:update": "node scripts/sign-update.mjs",
     "notices": "node scripts/third-party-notices.mjs",
-    "dmg-background": "electron scripts/make-dmg-background.mjs"
+    "dmg-background": "electron scripts/make-dmg-background.mjs",
+    "screenshots": "npm run build && SYNAPSE_SCREENSHOTS=1 playwright test e2e/screenshots.spec.ts"
   },
   "build": {
     "appId": "com.synapse.notes",

@@ -1,25 +1,37 @@
 ---
-// Shipped in the published 1.4.0 release.
+// Shipped in the published 1.5 releases.
 const items = [
   {
-    title: 'A report on your attachments',
-    body: 'One command lists attachments that are missing, and files no note links to or mentions. It only reports: nothing is deleted, so you decide what to clean up.',
+    title: 'Updates that install themselves',
+    body: 'When a new version is out, click Update and restart. Synapse downloads it, checks its signature against the project key and replaces itself. Your notes and settings stay as they are.',
   },
   {
-    title: 'Open a folder, see it first',
-    body: 'Opening a folder that is not a vault yet shows a read-only summary first: links, attachments, syntax Synapse does not use. Cancel leaves the folder untouched.',
+    title: 'A graph you can steer',
+    body: 'A local graph around any note, one or two links deep. Colours by folder or tag that you can change, and saved views per vault that bring back mode, filters and colours in one click.',
   },
   {
-    title: 'Daily notes and templates',
-    body: 'Open today’s note in one command, step to the day before or after, and start notes from built-in or your own templates, with {{title}}, {{date}} and {{time}} filled in.',
+    title: 'Panes, pins and windows',
+    body: 'Split panes in any mix of rows and columns, pin the tabs you need, and open other vaults in their own windows. Each vault remembers its window size and place.',
+  },
+  {
+    title: 'Links to a heading',
+    body: 'Type [[Note# to link straight to a section; following the link scrolls there. Headings, lists and code blocks fold to their first line.',
+  },
+  {
+    title: 'The whole vault as a website',
+    body: 'Export every note as linked HTML pages with an index, to send or archive. PDFs open in a tab inside Synapse instead of another app.',
+  },
+  {
+    title: 'Edits from elsewhere, merged',
+    body: 'When a note changes on disk while you edit it, changes in different places merge on their own; only lines changed on both sides ask you to choose. Nothing is overwritten silently.',
   },
 ] as const
 ---
 
 <section class="next wrap" data-chapter="sunk" aria-labelledby="next-title">
   <div class="intro" data-reveal>
-    <h2 id="next-title">New in 1.4.0.</h2>
-    <p>Tasks, related notes, export, version history, daily notes and templates all arrived with the 1.4.0 download. The <a class="text-link" href="/docs/releases/">release notes</a> say what each published version has.</p>
+    <h2 id="next-title">New in 1.5.</h2>
+    <p>Updates from inside the app, a local graph, nested panes and links to headings arrived with 1.5. The <a class="text-link" href="/docs/releases/">release notes</a> say what each published version has.</p>
   </div>
   <ul class="rows" role="list" data-reveal>
     {

@@ -35,7 +35,15 @@
 <table>
   <tr>
     <td width="50%"><img src="docs/screenshots/reading.png" alt="Reading view" /><br /><sub><b>Reading view</b>: rendered Markdown, clickable links, tags and task checkboxes.</sub></td>
-    <td width="50%"><img src="docs/screenshots/graph.png" alt="Graph view" /><br /><sub><b>Graph</b>: every note and link in the vault. Drag, zoom, click to open.</sub></td>
+    <td width="50%"><img src="docs/screenshots/graph.png" alt="Graph view" /><br /><sub><b>Graph</b>: every note and link, coloured by folder or tag. Drag, zoom, click to open.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/local-graph.png" alt="Local graph" /><br /><sub><b>Local graph</b>: one note and what is one or two links away; saved views per vault.</sub></td>
+    <td><img src="docs/screenshots/panes.png" alt="Nested panes" /><br /><sub><b>Panes</b> in any mix of rows and columns, pinned tabs, one window per vault.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/heading-links.png" alt="Links to headings" /><br /><sub><b>Links to headings</b>: <code>[[Note#</code> lists the note's headings.</sub></td>
+    <td><img src="docs/screenshots/pdf.png" alt="PDF tab" /><br /><sub><b>PDFs</b> open in a tab, with pages, zoom and search.</sub></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/search.png" alt="Search" /><br /><sub><b>Search</b> with <code>"phrases"</code>, <code>-exclusions</code>, <code>tag:</code>, <code>path:</code> and <code>file:</code>.</sub></td>

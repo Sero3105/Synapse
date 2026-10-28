@@ -23,8 +23,8 @@ Changing a preference while a vault overrides it changes only that vault. Removi
 | What | Where it lives | Scope |
 |---|---|---|
 | Theme, fonts, editor behaviour, language, hotkeys, dock layout | `~/Library/Application Support/Synapse/settings.json` | All vaults |
-| Recent vaults and window size | `~/Library/Application Support/Synapse/` | App |
-| Vault overrides, graph settings, attachment folder | `<vault>/.synapse/settings.json` | One vault |
+| Recent vaults and window size per vault | `~/Library/Application Support/Synapse/` | App |
+| Vault overrides, graph settings and saved views, attachment folder | `<vault>/.synapse/settings.json` | One vault |
 | Open tabs, panes and recent notes | `<vault>/.synapse/workspace.json` | One vault |
 
 ## Sections

@@ -22,6 +22,7 @@ Hotkeys are global: they are the same in every vault.
 | Graph | <kbd>⌘G</kbd> | Bold / italic / link | <kbd>⌘B</kbd> / <kbd>⌘I</kbd> / <kbd>⌘K</kbd> |
 | Settings | <kbd>⌘,</kbd> | Toggle checkbox | <kbd>⌘L</kbd> |
 | Rename file | <kbd>F2</kbd> | Close vault | <kbd>⇧⌘W</kbd> |
+| Fold / unfold section | <kbd>⌥⌘[</kbd> / <kbd>⌥⌘]</kbd> | New window | <kbd>⇧⌘N</kbd> |
 
 ## Changing a hotkey
 

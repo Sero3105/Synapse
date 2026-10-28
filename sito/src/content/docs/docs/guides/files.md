@@ -15,7 +15,9 @@ New notes are created in the vault folder or in the current note's folder, depen
 
 **Attachments: Show missing and unused attachments** builds a report: attachments notes point to that are missing, and files that look unused. A file counts as possibly unused only when no note links to or embeds it and its name appears in no note at all. References from other apps, CSS or scripts are not detected. The report deletes nothing.
 
-PDFs open in your default app.
+From 1.5.0, PDFs open in a read-only tab inside Synapse, with Chromium's viewer (pages, zoom, search, print); the button in the note bar opens them in your default app instead.
+
+![A PDF open in a Synapse tab](../../../../assets/screenshots/pdf.png)
 
 ## Opening a folder that is not a vault yet (from 1.4.0)
 
@@ -29,13 +31,17 @@ Delete moves the file to the macOS Trash, so it can be restored from there. By d
 
 Use **Switch vault** at the top of the left dock, or **Manage vaults…** to open the starter screen. To leave the vault and go back to the starter screen, where you can create or open another one, choose **Close vault** in the same menu, in **File → Close Vault**, on an empty tab, or press <kbd>⇧⌘W</kbd> (from version 1.4.0). Unsaved notes and the workspace are saved before switching. Your global preferences stay the same in every vault.
 
+## Several vaults at once (from 1.5.0)
+
+**File → New Window** (<kbd>⇧⌘N</kbd>) opens another window; in the vault manager, right-click a vault and choose **Open in new window**. Each window works on its own vault. A vault opens in one window at a time: asking for it again brings its window forward. Each vault remembers the size and place of its window.
+
 ## What Synapse writes
 
 | Location | Contents |
 |---|---|
 | Your notes | only the notes and attachments you create or edit |
-| `<vault>/.synapse/settings.json` | this vault's overrides, graph settings, attachment folder |
+| `<vault>/.synapse/settings.json` | this vault's overrides, graph settings, saved graph views and colours, attachment folder |
 | `<vault>/.synapse/workspace.json` | open tabs, panes and recent notes |
-| `~/Library/Application Support/Synapse/` | global preferences, recent vaults, window size |
+| `~/Library/Application Support/Synapse/` | global preferences, recent vaults, window size and place per vault |
 
 Every file operation is confined to the open vault. Synapse never modifies `.obsidian/`.

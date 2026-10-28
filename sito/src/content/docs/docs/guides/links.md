@@ -18,6 +18,12 @@ sidebar:
 
 Links resolve case-insensitively. When two notes share a name, the shortest path wins, and a note in the same folder as the linking note is preferred.
 
+## Linking to a heading (from 1.5.0)
+
+![Link suggestions listing the headings of a note while typing a link](../../../../assets/screenshots/heading-links.png)
+
+Type `[[Note#` and the suggestions list that note's headings; `[[#` lists the headings of the note you are writing. Choosing one writes `[[Note#Heading]]`. Following the link opens the note already scrolled to that heading, in the editor and in the reading view.
+
 ## Following links
 
 - <kbd>⌘-click</kbd> a link in the editor to open it. Add <kbd>⌥</kbd> to open it in a new tab.
@@ -49,4 +55,4 @@ Rename a note from its title, with **F2**, or from the file tree's context menu.
 
 ## Tags
 
-Write tags inline as `#tag` or `#tag/nested`, or in front matter under `tags:`. Tags inside code are ignored. The **Tags** view in the left dock lists every tag with its count.
+Write tags inline as `#tag` or `#tag/nested`, or in front matter under `tags:`. Tags inside code are ignored. The **Tags** view in the left dock lists every tag with its count; from 1.5.0 nested tags show as a tree (`#learning` with `memory` and `practice` under it), and a parent's count includes its children. Click a tag to search for it, children included.

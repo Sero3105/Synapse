@@ -70,7 +70,9 @@ import { Aside, Steps, Tabs, TabItem, LinkButton } from '@astrojs/starlight/comp
 
 ## Update
 
-From version 1.3.0, Synapse checks GitHub Releases at launch and shows **Synapse x.y.z is available** when a newer version is out. Click **Download**, open the new DMG and drag Synapse onto Applications to replace the old one. Your notes and preferences are stored elsewhere and are not touched.
+From version 1.5.0, Synapse updates itself. At launch it asks GitHub Releases for the latest version; when a newer one is out, click **Update and restart**. Synapse downloads it, checks that it is signed with the project's release key, replaces itself in Applications and reopens. Your notes and preferences are stored elsewhere and are not touched. Synapse must be in the Applications folder for this; if it is not, the notice tells you.
+
+Versions 1.3.0 and 1.4.0 only show the notice with a **Download** button: open the new DMG and drag Synapse onto Applications, choosing **Replace**. You do this once, to get a version that updates itself.
 
 The check sends no personal data and can be turned off in **Settings → General → Check for updates**. Earlier versions do not check: compare with the [Download page](/download/).
 
