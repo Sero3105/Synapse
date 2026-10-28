@@ -39,6 +39,20 @@ export function parseTable(text: string): Table | null {
   return { header, delimiter: fit(delimiter).map((d) => d || '---'), rows: lines.slice(2).map((l) => fit(splitRow(l))) }
 }
 
+/** New table with an empty column inserted to the right of `after`. The original is untouched. */
+export function insertColumn(t: Table, after: number): Table {
+  const at = Math.min(Math.max(after + 1, 0), t.header.length)
+  const ins = (cells: string[], fill: string) => [...cells.slice(0, at), fill, ...cells.slice(at)]
+  return { header: ins(t.header, ''), delimiter: ins(t.delimiter, '---'), rows: t.rows.map((r) => ins(r, '')) }
+}
+
+/** New table without column `col`, or null when it is the only column left. */
+export function deleteColumn(t: Table, col: number): Table | null {
+  if (t.header.length <= 1 || col < 0 || col >= t.header.length) return null
+  const del = (cells: string[]) => cells.filter((_, i) => i !== col)
+  return { header: del(t.header), delimiter: del(t.delimiter), rows: t.rows.map(del) }
+}
+
 const cell = (s: string) => s.replace(/\n/g, ' ').replace(/\|/g, '\\|').trim()
 
 export function formatTable(t: Table): string {
