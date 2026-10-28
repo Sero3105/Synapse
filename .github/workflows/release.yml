@@ -58,8 +58,10 @@ jobs:
             exit 1
           fi
 
+      # --publish never: on a tag, electron-builder would otherwise create its own draft
+      # GitHub releases, and the upload below then fails with "asset already exists".
       - name: Package (DMG + zip, arm64 and x64)
-        run: npm run package
+        run: npm run package -- --publish never
 
       - name: Sign update zips
         run: |
