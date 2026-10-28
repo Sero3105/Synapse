@@ -65,6 +65,21 @@ test('[[ typed as Option+[ (Italian layout) still inserts and suggests', async (
   await app.close()
 })
 
+test('[[ inserted without key events (paste, IME, programmatic) still opens suggestions', async () => {
+  env = makeEnv({ 'Solo.md': '# Solo\n\n', 'Successioni.md': '# Successioni\n' })
+  const { app, win } = await launch(env)
+  await open(win, 'Solo.md')
+  // dispatch straight into the editor document: no typing, so CodeMirror's typing trigger never fires
+  await win.evaluate(() => {
+    const m = (window as any).__synapse
+    const view = [...m.editors.values()][0] as any
+    view.dispatch(view.state.replaceSelection('[[succ'))
+  })
+  const list = win.locator('.cm-tooltip-autocomplete')
+  await expect(list.locator('li').first()).toContainText('Successioni')
+  await app.close()
+})
+
 test('[[# in a note without headings explains, instead of showing nothing', async () => {
   env = makeEnv({ 'Solo.md': '# Solo\n\nplain text, no section headings below the title\n' , 'Plain.md': 'no headings at all\n' })
   const { app, win } = await launch(env)

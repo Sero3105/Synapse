@@ -5,7 +5,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { syntaxHighlighting, HighlightStyle, indentUnit, bracketMatching, syntaxTree, foldGutter, foldKeymap } from '@codemirror/language'
 import { searchKeymap, highlightSelectionMatches, search } from '@codemirror/search'
-import { autocompletion, closeBrackets, closeBracketsKeymap, CompletionContext, completionKeymap, startCompletion, type Completion } from '@codemirror/autocomplete'
+import { autocompletion, closeBrackets, closeBracketsKeymap, CompletionContext, completionKeymap, completionStatus, startCompletion, type Completion } from '@codemirror/autocomplete'
 import { tags as t } from '@lezer/highlight'
 import { model, useModel, Tab } from '../model'
 import { api } from '../api'
@@ -235,6 +235,13 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
           keymap.of([...closeBracketsKeymap, ...completionKeymap, ...searchKeymap, ...historyKeymap, ...foldKeymap, indentWithTab, ...defaultKeymap]),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) model.edit(path, u.state.doc.toString())
+            // Whatever put the brackets there (Option-key layouts, paste, IME), if the cursor sits
+            // after [[… and no popup is open, open it: do not rely on CodeMirror's typing trigger.
+            if (u.docChanged && completionStatus(u.state) === null) {
+              const head = u.state.selection.main.head
+              const line = u.state.doc.lineAt(head)
+              if (/\[\[[^[\]\n]*$/.test(line.text.slice(0, head - line.from))) startCompletion(u.view)
+            }
             if (u.selectionSet || u.docChanged) {
               const head = u.state.selection.main.head
               const line = u.state.doc.lineAt(head)
