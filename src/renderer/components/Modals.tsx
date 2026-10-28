@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { FolderOpen, FolderPlus, AlertTriangle, X } from 'lucide-react'
+import { FolderOpen, FolderPlus, AlertTriangle, X, Check } from 'lucide-react'
 import { model, useModel, Modal, isMd } from '../model'
 import { api, Version } from '../api'
 import { COMMANDS, hotkeysFor, formatHotkey, runFromPalette, recentCommands } from '../commands'
@@ -9,6 +9,7 @@ import { SettingsModal } from './Settings'
 import { AttachmentsReport } from './Attachments'
 import { ImportPreview } from './ImportPreview'
 import { t, commandName, getLanguage } from '../../shared/i18n'
+import type { MergePart } from '../../shared/merge'
 
 /** Left-to-right mark: keeps a path's leading "/" in place inside the rtl (start-truncated) path boxes. */
 const LRM = '\u200E'
@@ -42,6 +43,7 @@ export function Modals() {
       {modal.kind === 'settings' && <SettingsModal close={close} initialTab={modal.tab} />}
       {modal.kind === 'templates' && <TemplatePicker close={close} mode={modal.mode} />}
       {modal.kind === 'history' && <History close={close} path={modal.path} />}
+      {modal.kind === 'merge' && <MergeConflicts close={close} modal={modal} />}
       {modal.kind === 'attachments' && <AttachmentsReport close={close} />}
       {modal.kind === 'import' && <ImportPreview close={close} folder={modal.folder} />}
       {modal.kind === 'vaults' && (
@@ -280,6 +282,35 @@ function History({ close, path }: { close: () => void; path: string }) {
   )
 }
 
+/** One choice per region both sides changed differently; everything else is already merged. */
+function MergeConflicts({ close, modal }: { close: () => void; modal: Extract<Modal, { kind: 'merge' }> }) {
+  const conflicts = modal.parts.filter((p): p is Extract<MergePart, { mine: string[] }> => 'mine' in p)
+  const [choices, setChoices] = useState<('mine' | 'theirs')[]>(() => conflicts.map(() => 'mine'))
+  const pick = (i: number, side: 'mine' | 'theirs') => setChoices((c) => c.map((x, j) => (j === i ? side : x)))
+  return (
+    <div className="modal merge-modal" role="dialog" aria-modal="true" aria-label={t('conflict.mergeTitle', { name: noteTitle(modal.path) })} onKeyDown={(e) => e.key === 'Escape' && close()}>
+      <div className="modal-title">{t('conflict.mergeTitle', { name: noteTitle(modal.path) })}</div>
+      <p className="modal-text">{t('conflict.mergeDesc')}</p>
+      <div className="merge-list">
+        {conflicts.map((c, i) => (
+          <div key={i} className="merge-conflict">
+            {(['mine', 'theirs'] as const).map((side) => (
+              <button key={side} className={`merge-option${choices[i] === side ? ' is-selected' : ''}`} aria-pressed={choices[i] === side} onClick={() => pick(i, side)}>
+                <span className="merge-option-label">{t(side === 'mine' ? 'conflict.mine' : 'conflict.theirs')}</span>
+                <pre>{(side === 'mine' ? c.mine : c.theirs).join('\n') || '∅'}</pre>
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="modal-buttons">
+        <button className="btn" onClick={close}>{t('common.cancel')}</button>
+        <button className="btn mod-cta" onClick={() => model.applyMerge(modal.path, modal.parts, choices, modal.mine, modal.theirs)}>{t('conflict.applyMerge')}</button>
+      </div>
+    </div>
+  )
+}
+
 const toItem = (p: string): Item => ({
   key: p,
   label: isMd(p) ? noteTitle(p) : p.slice(p.lastIndexOf('/') + 1),
@@ -426,6 +457,7 @@ export function VaultManager() {
             onKeyDown={(e) => e.key === 'Enter' && v.available && v.id !== currentId && open(() => api.openVaultId(v.id))}
             onContextMenu={(e) =>
               model.openMenu(e, [
+                { label: t('vaults.openInNewWindow'), disabled: !v.available || v.id === currentId, run: () => api.newWindow(v.id).catch((err) => model.error(err)) },
                 { label: t('vaults.removeFromList'), disabled: v.id === currentId, run: () => api.removeVault(v.id).catch((err) => model.error(err)) },
               ])
             }
@@ -461,7 +493,8 @@ export function ContextMenu() {
     const el = ref.current!
     const r = el.getBoundingClientRect()
     setPos({ x: Math.min(menu.x, window.innerWidth - r.width - 4), y: Math.min(menu.y, window.innerHeight - r.height - 4) })
-    el.querySelector<HTMLElement>('.menu-item:not([aria-disabled="true"])')?.focus()
+    // a dropdown opens on its current choice
+    ;(el.querySelector<HTMLElement>('.menu-item[aria-checked="true"]') ?? el.querySelector<HTMLElement>('.menu-item:not([aria-disabled="true"])'))?.focus()
     const close = () => model.set({ menu: null })
     const onDown = (e: MouseEvent) => !el.contains(e.target as Node) && close()
     window.addEventListener('mousedown', onDown)
@@ -479,7 +512,7 @@ export function ContextMenu() {
       className="menu"
       role="menu"
       ref={ref}
-      style={{ left: pos.x || menu.x, top: pos.y || menu.y }}
+      style={{ left: pos.x || menu.x, top: pos.y || menu.y, minWidth: menu.minWidth }}
       onKeyDown={(e) => {
         const items = [...ref.current!.querySelectorAll<HTMLElement>('.menu-item:not([aria-disabled="true"])')]
         const i = items.indexOf(document.activeElement as HTMLElement)
@@ -494,7 +527,8 @@ export function ContextMenu() {
         ) : (
           <div
             key={i}
-            role="menuitem"
+            role={it.checked === undefined ? 'menuitem' : 'menuitemradio'}
+            aria-checked={it.checked}
             tabIndex={-1}
             aria-disabled={it.disabled}
             className={`menu-item${it.danger ? ' is-warning' : ''}${it.disabled ? ' is-disabled' : ''}`}
@@ -510,6 +544,7 @@ export function ContextMenu() {
               }
             }}
           >
+            {it.checked !== undefined && <span className="menu-check">{it.checked && <Check size={14} />}</span>}
             {it.label}
           </div>
         ),
@@ -521,6 +556,7 @@ export function ContextMenu() {
 export function Notices() {
   const notices = useModel((s) => s.notices)
   const update = useModel((s) => s.update)
+  const [installing, setInstalling] = useState(false)
   return (
     <div className="notice-container" aria-live="polite">
       {update && (
@@ -529,15 +565,33 @@ export function Notices() {
           <div className="update-desc">{t('update.desc')}</div>
           <div className="update-actions">
             <button className="btn" onClick={() => model.set({ update: null })}>{t('update.later')}</button>
-            <button
-              className="btn mod-cta"
-              onClick={() => {
-                api.openExternal(update.url).catch((e) => model.error(e))
-                model.set({ update: null })
-              }}
-            >
-              {t('update.download')}
-            </button>
+            {update.zip ? (
+              <button
+                className="btn mod-cta"
+                disabled={installing}
+                onClick={() => {
+                  setInstalling(true)
+                  // on success the app quits; on failure fall back to the manual download
+                  api.installUpdate().catch((e) => {
+                    model.error(e)
+                    setInstalling(false)
+                    model.set({ update: { version: update.version, url: update.url } })
+                  })
+                }}
+              >
+                {t(installing ? 'update.installing' : 'update.install')}
+              </button>
+            ) : (
+              <button
+                className="btn mod-cta"
+                onClick={() => {
+                  api.openExternal(update.url).catch((e) => model.error(e))
+                  model.set({ update: null })
+                }}
+              >
+                {t('update.download')}
+              </button>
+            )}
           </div>
         </div>
       )}
