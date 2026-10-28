@@ -5,7 +5,7 @@ import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate, WidgetTy
 import { EditorState, Range, StateField } from '@codemirror/state'
 import { syntaxTree } from '@codemirror/language'
 import type { SyntaxNode } from '@lezer/common'
-import { parseTable, formatTable } from '../shared/table'
+import { parseTable, formatTable, insertColumn, deleteColumn, type Table } from '../shared/table'
 import { fileUrl } from './api'
 import { model, IMAGE_EXT } from './model'
 import { t } from '../shared/i18n'
@@ -322,14 +322,18 @@ class TableWidget extends WidgetType {
   }
 
   toDOM(view: EditorView) {
-    const table = parseTable(this.text)!
+    let delimiter = [...parseTable(this.text)!.delimiter]
+    let activeCol = 0
     const wrap = document.createElement('div')
     wrap.className = 'cm-lp-table'
     const grid = document.createElement('table')
-    const commit = () => {
+    const readTable = (): Table => {
       const read = (tr: HTMLTableRowElement) => [...tr.cells].map((td) => td.textContent ?? '')
       const rows = [...grid.rows]
-      const next = formatTable({ header: read(rows[0]), delimiter: table.delimiter, rows: rows.slice(1).map(read) })
+      return { header: read(rows[0]), delimiter, rows: rows.slice(1).map(read) }
+    }
+    const commit = () => {
+      const next = formatTable(readTable())
       if (next === this.text) return
       const from = view.posAtDOM(wrap)
       const old = this.text
@@ -343,9 +347,10 @@ class TableWidget extends WidgetType {
         td.textContent = value
         td.contentEditable = 'plaintext-only'
         td.spellcheck = false
-        const align = table.delimiter[i]
+        const align = delimiter[i]
         if (align?.endsWith(':')) td.style.textAlign = align.startsWith(':') ? 'center' : 'right'
         td.addEventListener('input', commit)
+        td.addEventListener('focus', () => (activeCol = td.cellIndex))
         td.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
             e.preventDefault()
@@ -359,8 +364,13 @@ class TableWidget extends WidgetType {
         tr.appendChild(td)
       })
     }
-    addRow(table.header, true)
-    table.rows.forEach((r) => addRow(r, false))
+    const render = (t: Table) => {
+      delimiter = [...t.delimiter]
+      grid.replaceChildren()
+      addRow(t.header, true)
+      t.rows.forEach((r) => addRow(r, false))
+    }
+    render(parseTable(this.text)!)
     wrap.appendChild(grid)
 
     const tools = document.createElement('div')
@@ -374,9 +384,24 @@ class TableWidget extends WidgetType {
       tools.appendChild(b)
     }
     btn(t('table.addRow'), () => {
-      addRow(table.header.map(() => ''), false)
+      addRow(delimiter.map(() => ''), false)
       commit()
       ;(grid.rows[grid.rows.length - 1].cells[0] as HTMLElement).focus()
+    })
+    btn(t('table.addColumn'), () => {
+      const at = activeCol + 1
+      render(insertColumn(readTable(), activeCol))
+      commit()
+      activeCol = at
+      ;(grid.rows[0].cells[at] as HTMLElement).focus()
+    })
+    btn(t('table.deleteColumn'), () => {
+      const next = deleteColumn(readTable(), activeCol)
+      if (!next) return
+      render(next)
+      commit()
+      activeCol = Math.min(activeCol, next.header.length - 1)
+      ;(grid.rows[0].cells[activeCol] as HTMLElement).focus()
     })
     btn(t('table.markdown'), () => {
       const from = view.posAtDOM(wrap)

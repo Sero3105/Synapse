@@ -3,16 +3,17 @@ import { EditorView, keymap, lineNumbers, drawSelection, highlightActiveLine, De
 import { EditorState, Compartment, EditorSelection } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
-import { syntaxHighlighting, HighlightStyle, indentUnit, bracketMatching, syntaxTree } from '@codemirror/language'
+import { syntaxHighlighting, HighlightStyle, indentUnit, bracketMatching, syntaxTree, foldGutter, foldKeymap } from '@codemirror/language'
 import { searchKeymap, highlightSelectionMatches, search } from '@codemirror/search'
-import { autocompletion, closeBrackets, closeBracketsKeymap, CompletionContext, completionKeymap } from '@codemirror/autocomplete'
+import { autocompletion, closeBrackets, closeBracketsKeymap, CompletionContext, completionKeymap, type Completion } from '@codemirror/autocomplete'
 import { tags as t } from '@lezer/highlight'
 import { model, useModel, Tab } from '../model'
 import { api } from '../api'
-import { noteTitle, shortestLinkText, fuzzyScore } from '../../shared/markdown'
+import { noteTitle, shortestLinkText, fuzzyScore, headingRef, INVALID_NAME } from '../../shared/markdown'
 import { t as tr } from '../../shared/i18n'
 import { livePreview, liveTables, liveMath } from '../live-preview'
 import { codeLanguage } from '../code'
+import { frontmatter, frontmatterLines } from '../frontmatter'
 
 const hl = HighlightStyle.define([
   { tag: t.heading1, class: 'cm-h1' },
@@ -85,14 +86,93 @@ const safeDecode = (s: string) => {
   }
 }
 
+/** A selectable row that only explains why there is nothing to pick; choosing it changes nothing. */
+const infoOption = (label: string) => ({ label, type: 'text' as const, apply: () => {} })
+
+/** `]]` the editor may already have auto-inserted after the cursor must not be duplicated. */
+const closingFor = (view: EditorView, to: number) => (view.state.sliceDoc(to, to + 2) === ']]' ? '' : ']]')
+
+/** A typed name that may become a new note file: one plain name, no folder path, no leading dot. */
+const creatable = (q: string) => {
+  const name = q.trim()
+  return name && !name.startsWith('.') && !name.includes('/') && !INVALID_NAME.test(name) ? name : null
+}
+
+const createOption = (name: string) => ({
+  label: tr('autocomplete.createNote', { name }),
+  detail: undefined,
+  apply: (view: EditorView, _c: unknown, from: number, to: number) => {
+    view.dispatch({ changes: { from, to, insert: name + closingFor(view, to) }, selection: { anchor: from + name.length + 2 } })
+    void model.createNoteFile(name)
+  },
+})
+
+/** After `[[Note^` or `[[Note#^`: the block ids of that note (or of this note for `[[^`). */
+function blockCompletions(path: string, ctx: CompletionContext) {
+  const m = ctx.matchBefore(/\[\[([^[\]\n|#^]*)(?:#)?\^([^[\]\n|^]*)$/)
+  if (!m) return null
+  const [, name, q] = /^\[\[([^#^]*)(?:#)?\^(.*)$/.exec(m.text)!
+  const target = name ? model.index.resolve(name, path) : path
+  const note = target ? model.index.notes.get(target) : undefined
+  const lines = note?.content.split('\n') ?? []
+  const all = note?.meta.blocks ?? []
+  const options = all
+    .map((b) => ({ b, s: fuzzyScore(q, b.id) }))
+    .filter((x) => x.s >= 0)
+    .sort((a, b) => (q ? b.s - a.s : 0))
+    .map(({ b }) => ({
+      label: `^${b.id}`,
+      detail: lines[b.line]?.replace(/[ \t]\^[A-Za-z0-9_-]+[ \t]*$/, '').trim().slice(0, 60),
+      apply: (view: EditorView, _c: unknown, from: number, to: number) => {
+        view.dispatch({ changes: { from, to, insert: b.id + closingFor(view, to) }, selection: { anchor: from + b.id.length + 2 } })
+      },
+    }))
+  if (!options.length) {
+    const label = !target ? tr('autocomplete.noMatch', { name }) : all.length ? tr('autocomplete.noMatch', { name: q }) : tr('autocomplete.noBlocks', { name: noteTitle(target) })
+    return { from: m.to - q.length, options: [infoOption(label)], filter: false }
+  }
+  return { from: m.to - q.length, options, filter: false }
+}
+
+/** After `[[Note#`: the headings of that note (or of this note for `[[#`). */
+function headingCompletions(path: string, ctx: CompletionContext) {
+  const m = ctx.matchBefore(/\[\[([^[\]\n|#]*)#([^[\]\n|#]*)$/)
+  if (!m) return null
+  const [, name, q] = /^\[\[([^#]*)#(.*)$/.exec(m.text)!
+  if (q.startsWith('^')) return null // block ids have their own completions
+  const target = name ? model.index.resolve(name, path) : path
+  const headings = (target && model.index.notes.get(target)?.meta.headings) || []
+  const options = headings
+    .map((h) => ({ h, s: fuzzyScore(q, h.text) }))
+    .filter((x) => x.s >= 0)
+    .sort((a, b) => (q ? b.s - a.s : 0))
+    .map(({ h }) => ({
+      label: h.text,
+      detail: `H${h.level}`,
+      apply: (view: EditorView, _c: unknown, from: number, to: number) => {
+        const text = headingRef(h.text)
+        view.dispatch({ changes: { from, to, insert: text + closingFor(view, to) }, selection: { anchor: from + text.length + 2 } })
+      },
+    }))
+  if (!options.length) {
+    const label = !target ? tr('autocomplete.noMatch', { name }) : headings.length ? tr('autocomplete.noMatch', { name: q }) : tr('autocomplete.noHeadings', { name: noteTitle(target) })
+    return { from: m.to - q.length, options: [infoOption(label)], filter: false }
+  }
+  return { from: m.to - q.length, options, filter: false }
+}
+
 function wikiCompletions(path: string) {
   return (ctx: CompletionContext) => {
+    const hm = headingCompletions(path, ctx)
+    if (hm) return hm
+    const bm = blockCompletions(path, ctx)
+    if (bm) return bm
     const m = ctx.matchBefore(/\[\[[^[\]\n|#]*$/)
     if (!m) return null
     const q = m.text.slice(2)
-    const options = model.index.files
+    const options: Completion[] = model.index.files
       .map((f) => ({ f, s: fuzzyScore(q, f) }))
-      .filter((x) => x.s >= 0 && x.f !== path)
+      .filter((x) => x.s >= 0)
       .sort((a, b) => b.s - a.s)
       .slice(0, 50)
       .map(({ f }) => ({
@@ -100,10 +180,13 @@ function wikiCompletions(path: string) {
         detail: f.includes('/') ? f.slice(0, f.lastIndexOf('/')) : undefined,
         apply: (view: EditorView, _c: unknown, from: number, to: number) => {
           const text = shortestLinkText(f, model.index.lookup)
-          const closing = view.state.sliceDoc(to, to + 2) === ']]' ? '' : ']]'
-          view.dispatch({ changes: { from, to, insert: text + closing }, selection: { anchor: from + text.length + 2 } })
+          view.dispatch({ changes: { from, to, insert: text + closingFor(view, to) }, selection: { anchor: from + text.length + 2 } })
         },
       }))
+    const fresh = creatable(q)
+    const exists = fresh !== null && model.index.files.some((f) => noteTitle(f).toLowerCase() === fresh.toLowerCase())
+    if (fresh && !exists) options.push(createOption(fresh))
+    if (!options.length) options.push(infoOption(tr('autocomplete.noNotes')))
     return { from: m.from + 2, options, filter: false }
   }
 }
@@ -137,7 +220,10 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
           bracketMatching(),
           search({ top: true }),
           EditorView.lineWrapping,
-          markdown({ base: markdownLanguage, codeLanguages: codeLanguage }),
+          markdown({ base: markdownLanguage, codeLanguages: codeLanguage, extensions: [frontmatter] }),
+          frontmatterLines,
+          // the markdown language folds a heading's section, a list item's children and code blocks
+          foldGutter({ markerDOM: (open) => Object.assign(document.createElement('span'), { className: `cm-fold-marker${open ? ' is-open' : ''}`, textContent: '›', title: tr(open ? 'editor.fold' : 'editor.unfold') }) }),
           syntaxHighlighting(hl),
           wikiPlugin,
           autocompletion({ override: [wikiCompletions(path)], icons: false }),
@@ -146,7 +232,7 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
           c.spell.of(EditorView.contentAttributes.of({ spellcheck: String(p.spellcheck), autocorrect: 'off' })),
           c.pair.of(p.autoPairBrackets ? closeBrackets() : []),
           c.live.of(p.livePreview ? [livePreview(path), liveTables, liveMath] : []),
-          keymap.of([...closeBracketsKeymap, ...completionKeymap, ...searchKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
+          keymap.of([...closeBracketsKeymap, ...completionKeymap, ...searchKeymap, ...historyKeymap, ...foldKeymap, indentWithTab, ...defaultKeymap]),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) model.edit(path, u.state.doc.toString())
             if (u.selectionSet || u.docChanged) {
@@ -239,7 +325,7 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
   })
 
   if (!buffer) return <div className="view-loading">{tr('common.loading')}</div>
-  return <div className="cm-host" ref={host} data-testid="editor" />
+  return <div className={`cm-host${prefs.showLineNumber ? ' has-line-numbers' : ''}`} ref={host} data-testid="editor" />
 }
 
 function handleFiles(files: FileList | undefined, view: EditorView, notePath: string, e: Event) {
