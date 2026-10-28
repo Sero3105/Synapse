@@ -128,7 +128,7 @@ function PaneView({ pane, active }: { pane: Pane; active: boolean }) {
               role="tab"
               aria-selected={t.id === tab.id}
               tabIndex={0}
-              className={`tab${t.id === tab.id ? ' is-active' : ''}${t.pinned ? ' is-pinned' : ''}${dragOver === i ? ' drop-before' : ''}`}
+              className={`tab${t.id === tab.id ? ' is-active' : ''}${t.pinned ? ' is-pinned' : ''}${t.preview ? ' is-preview' : ''}${dragOver === i ? ' drop-before' : ''}`}
               aria-label={t.pinned ? tabTitle(t) : undefined}
               title={t.path ?? tabTitle(t)}
               draggable
@@ -146,10 +146,12 @@ function PaneView({ pane, active }: { pane: Pane; active: boolean }) {
                 onDrop(e, i)
               }}
               onClick={() => model.selectTab(pane.id, t.id)}
+              onDoubleClick={() => model.keepTab(t.id)}
               onKeyDown={(e) => e.key === 'Enter' && model.selectTab(pane.id, t.id)}
               onAuxClick={(e) => e.button === 1 && model.closeTab(pane.id, t.id)}
               onContextMenu={(e) =>
                 model.openMenu(e, [
+                  ...(t.preview ? [{ label: tr('tab.keep'), run: () => model.keepTab(t.id) }] : []),
                   { label: tr(t.pinned ? 'tab.unpin' : 'tab.pin'), run: () => model.togglePinTab(t.id) },
                   { label: tr('tab.close'), run: () => model.closeTab(pane.id, t.id) },
                   { label: tr('tab.closeOthers'), run: () => model.closeOthers(pane.id, t.id) },

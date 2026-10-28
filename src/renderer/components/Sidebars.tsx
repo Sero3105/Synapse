@@ -350,7 +350,8 @@ function TreeItem({ node, depth, active, forceOpen }: { node: TreeNode; depth: n
 
   const activate = (e: React.MouseEvent | React.KeyboardEvent) => {
     if (isFolder) model.toggleExpanded(node.path)
-    else model.open(node.path, e.metaKey || e.ctrlKey ? 'new' : 'tab')
+    else if (e.metaKey || e.ctrlKey) model.open(node.path, 'new')
+    else model.open(node.path, 'tab', { preview: true })
   }
 
   return (
@@ -382,6 +383,7 @@ function TreeItem({ node, depth, active, forceOpen }: { node: TreeNode; depth: n
           if (p && p !== node.path && !node.path.startsWith(p + '/')) model.rename(p, `${node.path}/${basename(p)}`).then((ok) => ok && model.toggleExpanded(node.path, true))
         }}
         onClick={activate}
+        onDoubleClick={() => !isFolder && model.openPermanent(node.path)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') activate(e)
           if (e.key === 'ArrowRight' && isFolder && !open) model.toggleExpanded(node.path, true)

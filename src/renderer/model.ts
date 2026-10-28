@@ -23,6 +23,8 @@ export interface Tab {
   scroll?: number
   /** kept at the left, shrunk to its icon, skipped by "close others" */
   pinned?: boolean
+  /** VS Code-style preview: reused by the next file-tree click until kept (double-click, tab double-click or typing in it) */
+  preview?: boolean
 }
 export interface Pane { id: string; tabs: Tab[]; active: string }
 /** `layout` places the panes; `panes` holds them in creation order. */
@@ -498,12 +500,13 @@ class Model {
    * Open a vault path. `where`: 'tab' (current tab), 'new' (new tab), 'split' (new pane).
    * `line` scrolls to and selects a line once the editor is ready.
    */
-  async open(path: string, where: 'tab' | 'new' | 'split' = 'tab', opts: { line?: number; mode?: ViewMode } = {}) {
+  async open(path: string, where: 'tab' | 'new' | 'split' = 'tab', opts: { line?: number; mode?: ViewMode; preview?: boolean } = {}) {
     if (!this.state.files.some((f) => f.path === path && f.type === 'file')) return this.notice(t('notice.fileNotFound', { path }), true)
     const kind: Tab['kind'] = isMd(path) ? 'note' : 'file'
     if (kind === 'note') this.ensureBuffer(path)
     if (where === 'split') return this.split('row', path)
     const mode = opts.mode ?? this.prefs.defaultViewMode
+    if (where === 'tab' && opts.preview) return this.openPreview(path, kind, mode)
     if (where === 'new') {
       this.newTab(undefined, { ...emptyTab(), kind, path, mode })
     } else {
@@ -518,6 +521,49 @@ class Model {
     this.set({ recent: [path, ...this.state.recent.filter((p) => p !== path)].slice(0, 20) })
     if (opts.line !== undefined) this.pendingLine = { tabId: this.activeTab.id, line: opts.line }
     this.set({ navTick: this.state.navTick + 1 })
+  }
+
+  /**
+   * Preview open (file-tree single click): reuse this pane's preview tab if it has one, turn an
+   * empty tab into the preview, or add a preview tab beside the current one. Never replaces a
+   * kept tab. A file already open in this pane is only selected, never duplicated.
+   */
+  private openPreview(path: string, kind: Tab['kind'], mode: ViewMode) {
+    const pane = this.activePane
+    const same = pane.tabs.find((x) => x.path === path && x.kind === kind)
+    if (same) {
+      this.selectTab(pane.id, same.id)
+    } else {
+      const pv = pane.tabs.find((x) => x.preview)
+      if (pv) {
+        this.selectTab(pane.id, pv.id)
+        const back = pv.path ? [...pv.back, pv.path].slice(-50) : pv.back
+        this.updateTab(pv.id, { kind, path, mode, back, fwd: [], cursor: undefined, scroll: undefined })
+      } else if (this.activeTab.kind === 'empty') {
+        this.updateTab(this.activeTab.id, { kind, path, mode, preview: true })
+      } else {
+        this.newTab(pane.id, { ...emptyTab(), kind, path, mode, preview: true })
+      }
+    }
+    this.set({ recent: [path, ...this.state.recent.filter((p) => p !== path)].slice(0, 20), navTick: this.state.navTick + 1 })
+  }
+
+  /** File-tree double click: open for good, or keep the preview tab already showing this file. */
+  async openPermanent(path: string) {
+    const pane = this.activePane
+    const same = pane.tabs.find((x) => x.path === path)
+    if (same) {
+      this.selectTab(pane.id, same.id)
+      this.keepTab(same.id)
+      this.set({ recent: [path, ...this.state.recent.filter((p) => p !== path)].slice(0, 20), navTick: this.state.navTick + 1 })
+      return
+    }
+    return this.open(path, 'new')
+  }
+
+  /** Keep a preview tab for good (VS Code: double-click, or it sticks once you type in it). */
+  keepTab(tabId: string) {
+    this.mapTabs((x) => (x.id === tabId && x.preview ? { ...x, preview: undefined } : x))
   }
 
   pendingLine: { tabId: string; line: number } | null = null
@@ -612,6 +658,10 @@ class Model {
   edit(path: string, content: string) {
     const b = this.state.buffers[path]
     if (!b || b.content === content) return
+    // typing in a preview tab keeps it, like VS Code
+    if (this.state.ws.panes.some((p) => p.tabs.some((x) => x.preview && x.path === path))) {
+      this.mapTabs((x) => (x.preview && x.path === path ? { ...x, preview: undefined } : x))
+    }
     this.setBuffer(path, { ...b, content })
     this.index.upsert(path, content)
     this.bumpIndex()
