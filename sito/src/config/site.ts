@@ -51,14 +51,14 @@ export const latestRelease: Release | null = {
     {
       fileName: 'Synapse-1.5.1-arm64.dmg',
       url: `${repo}/releases/download/v1.5.1/Synapse-1.5.1-arm64.dmg`,
-      sizeBytes: 132_191_302,
+      sizeBytes: 132_307_837,
       system: 'macOS 13 Ventura or later',
       arch: 'Apple silicon (arm64)',
     },
     {
       fileName: 'Synapse-1.5.1-x64.dmg',
       url: `${repo}/releases/download/v1.5.1/Synapse-1.5.1-x64.dmg`,
-      sizeBytes: 139_065_012,
+      sizeBytes: 139_118_568,
       system: 'macOS 13 Ventura or later',
       arch: 'Intel (x64), not yet tested on Intel hardware',
     },
