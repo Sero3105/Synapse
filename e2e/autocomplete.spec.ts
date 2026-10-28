@@ -50,6 +50,21 @@ test('[[ finds accented note names typed without accents', async () => {
   await app.close()
 })
 
+test('[[ typed as Option+[ (Italian layout) still inserts and suggests', async () => {
+  env = makeEnv({ 'Solo.md': '# Solo\n\n', 'Ideas.md': '# Ideas\n' })
+  const { app, win } = await launch(env)
+  await open(win, 'Solo.md')
+  await win.keyboard.press('Alt+[')
+  await win.keyboard.press('Alt+[')
+  await win.keyboard.type('Ide')
+  const list = win.locator('.cm-tooltip-autocomplete')
+  await expect(list.locator('li').first()).toContainText('Ideas')
+  await win.waitForTimeout(300) // CodeMirror ignores Enter in the first 75ms after the popup opens
+  await win.keyboard.press('Enter')
+  await expect.poll(() => fs.readFileSync(path.join(env.vault, 'Solo.md'), 'utf8')).toContain('[[Ideas]]')
+  await app.close()
+})
+
 test('[[# in a note without headings explains, instead of showing nothing', async () => {
   env = makeEnv({ 'Solo.md': '# Solo\n\nplain text, no section headings below the title\n' , 'Plain.md': 'no headings at all\n' })
   const { app, win } = await launch(env)

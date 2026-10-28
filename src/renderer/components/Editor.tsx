@@ -5,7 +5,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { syntaxHighlighting, HighlightStyle, indentUnit, bracketMatching, syntaxTree, foldGutter, foldKeymap } from '@codemirror/language'
 import { searchKeymap, highlightSelectionMatches, search } from '@codemirror/search'
-import { autocompletion, closeBrackets, closeBracketsKeymap, CompletionContext, completionKeymap, type Completion } from '@codemirror/autocomplete'
+import { autocompletion, closeBrackets, closeBracketsKeymap, CompletionContext, completionKeymap, startCompletion, type Completion } from '@codemirror/autocomplete'
 import { tags as t } from '@lezer/highlight'
 import { model, useModel, Tab } from '../model'
 import { api } from '../api'
@@ -243,6 +243,15 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
             }
           }),
           EditorView.domEventHandlers({
+            // On Italian and other Option-key layouts, [ is Option+è: Chromium may swallow it as a
+            // shortcut instead of typing it, which silently kills [[ links. Insert the bracket here.
+            keydown: (e, v) => {
+              if (!e.altKey || e.ctrlKey || e.metaKey || (e.key !== '[' && e.key !== ']')) return false
+              e.preventDefault()
+              v.dispatch(v.state.replaceSelection(e.key))
+              if (e.key === '[') startCompletion(v)
+              return true
+            },
             mousedown: (e, v) => {
               // Cmd/Ctrl-click follows any link; a plain click follows links rendered by Live Preview
               const rendered = e.button === 0 && !e.shiftKey && (e.target as HTMLElement).closest?.('.cm-lp-link')
