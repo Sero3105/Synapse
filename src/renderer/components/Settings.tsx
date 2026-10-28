@@ -6,6 +6,7 @@ import { COMMANDS, hotkeysFor, formatHotkey, eventToHotkey } from '../commands'
 import { FONT_GROUPS, isInstalled, loadCustomFonts, unloadableFonts } from '../fonts'
 import { Prefs, CORE_PLUGINS, DEFAULT_PREFS } from '../../shared/settings'
 import { t, tn, Key, LANGUAGES, LanguagePref, commandName } from '../../shared/i18n'
+import { Select } from './Select'
 
 const TABS = ['general', 'editor', 'files', 'appearance', 'hotkeys', 'plugins', 'vault'] as const
 
@@ -63,16 +64,7 @@ function PrefRow<K extends keyof Prefs>({ k, name, desc, children }: { k: K; nam
       <div className="setting-control">
         {children(value, set)}
         {snap.vault && (
-          <select
-            className="scope-select"
-            aria-label={t('settings.scopeFor', { name })}
-            title={t('settings.scopeTitle')}
-            value={overridden ? 'vault' : 'global'}
-            onChange={(e) => model.setVault({ overrides: { [k]: e.target.value === 'vault' ? value : null } })}
-          >
-            <option value="global">{t('settings.scopeAll')}</option>
-            <option value="vault">{t('settings.scopeVault')}</option>
-          </select>
+          <ScopeSelect name={name} overridden={overridden} set={(vault) => model.setVault({ overrides: { [k]: vault ? value : null } })} />
         )}
       </div>
     </div>
@@ -110,12 +102,12 @@ function General() {
           <div className="setting-desc">{t('settings.languageDesc')}</div>
         </div>
         <div className="setting-control">
-          <select className="dropdown" aria-label={t('settings.language')} value={snap.global.language} onChange={(e) => model.setGlobal({ language: e.target.value as LanguagePref })}>
-            <option value="system">{t('settings.languageSystem')}</option>
-            {LANGUAGES.map((l) => (
-              <option key={l.id} value={l.id}>{l.name}</option>
-            ))}
-          </select>
+          <Select
+            label={t('settings.language')}
+            value={snap.global.language}
+            onChange={(v) => model.setGlobal({ language: v })}
+            options={[{ value: 'system' as LanguagePref, label: t('settings.languageSystem') }, ...LANGUAGES.map((l) => ({ value: l.id as LanguagePref, label: l.name }))]}
+          />
         </div>
       </div>
       <div className="setting-item">
@@ -165,10 +157,7 @@ function EditorTab() {
       <ScopeNote />
       <PrefRow k="defaultViewMode" name={t('settings.defaultView')} desc={t('settings.defaultViewDesc')}>
         {(v, set) => (
-          <select className="dropdown" value={v} onChange={(e) => set(e.target.value as Prefs['defaultViewMode'])} aria-label={t('settings.defaultView')}>
-            <option value="source">{t('settings.editingView')}</option>
-            <option value="preview">{t('settings.readingView')}</option>
-          </select>
+          <Select label={t('settings.defaultView')} value={v} onChange={set} options={[{ value: 'source', label: t('settings.editingView') }, { value: 'preview', label: t('settings.readingView') }]} />
         )}
       </PrefRow>
       <PrefRow k="livePreview" name={t('settings.livePreview')} desc={t('settings.livePreviewDesc')}>
@@ -203,10 +192,7 @@ function FilesTab() {
       <ScopeNote />
       <PrefRow k="newFileLocation" name={t('settings.newLocation')}>
         {(v, set) => (
-          <select className="dropdown" value={v} onChange={(e) => set(e.target.value as Prefs['newFileLocation'])} aria-label={t('settings.newLocation')}>
-            <option value="root">{t('settings.newLocationRoot')}</option>
-            <option value="current">{t('settings.newLocationCurrent')}</option>
-          </select>
+          <Select label={t('settings.newLocation')} value={v} onChange={set} options={[{ value: 'root', label: t('settings.newLocationRoot') }, { value: 'current', label: t('settings.newLocationCurrent') }]} />
         )}
       </PrefRow>
       <PrefRow k="updateLinksOnRename" name={t('settings.updateLinks')} desc={t('settings.updateLinksDesc')}>
@@ -223,11 +209,7 @@ function AppearanceTab() {
       <ScopeNote />
       <PrefRow k="theme" name={t('settings.theme')} desc={t('settings.themeDesc')}>
         {(v, set) => (
-          <select className="dropdown" value={v} onChange={(e) => set(e.target.value as Prefs['theme'])} aria-label={t('settings.theme')}>
-            <option value="system">{t('settings.themeSystem')}</option>
-            <option value="light">{t('settings.themeLight')}</option>
-            <option value="dark">{t('settings.themeDark')}</option>
-          </select>
+          <Select label={t('settings.theme')} value={v} onChange={set} options={[{ value: 'system', label: t('settings.themeSystem') }, { value: 'light', label: t('settings.themeLight') }, { value: 'dark', label: t('settings.themeDark') }]} />
         )}
       </PrefRow>
       <PrefRow k="accentColor" name={t('settings.accent')} desc={t('settings.accentDesc')}>
@@ -318,16 +300,7 @@ function FontSetting({ k, kind, name, desc }: { k: 'textFont' | 'monoFont'; kind
             <ChevronDown size={13} aria-hidden />
           </button>
           {snap.vault && (
-            <select
-              className="scope-select"
-              aria-label={t('settings.scopeFor', { name })}
-              title={t('settings.scopeTitle')}
-              value={overridden ? 'vault' : 'global'}
-              onChange={(e) => model.setVault({ overrides: { [k]: e.target.value === 'vault' ? value : null } })}
-            >
-              <option value="global">{t('settings.scopeAll')}</option>
-              <option value="vault">{t('settings.scopeVault')}</option>
-            </select>
+            <ScopeSelect name={name} overridden={overridden} set={(vault) => model.setVault({ overrides: { [k]: vault ? value : null } })} />
           )}
         </div>
       </div>
@@ -525,5 +498,20 @@ function VaultTab() {
         </div>
       </div>
     </>
+  )
+}
+
+/** Whether a setting applies to every vault or only this one. */
+function ScopeSelect({ name, overridden, set }: { name: string; overridden: boolean; set: (vault: boolean) => void }) {
+  return (
+    <Select
+      quiet
+      accent={overridden}
+      label={t('settings.scopeFor', { name })}
+      title={t('settings.scopeTitle')}
+      value={overridden ? 'vault' : 'global'}
+      onChange={(v) => set(v === 'vault')}
+      options={[{ value: 'global', label: t('settings.scopeAll') }, { value: 'vault', label: t('settings.scopeVault') }]}
+    />
   )
 }
