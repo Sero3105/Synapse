@@ -512,6 +512,7 @@ input[type=range]:focus-visible::-webkit-slider-runnable-track { box-shadow: ins
 .tab.is-pinned { flex: none; min-width: 0; width: 40px; justify-content: center; padding: 0; }
 .tab-icon { display: flex; opacity: 0.8; }
 .tab-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ui-sm); }
+.tab.is-preview .tab-title { font-style: italic; }
 .tab-dirty { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-2); flex: none; }
 .tab-close {
   display: flex; align-items: center; justify-content: center; flex: none;
@@ -552,7 +553,7 @@ input[type=range]:focus-visible::-webkit-slider-runnable-track { box-shadow: ins
 
 /* editor */
 .cm-host { flex: 1; min-height: 200px; }
-.cm-host .cm-editor { height: 100%; background: transparent; color: var(--ink); font: 400 var(--font-text-size) / var(--text-leading) var(--font-text); }
+.cm-host .cm-editor { height: 100%; background: transparent; color: var(--ink); font: 450 var(--font-text-size) / var(--text-leading) var(--font-text); }
 .cm-host .cm-editor.cm-focused { outline: none; }
 .cm-host .cm-scroller { font: inherit; line-height: inherit; overflow: visible; }
 .cm-host .cm-content { padding: 0; caret-color: var(--signal); user-select: text; }
@@ -608,7 +609,7 @@ body.theme-light .cm-kw { color: #8e3fa8; } body.theme-light .cm-str { color: #2
 .cm-completionDetail { margin-left: var(--s-2); color: var(--ink-3); font-style: normal !important; }
 
 /* reading view */
-.markdown-reading { font: 400 var(--font-text-size) / var(--text-leading) var(--font-text); color: var(--ink); padding: 0 4px; user-select: text; overflow-wrap: break-word; }
+.markdown-reading { font: 450 var(--font-text-size) / var(--text-leading) var(--font-text); color: var(--ink); padding: 0 4px; user-select: text; overflow-wrap: break-word; }
 .markdown-reading > :first-child { margin-top: 0; }
 .markdown-reading p { margin: 0 0 1em; }
 .markdown-reading h1, .markdown-reading h2, .markdown-reading h3, .markdown-reading h4, .markdown-reading h5, .markdown-reading h6 { font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; margin: 1.6em 0 0.55em; text-wrap: balance; }
@@ -982,7 +983,8 @@ body.theme-light .markdown-reading .hljs-title, body.theme-light .markdown-readi
 /* math (KaTeX) */
 .markdown-reading .math-block, .cm-lp-math-block { margin: 0.6em 0; overflow-x: auto; overflow-y: hidden; text-align: center; }
 .cm-lp-math, .cm-lp-math-block { cursor: text; }
-.katex { font-size: 1.1em; }
+/* softer than body text on purpose: KaTeX strokes read brighter than the serif text around them */
+.katex { font-size: 1.02em; color: color-mix(in oklab, var(--ink) 78%, var(--ground)); }
 
 .graph-settings .text-input { width: 100%; }
 .graph-hint { margin: 0; color: var(--ink-3); font-size: var(--ui-xs); line-height: 1.4; }
