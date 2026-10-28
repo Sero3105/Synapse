@@ -55,15 +55,15 @@
 
 | | |
 |---|---|
-| **Editor** | Live Preview: Markdown syntax hides itself except on the line you are editing; tables are edited as tables; LaTeX math (`$inline$`, `$$block$$`) renders with KaTeX. Built on CodeMirror 6, with `[[` link autocomplete, click a rendered link to open it (⌘-click anywhere in source), find & replace, formatting shortcuts, image paste and drop, autosave |
+| **Editor** | Live Preview: Markdown syntax hides itself except on the line you are editing; tables are edited as tables; LaTeX math (`$inline$`, `$$block$$`) renders with KaTeX. Built on CodeMirror 6, with `[[` link autocomplete, click a rendered link to open it (⌘-click anywhere in source), find & replace, formatting shortcuts, image paste and drop, folding of headings, lists and code blocks (arrow in the margin, ⌘⌥[ / ⌘⌥], *Fold all*), autosave |
 | **Reading view** | Rendered Markdown with tables, syntax-highlighted code, Mermaid diagrams, math, quotes, embeds (`![[note]]`, `![[image.png]]`) and clickable task lists |
 | **Tasks** | Every `- [ ]` checklist item in the vault in one list (open, done or all), grouped by note; tick it there or jump to its line |
 | **Start page** | A new tab shows today's note, pinned notes, recently opened and recently modified notes |
-| **Export** | A note to standalone HTML or to PDF, with images, code highlighting and diagrams included |
+| **Export** | A note to standalone HTML or to PDF, with images, code highlighting and diagrams included; the whole vault to a folder of linked HTML pages |
 | **Daily notes & templates** | Open today's note from the command palette or **File → Open Today's Note**, step to the previous or next day, and create or fill notes from built-in or your own templates |
-| **Knowledge** | Backlinks with context, unlinked mentions, related notes with the reason they are related, outgoing and unresolved links, outline, tags (inline and front-matter), graph view with filters (`path:`, `tag:`, `file:`, words), unlinked-only view and ⇧-click highlighting of a note's connections |
-| **Navigation** | Quick switcher (⌘O), command palette (⌘P), tabs, split panes, per-tab back/forward, recent notes, workspace restored per vault |
-| **Files** | File tree with drag-and-drop moves, rename with automatic link updates, delete to the macOS Trash, reveal in Finder; a report of missing and possibly unused attachments; PDFs open in your default app; opening a new folder first shows a read-only summary (links, attachments, unsupported syntax) |
+| **Knowledge** | Backlinks with context, unlinked mentions, related notes with the reason they are related, outgoing and unresolved links, outline, tags (inline and front-matter), graph view with filters (`path:`, `tag:`, `file:`, words), unlinked-only view and ⇧-click highlighting of a note's connections, a local graph around the open note (depth 1 or 2), node colours by folder or first tag with a legend, and saved graph views per vault |
+| **Navigation** | Quick switcher (⌘O), command palette (⌘P), tabs, split panes nested in any mix of rows and columns, per-tab back/forward, recent notes, workspace restored per vault; several vaults side by side in separate windows (*File → New Window* ⌘⇧N, or *Open in new window* on a vault in the vault manager). A vault opens in one window at a time |
+| **Files** | File tree with drag-and-drop moves, rename with automatic link updates, delete to the macOS Trash, reveal in Finder; a report of missing and possibly unused attachments; PDFs open in a read-only tab (or in your default app); opening a new folder first shows a read-only summary (links, attachments, unsupported syntax) |
 | **Safety** | Atomic writes, conflict detection when a file changes on disk, local version history with restore, path checks that keep every operation inside the vault, sandboxed renderer |
 | **Personalisation** | Light / dark / system theme, accent colour, rebindable hotkeys, core features that can be switched off globally or per vault; note and code fonts are picked from the families installed on your Mac, with a live preview, and you can add your own font files (.ttf, .otf, .woff, .woff2), which Synapse stores in its own app-data folder, never in a vault |
 | **Languages** | English and Italian, following macOS by default |
@@ -73,6 +73,8 @@
 1. Download the latest **`Synapse-<version>-arm64.dmg`** (Apple silicon) or **`Synapse-<version>-x64.dmg`** (Intel) from [Releases](https://github.com/Sero3105/Synapse/releases).
 2. Open it and drag **Synapse** onto **Applications**.
 3. The first time you open Synapse, macOS warns that it cannot verify the app, because builds are not notarized yet. Open **System Settings → Privacy & Security** and click **Open Anyway**. You only need to do this once.
+
+From 1.5.0 on, updates install from inside the app: when a new version is out, click **Update and restart**. Synapse downloads it from GitHub Releases, checks that it is signed with the project's release key, replaces itself in Applications and reopens. Synapse must be in the Applications folder for this.
 
 Requirements: macOS 13 Ventura or later, on Apple silicon or Intel.
 
@@ -113,8 +115,8 @@ Every shortcut can be changed in **Settings → Hotkeys**.
 | What | Where it lives | Scope |
 |---|---|---|
 | Theme, fonts, editor behaviour, language, hotkeys, sidebar layout | `~/Library/Application Support/Synapse/settings.json` | All vaults |
-| Recent vaults and window size | `~/Library/Application Support/Synapse/` | App |
-| Per-vault overrides, graph settings, attachment folder | `<vault>/.synapse/settings.json` | One vault |
+| Recent vaults and window sizes (one per vault) | `~/Library/Application Support/Synapse/` | App |
+| Per-vault overrides, graph settings and saved graph views, attachment folder | `<vault>/.synapse/settings.json` | One vault |
 | Open tabs, panes and recent notes | `<vault>/.synapse/workspace.json` | One vault |
 | Version history (earlier copies of notes) | `~/Library/Application Support/Synapse/history/<vault id>/` | One vault |
 
@@ -133,10 +135,11 @@ History lives in `~/Library/Application Support/Synapse/history/<vault id>/`, ou
 ## Related notes, tasks, attachments, export and import
 
 - **Related notes** (Backlinks panel, collapsed by default): notes not yet linked to this one, scored by shared tags (+3 each), notes both link to or are linked from (+2), shared title and heading words (+2) and distinctive shared words (+1). Each suggestion says why. *Insert link at cursor* writes `[[…]]` only when you choose it; *Dismiss* hides a suggestion for this vault. Everything is computed locally from the in-memory index.
-- **Graph**: in the settings panel, filter with the search syntax, show only unlinked notes, ⇧-click a node to highlight its connections (Esc clears), and *Reset view*. Saved graph views are not available.
+- **Graph**: in the settings panel, filter with the search syntax, show only unlinked notes, ⇧-click a node to highlight its connections (Esc clears), and *Reset view*. The crosshair button (or *Graph view: Toggle local graph*) shows only the open note and the notes 1 or 2 links away; it follows the note you open. *Colour by* gives the eight largest top-level folders, or first tags, a colour each, listed in a legend. *Save view…* keeps the mode, depth, centre note, filters and options under a name, to recall, rename or delete later. Vaults above 1,000 visible notes use a Barnes–Hut layout (`npm run bench:graph` measures it).
 - **Tasks** (navigator): ticking a task changes only that line. If the note changed since the list was built, nothing is written and Synapse tells you; edits still go through the normal autosave conflict check.
 - **Attachments** (*Attachments: Show missing and unused attachments*): a report only, nothing is deleted. A file is "possibly unused" only when no note links to or embeds it and its name appears in no note at all. References from other apps, CSS or scripts are not detected.
 - **Export** (*Export to HTML* / *Export to PDF*): a standalone file with images embedded and no scripts. HTML follows the app theme; PDFs are always light, for paper. The macOS save dialog asks before replacing an existing file. Internal links become plain text. Web images are fetched from the web; a PDF export waits at most 15 seconds for them and leaves out any that have not loaded.
+- **Export vault** (*Export vault to HTML*): pick a folder; Synapse creates a new `<vault> (HTML)` folder inside it (never replacing an earlier one) with one page per note in the same folders as the vault, an `index.html` listing every note, and a link back to it on each page. Links between notes, including `[[Note#Heading]]`, become links between the pages, so the site can be read in any browser and sent to someone. Links to missing notes or to attachments other than images stay plain text.
 - **Import**: Synapse opens any Markdown folder in place and never converts it. When you open a folder that is not yet a Synapse vault, a read-only summary appears first; *Cancel* leaves the folder untouched, and *Open vault* only adds the `.synapse/` folder.
 - **Start page** pins (file context menu → *Pin to start page*), recent notes and dismissed suggestions are stored per vault in `.synapse/workspace.json`.
 
@@ -150,7 +153,7 @@ To add a language, add a dictionary to `src/shared/i18n.ts`. The type checker re
 
 ## Privacy
 
-Everything stays on your Mac: no account, no telemetry, no cloud sync. Synapse goes online only in two cases. At launch it asks GitHub Releases whether a newer version exists (no personal data is sent; turn it off in **Settings → General → Check for updates**). And when a note asks it to, for example to load a remote image embedded with an `https://` link, or when you click a web link, which opens in your browser.
+Everything stays on your Mac: no account, no telemetry, no cloud sync. Synapse goes online only in two cases. At launch it asks GitHub Releases whether a newer version exists (no personal data is sent; turn it off in **Settings → General → Check for updates**), and downloads the update only when you click **Update and restart**. And when a note asks it to, for example to load a remote image embedded with an `https://` link, or when you click a web link, which opens in your browser.
 
 ## Development
 
@@ -190,8 +193,8 @@ SYNAPSE_APP=/Applications/Synapse.app/Contents/MacOS/Synapse npx playwright test
 - Raw HTML in notes is not rendered, for security.
 - Split panes run in one direction, with up to four panes.
 - Obsidian community plugins are not supported.
-- Saved graph views, task due dates and semantic search are not available.
+- Task due dates and semantic search are not available.
 - Opening a large new folder reads every note twice: once for the read-only preview, once when it opens.
 - If the Mac crashes during a save, the note keeps its previous text and the new text may remain next to it as `Note.md.<number>.<number>.tmp`. Synapse never deletes it; open it in another editor to recover the text, then delete it.
 - If the vault folder is moved or deleted while it is open, saving stops with a message and keeps your text in the editor; Synapse never recreates the folder. Saving resumes when the folder is back at the same place.
-- The build is not notarized. Updates are announced in the app but installed by hand: download the new DMG and replace the app. The Intel build is not yet tested on Intel hardware.
+- The build is not notarized. In-app updates are verified with the project's own ed25519 release key, not Apple's signing. The Intel build is not yet tested on Intel hardware.

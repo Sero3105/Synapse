@@ -41,6 +41,7 @@ preload.ts      contextBridge: invoke(channel) ├─ settings.ts  schema, defau
 ## Data flow
 
 1. On launch, main loads `AppStore` and reopens `lastOpen` **only if the folder exists**. It then creates the window.
+   Main keeps one context per window (`BrowserWindow`, open vault, watcher), keyed by `webContents` id. Every IPC call acts on its sender's vault, `fs:changed` goes only to that window, and `synapse-file://<vault id>/…` URLs name the vault an image comes from. A vault already open in one window is not opened in a second (`EWINDOW`); that window is brought forward. Window bounds are saved per vault in `window.json`, and `placeWindow` (`src/main/store.ts`) keeps a new window on a connected display and off another window's exact spot.
 2. The renderer fetches the `state` snapshot. When a vault is open it calls `fs:list` and `fs:readAll` to build the in-memory `NoteIndex` (links, tags, headings), then restores `workspace.json`.
 3. Edits update a per-path buffer and the index at once. Autosave runs after 800 ms with `expectedMtime`. If the file changed on disk and differs, main returns `ECONFLICT` and the renderer shows a conflict banner instead of overwriting.
 4. A recursive `fs.watch` sends `fs:changed`. Clean buffers reload, dirty buffers get a conflict, and the index updates.
@@ -55,13 +56,16 @@ preload.ts      contextBridge: invoke(channel) ├─ settings.ts  schema, defau
 ## Discovery, tasks, attachments, export, import
 
 - `src/shared/related.ts` ranks related notes from the `NoteIndex`, which now also keeps per-note terms and their document frequency, updated in `upsert`/`remove`. A query runs only while the Related section is expanded.
-- `src/shared/graph-filter.ts`: visible nodes and neighbours for the graph filters. Filter state lives in refs read by the draw loop, so filtering does not rebuild the simulation.
+- `src/shared/graph-filter.ts`: visible nodes and neighbours for the graph filters, the local graph walk (`localNodes`, through visible nodes only) and colour groups. Filter state lives in refs read by the draw loop, so filtering does not rebuild the simulation.
+- `src/shared/graph-layout.ts`: the force layout. Repulsion is the exact pairwise sum up to 1000 visible nodes and Barnes–Hut above (measured with `npm run bench:graph`). Graph mode, depth, colouring and saved views are vault settings.
 - `src/shared/tasks.ts`: `parseTasks` and `toggleTaskLine(content, line, expectedRaw)`, which refuses when the line changed. Toggles go through `model.edit` and the normal autosave conflict check.
 - `src/shared/attachments.ts`: report from the in-memory index only; no disk access, no deletion.
 - `src/shared/start.ts`: start page lists. Pins and dismissed suggestions are stored in `workspace.json`, follow renames and drop deleted notes.
-- Export: the renderer renders the note (`src/renderer/export.ts`); `src/main/export.ts` inlines `synapse-file:` images through `Vault.resolve`, wraps the page with a strict CSP, saves through the native dialog, and prints PDFs in a hidden window with JavaScript off.
+- Export: the renderer renders the note (`src/renderer/export.ts`); `src/main/export.ts` inlines `synapse-file:` images of its own vault through `Vault.resolve`, wraps the page with a strict CSP, saves through the native dialog, and prints PDFs in a hidden window with JavaScript off. *Export vault* renders every note with internal links rewritten to relative `.html` paths (`relativeHref`) and heading ids; main checks each page path (`validPagePath`) and writes them into a new folder, never over an existing one.
+- Update: `src/main/updater.ts` downloads the release zip found at launch, checks its ed25519 signature against the key in `src/shared/update.ts`, unpacks it, checks bundle id and version, and a detached shell swaps the app after Synapse quits. The private key never enters the repo (`scripts/sign-update.mjs`).
 - Import: `src/main/migrate.ts` `inspectFolder` reads a picked folder (no writes, no symlinks) before it becomes a vault.
 - `fs:openFile` opens PDFs only, so a click can never launch an executable in a vault.
+- PDF tabs show the file in an `<iframe>` with Chromium's viewer (`plugins: true`). Frames may only stay on `synapse-file:` and the viewer: `will-frame-navigate` sends any other navigation to the browser, and a `webRequest` filter cancels web pages requested as frames in case that check is ever bypassed. The CSP allows web URLs in `frame-src` only so that a clicked link reaches those checks instead of blanking the tab.
 
 ## Rename / move
 
@@ -69,9 +73,9 @@ The renderer computes the old→new map (a whole folder when needed), flushes bu
 
 ## Deliberate differences from the reference
 
-- One window that switches vaults in place, instead of one window per vault.
+- A window can switch vaults in place, and other vaults open in their own windows; the same vault is never open in two windows.
 - Preferences are global with per-vault overrides. In the reference they are only per-vault.
 - Live Preview is implemented as CodeMirror decorations (`src/renderer/live-preview.ts`). The file text is never altered by rendering. Tables outside the cursor are block widgets whose cell edits are written back as normal, undoable transactions. Math (`$…$`, `$$…$$`) is rendered with KaTeX by `src/renderer/math.ts`, shared by Live Preview and the reading view.
-- A flat split layout (up to 4 panes in one direction) instead of an arbitrary split tree.
+- Splits form a tree (`src/shared/layout.ts`, up to 8 panes) saved in `workspace.json` as `layout`, with leaves pointing at saved panes by index. Files from earlier versions (`direction` + `paneSizes`) and layouts that do not place every pane exactly once open as a single row. Panes are rendered as one flat list placed from the tree, so changing the layout never remounts an editor.
 - Rename uses a dialog. The inline title also renames the file.
 - No community plugin API.

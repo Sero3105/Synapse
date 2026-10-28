@@ -15,6 +15,7 @@ All tokens live at the top of `src/renderer/styles.css`. Components reference to
 | No decorative gradients, glow or glass | Focus is a thin accent line plus a soft halo; nothing else glows. |
 | One accent | `--signal` for marks and text, `--cta` (accent darkened) for filled buttons and switches so white text stays at least 4.5:1. |
 | No cards in lists | Result lists (search, tasks, backlinks, related, reports) show the note title aligned with the section header and details as quiet text on a guide line; a surface appears only on hover. |
+| One dropdown | Every choice list is `Select.tsx`: a field that opens the app's own menu (tick on the current choice, arrow keys), never the native macOS pop-up. A quiet text variant serves secondary choices (sort order, setting scope). |
 | Two typefaces | SF Pro for the interface, New York for notes. Monospace only for code and syntax examples. |
 
 ## Colour roles
