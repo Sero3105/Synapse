@@ -5,6 +5,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type { Vault } from './vault'
+
+type Open = { id: string; vault: Vault }
 import { VaultError } from './vault'
 import { atomicWrite } from './store'
 
@@ -17,13 +19,14 @@ const MIME: Record<string, string> = {
   svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif',
 }
 
-/** Replace `synapse-file://vault/…` image sources with data: URIs. Anything unreadable or outside the vault is dropped. */
-export function inlineImages(html: string, vault: Pick<Vault, 'resolve'>): string {
+/** Replace `synapse-file://<vault id>/…` image sources with data: URIs. Anything unreadable, outside the vault or from another vault is dropped. */
+export function inlineImages(html: string, open: { id: string; vault: Pick<Vault, 'resolve'> }): string {
+  const vault = open.vault
   const cache = new Map<string, string>()
   let total = 0
   // only inside <img> tags: in text nodes "<" is escaped, so note prose can never match
-  return html.replace(/(<img\b[^>]*?\s)src="synapse-file:\/\/vault\/([^"]*)"/g, (_, tag: string, enc: string) => {
-    let src = cache.get(enc)
+  return html.replace(/(<img\b[^>]*?\s)src="synapse-file:\/\/([a-z0-9]+)\/([^"]*)"/g, (_, tag: string, host: string, enc: string) => {
+    let src = host === open.id ? cache.get(enc) : ''
     if (src === undefined) {
       src = ''
       try {
@@ -68,6 +71,9 @@ mark { background: ${dark ? '#6b5a1e' : '#fbeaa0'}; color: inherit; }
 .mermaid { text-align: center; margin: 1em 0; }
 .mermaid-error { color: var(--ink-2); font-size: 0.8em; }
 .katex-html { display: none; }
+.export-nav { font: 13px/1.4 -apple-system, system-ui, sans-serif; margin-bottom: 2em; }
+.export-nav a { color: var(--ink-2); text-decoration: none; }
+.export-index { padding-left: 1.2em; }
 .hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type { color: ${dark ? '#c792ea' : '#8e3fa8'}; }
 .hljs-string, .hljs-regexp, .hljs-attr, .hljs-symbol { color: ${dark ? '#a5d6a7' : '#2e7d32'}; }
 .hljs-number, .hljs-literal { color: ${dark ? '#f2b880' : '#a1520b'}; }
@@ -115,11 +121,11 @@ async function toPdf(html: string): Promise<Buffer> {
 }
 
 /** Returns the saved file path, or null when the user cancelled. */
-export async function saveExport(win: BrowserWindow, vault: Vault, kind: unknown, title: unknown, body: unknown, dark: unknown): Promise<string | null> {
+export async function saveExport(win: BrowserWindow, open: Open, kind: unknown, title: unknown, body: unknown, dark: unknown): Promise<string | null> {
   if (kind !== 'html' && kind !== 'pdf') throw new VaultError('EINVAL', 'Unknown export format')
   if (typeof title !== 'string' || typeof body !== 'string' || body.length > MAX_HTML) throw new VaultError('EINVAL', 'Invalid export')
   const name = title.replace(/[\\/:*?"<>|\0]/g, '-').trim().slice(0, 120) || 'Note'
-  const html = exportDocument(name, inlineImages(body, vault), dark === true)
+  const html = exportDocument(name, inlineImages(body, open), dark === true)
   const r = await dialog.showSaveDialog(win, {
     defaultPath: path.join(app.getPath('documents'), `${name}.${kind}`),
     filters: [kind === 'html' ? { name: 'HTML', extensions: ['html'] } : { name: 'PDF', extensions: ['pdf'] }],
@@ -138,4 +144,37 @@ export async function saveExport(win: BrowserWindow, vault: Vault, kind: unknown
     }
   }
   return r.filePath
+}
+
+const MAX_PAGES = 50_000
+
+/** A page path the renderer may ask for: relative, forward slashes, no "." or ".." parts, ending in .html. */
+export function validPagePath(p: unknown): p is string {
+  return typeof p === 'string' && p.length <= 1024 && p.endsWith('.html') && !p.includes('\\') && !p.includes('\0') && p.split('/').every((s) => s !== '' && s !== '.' && s !== '..')
+}
+
+/** Write a static site of the vault into a new folder inside `parent`. Returns that folder. Never overwrites anything. */
+export function writeSite(parent: string, open: { id: string; vault: Pick<Vault, 'resolve'> }, name: string, pages: { path: string; title: string; body: string }[], dark: boolean): string {
+  const base = `${name.replace(/[\\/:*?"<>|\0]/g, '-').trim().slice(0, 100) || 'Vault'} (HTML)`
+  let out = path.join(parent, base)
+  for (let i = 2; fs.existsSync(out); i++) out = path.join(parent, `${base} ${i}`)
+  fs.mkdirSync(out)
+  for (const p of pages) {
+    const file = path.join(out, p.path)
+    if (!file.startsWith(out + path.sep)) throw new VaultError('EINVAL', 'Invalid export')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, exportDocument(p.title, inlineImages(p.body, open), dark), { flag: 'wx' })
+  }
+  return out
+}
+
+/** Asks for a destination folder; returns the created site folder, or null when the user cancelled. */
+export async function saveVaultExport(win: BrowserWindow, open: Open, name: unknown, pages: unknown, dark: unknown): Promise<string | null> {
+  if (typeof name !== 'string' || !Array.isArray(pages) || pages.length > MAX_PAGES) throw new VaultError('EINVAL', 'Invalid export')
+  for (const p of pages) {
+    if (!p || !validPagePath(p.path) || typeof p.title !== 'string' || typeof p.body !== 'string' || p.body.length > MAX_HTML) throw new VaultError('EINVAL', 'Invalid export')
+  }
+  const r = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'], defaultPath: app.getPath('documents') })
+  if (r.canceled || !r.filePaths[0]) return null
+  return writeSite(r.filePaths[0], open, name, pages, dark === true)
 }

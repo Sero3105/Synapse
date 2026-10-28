@@ -123,3 +123,58 @@ test('a new folder is previewed read-only before it becomes a vault', async () =
   await expect.poll(() => win.evaluate(() => (window as any).__synapse.state.snap.vault?.name)).toBe('Imported')
   await app.close()
 })
+
+test('export the whole vault as a small site: one page per note, links between pages, an index', async () => {
+  env = makeEnv({
+    'Home.md': '# Home\n\nSee [[Deep]], [[Deep#Final Part|the end]], [[Missing]] and [md](sub/inner/Deep.md).\n\n![[pic 1.png]]\n',
+    'sub/inner/Deep.md': '# Deep\n\nBack to [[Home]].\n\n## Final Part\n\nEnd. #tag\n',
+    'pic 1.png': PNG,
+  })
+  const { app, win } = await launch(env)
+  const out = path.join(env.tmp, 'out')
+  fs.mkdirSync(out)
+  const answer = (dir: string | null) => app.evaluate(({ dialog }, d) => { dialog.showOpenDialog = (async () => ({ canceled: !d, filePaths: d ? [d] : [] })) as never }, dir)
+
+  await answer(null)
+  await palette(win, 'export vault to html')
+  await win.waitForTimeout(500)
+  expect(fs.readdirSync(out)).toEqual([]) // cancelled: nothing written
+
+  await answer(out)
+  await palette(win, 'export vault to html')
+  const site = path.join(out, 'Vault (HTML)')
+  await expect.poll(() => fs.existsSync(path.join(site, 'index.html'))).toBe(true)
+  const home = fs.readFileSync(path.join(site, 'Home.html'), 'utf8')
+  expect(home).toContain('href="sub/inner/Deep.html"')
+  expect(home).toContain('href="sub/inner/Deep.html#final-part"')
+  expect(home).toMatch(/<a class="internal-link is-unresolved"[^>]*>Missing<\/a>/) // no page to go to: text only
+  expect(home).not.toMatch(/<a class="internal-link is-unresolved"[^>]*[^-]href=/)
+  expect(home).toContain('src="data:image/png;base64,')
+  expect(home).toContain('<nav class="export-nav"><a href="index.html">Vault</a></nav>')
+  const deep = fs.readFileSync(path.join(site, 'sub', 'inner', 'Deep.html'), 'utf8')
+  expect(deep).toContain('href="../../Home.html"')
+  expect(deep).toContain('id="final-part"')
+  expect(deep).toContain('href="../../index.html"')
+  const index = fs.readFileSync(path.join(site, 'index.html'), 'utf8')
+  expect(index).toContain('href="Home.html"')
+  expect(index).toContain('href="sub/inner/Deep.html"')
+  // the vault itself is untouched
+  expect(fs.readdirSync(env.vault).sort()).toEqual(['.synapse', 'Home.md', 'pic 1.png', 'sub'])
+
+  // the site works offline in a browser: following a link opens the other page at the heading
+  const page = await app.evaluate(async ({ BrowserWindow }, file) => {
+    const w = new BrowserWindow({ show: false })
+    await w.loadFile(file)
+    await w.webContents.executeJavaScript(`document.querySelector('a[href="sub/inner/Deep.html#final-part"]').click()`)
+    await new Promise((r) => setTimeout(r, 500))
+    const url = w.webContents.getURL()
+    w.destroy()
+    return { url }
+  }, path.join(site, 'Home.html'))
+  expect(page.url).toMatch(/sub\/inner\/Deep\.html#final-part$/)
+
+  // a second export goes to a new folder, the first one stays as it was
+  await palette(win, 'export vault to html')
+  await expect.poll(() => fs.existsSync(path.join(out, 'Vault (HTML) 2', 'index.html'))).toBe(true)
+  await app.close()
+})

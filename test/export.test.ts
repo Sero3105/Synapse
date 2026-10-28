@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import MarkdownIt from 'markdown-it'
-import { inlineImages, exportDocument } from '../src/main/export'
+import { inlineImages, exportDocument, writeSite, validPagePath } from '../src/main/export'
 import { Vault } from '../src/main/vault'
 
 let tmp: string
@@ -31,7 +31,7 @@ describe('export', () => {
     fs.writeFileSync(path.join(root, 'notes.txt'), 'text')
     fs.writeFileSync(path.join(tmp, 'secret.png'), 'SECRET')
     fs.symlinkSync(tmp, path.join(root, 'link'))
-    const vault = new Vault(root, async () => {})
+    const vault = { id: 'vault', vault: new Vault(root, async () => {}) }
     const html = [url('img/caffè 1.png'), url('../secret.png'), url('link/secret.png'), url('notes.txt'), url('missing.png')].map((s) => `<img src="${s}">`).join('')
     const out = inlineImages(html, vault)
     expect(out).toContain(`src="data:image/png;base64,${Buffer.from('PNGDATA').toString('base64')}"`)
@@ -46,12 +46,33 @@ describe('export', () => {
     fs.mkdirSync(root)
     fs.writeFileSync(path.join(root, 'a.png'), 'PNGDATA')
     execFileSync('mkfifo', [path.join(root, 'pipe.png')]) // reading it would block forever
-    const vault = new Vault(root, async () => {})
+    const vault = { id: 'vault', vault: new Vault(root, async () => {}) }
     // what markdown-it produces for prose that merely mentions an image source
     const prose = `<p>write src=&quot;${url('a.png')}&quot; or src="${url('a.png')}" in HTML</p>`
     expect(inlineImages(prose, vault)).toBe(prose)
     expect(inlineImages(`<img alt="p" src="${url('pipe.png')}">`, vault)).toBe('<img alt="p" src="">')
     const twice = inlineImages(`<img src="${url('a.png')}"><img src="${url('a.png')}">`, vault)
     expect(twice.match(/data:image\/png/g)).toHaveLength(2)
+    // an image of another window's vault is never read from this one
+    expect(inlineImages(`<img src="synapse-file://othervault01/a.png">`, vault)).toBe('<img src="">')
+  })
+
+  it('accepts only page paths that stay inside the export folder', () => {
+    for (const ok of ['A.html', 'sub/dir/B c.html']) expect(validPagePath(ok)).toBe(true)
+    for (const bad of ['../x.html', 'a/../../x.html', '/etc/x.html', 'a//b.html', './a.html', 'a\\b.html', 'a.md', 'a.html\0', 42]) expect(validPagePath(bad)).toBe(false)
+  })
+
+  it('writes the site into a new folder and never overwrites an earlier export', () => {
+    tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'synapse-export-')))
+    fs.mkdirSync(path.join(tmp, 'vault'))
+    const vault = { id: 'vault', vault: new Vault(path.join(tmp, 'vault'), async () => {}) }
+    const pages = [{ path: 'index.html', title: 'V', body: '<a href="sub/A.html">A</a>' }, { path: 'sub/A.html', title: 'A', body: '<p>a</p>' }]
+    const first = writeSite(tmp, vault, 'My: Vault', pages, false)
+    expect(path.basename(first)).toBe('My- Vault (HTML)')
+    expect(fs.readFileSync(path.join(first, 'sub', 'A.html'), 'utf8')).toContain('<p>a</p>')
+    const second = writeSite(tmp, vault, 'My: Vault', pages, false)
+    expect(path.basename(second)).toBe('My- Vault (HTML) 2')
+    expect(() => writeSite(tmp, vault, 'x', [{ path: '../evil.html', title: '', body: '' }], false)).toThrow()
+    expect(fs.existsSync(path.join(tmp, 'evil.html'))).toBe(false)
   })
 })
