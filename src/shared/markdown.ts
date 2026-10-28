@@ -16,7 +16,10 @@ export interface Link {
 
 export interface Heading { level: number; text: string; line: number }
 
-export interface NoteMeta { links: Link[]; tags: string[]; headings: Heading[] }
+/** A `^id` written at the end of a block, linkable as `[[Note^id]]` (Obsidian convention). */
+export interface BlockRef { id: string; line: number }
+
+export interface NoteMeta { links: Link[]; tags: string[]; headings: Heading[]; blocks: BlockRef[] }
 
 /** Ranges inside fenced/inline code where links and tags are not parsed. */
 function codeRanges(text: string): [number, number][] {
@@ -73,7 +76,13 @@ export function parseNote(text: string): NoteMeta {
   while ((m = wiki.exec(text))) {
     if (inRanges(code, m.index) || m.index < fmEnd) continue
     const [raw, alias = ''] = splitOnce(m[2], '|')
-    const [target, subpath = ''] = splitOnce(raw, '#')
+    let [target, subpath = ''] = splitOnce(raw, '#')
+    // [[Note^id]] is the same block link as [[Note#^id]]; keep one form inside
+    if (!subpath && target.includes('^')) {
+      const [t, id = ''] = splitOnce(target, '^')
+      target = t
+      subpath = `^${id}`
+    }
     links.push({ target: target.trim(), subpath, alias, embed: m[1] === '!', kind: 'wiki', start: m.index, end: m.index + m[0].length, line: lineAt(text, m.index, lineStarts) })
   }
 
@@ -107,7 +116,14 @@ export function parseNote(text: string): NoteMeta {
     headings.push({ level: m[1].length, text: m[2], line: lineAt(text, m.index, lineStarts) })
   }
 
-  return { links, tags: [...tags], headings }
+  const blocks: BlockRef[] = []
+  const bRe = /[ \t]\^([A-Za-z0-9_-]+)[ \t]*$/gm
+  while ((m = bRe.exec(text))) {
+    if (inRanges(code, m.index) || m.index < fmEnd) continue
+    blocks.push({ id: m[1], line: lineAt(text, m.index, lineStarts) })
+  }
+
+  return { links, tags: [...tags], headings, blocks }
 }
 
 function splitOnce(s: string, sep: string): [string, string?] {
@@ -174,6 +190,21 @@ export function resolveLink(target: string, sourcePath: string, lookup: Map<stri
   return near[0] ?? suffix[0] ?? null
 }
 
+/** Heading text as written after `#` in a link: characters that would break the link become spaces. */
+export const headingRef = (text: string) => text.replace(/[#|[\]^]/g, ' ').replace(/\s+/g, ' ').trim()
+
+/** Anchor id a heading gets in an exported page, and that links to `Note#Heading` point at. */
+export const headingId = (text: string) => headingRef(text).toLowerCase().replace(/ /g, '-')
+
+/** URL from the file `from` to the file `to`, both vault-relative ("a/b.html"), for a static site. */
+export function relativeHref(from: string, to: string): string {
+  const a = from.split('/').slice(0, -1)
+  const b = to.split('/')
+  let i = 0
+  while (i < a.length && i < b.length - 1 && a[i] === b[i]) i++
+  return [...a.slice(i).map(() => '..'), ...b.slice(i)].map(encodeURIComponent).join('/')
+}
+
 /** Shortest link text that uniquely resolves to `path` (reference default "shortest"). */
 export function shortestLinkText(path: string, lookup: Map<string, string[]>): string {
   const same = lookup.get(basename(path).toLowerCase()) ?? []
@@ -181,7 +212,29 @@ export function shortestLinkText(path: string, lookup: Map<string, string[]>): s
   return same.length <= 1 ? basename(p) : p
 }
 
+/**
+ * Wrap the first plain-text mention of `title` on `line` in a wiki link to `linkText`,
+ * keeping the text as written as the alias when it differs. Null when the line changed
+ * since the mention was found (`expectedRaw`) or holds no plain mention.
+ */
+export function linkMentionLine(content: string, line: number, expectedRaw: string, title: string, linkText: string): string | null {
+  const lines = content.split('\n')
+  if (lines[line] !== expectedRaw || title.length < 2) return null
+  const spans = [...expectedRaw.matchAll(/\[\[[^\]]*\]\]|\[[^\]]*\]\([^)]*\)/g)].map((m) => [m.index, m.index + m[0].length] as const)
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(title)}(?![\\p{L}\\p{N}])`, 'giu')
+  for (const m of expectedRaw.matchAll(re)) {
+    if (spans.some(([a, b]) => m.index >= a && m.index < b)) continue
+    const written = m[0]
+    const insert = written === linkText ? `[[${written}]]` : `[[${linkText}|${written}]]`
+    lines[line] = expectedRaw.slice(0, m.index) + insert + expectedRaw.slice(m.index + written.length)
+    return lines.join('\n')
+  }
+  return null
+}
+
 // ---------- index ----------
+
+export interface TagNode { name: string; tag: string; count: number; children: TagNode[] }
 
 export interface IndexedNote { path: string; content: string; meta: NoteMeta; terms?: Map<string, number> }
 
@@ -279,17 +332,40 @@ export class NoteIndex {
     return out
   }
 
-  tags(): Map<string, number> {
-    const counts = new Map<string, number>()
-    const display = new Map<string, string>()
+  /** Tags as a tree split on "/": each node counts the notes with that tag or any tag below it. */
+  tagTree(): TagNode[] {
+    const root: TagNode[] = []
+    const nodes = new Map<string, TagNode>()
     for (const n of this.notes.values()) {
+      const seen = new Set<string>()
       for (const t of n.meta.tags) {
-        const k = t.toLowerCase()
-        display.set(k, display.get(k) ?? t)
-        counts.set(k, (counts.get(k) ?? 0) + 1)
+        const parts = t.slice(1).split('/').filter(Boolean)
+        let level = root
+        let parent = ''
+        for (let i = 0; i < parts.length; i++) {
+          const k = '#' + parts.slice(0, i + 1).join('/').toLowerCase()
+          let node = nodes.get(k)
+          if (!node) {
+            // spelled like the first note that used it; the parent keeps its own spelling
+            node = { name: parts[i], tag: parent ? `${parent}/${parts[i]}` : `#${parts[i]}`, count: 0, children: [] }
+            nodes.set(k, node)
+            level.push(node)
+          }
+          if (!seen.has(k)) {
+            seen.add(k)
+            node.count++
+          }
+          level = node.children
+          parent = node.tag
+        }
       }
     }
-    return new Map([...counts].map(([k, c]) => [display.get(k)!, c]))
+    const sort = (l: TagNode[]) => {
+      l.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      l.forEach((x) => sort(x.children))
+    }
+    sort(root)
+    return root
   }
 
   /** Unique resolved edges (source -> target) plus unresolved targets. */
@@ -391,9 +467,11 @@ export function searchNotes(notes: IndexedNote[], query: string, limit = 200): S
 }
 
 /** Subsequence fuzzy score (higher is better), or -1 if no match. */
+const plain = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+
 export function fuzzyScore(query: string, text: string): number {
-  const q = query.toLowerCase()
-  const t = text.toLowerCase()
+  const q = plain(query)
+  const t = plain(text)
   if (!q) return 0
   let score = 0
   let ti = 0
