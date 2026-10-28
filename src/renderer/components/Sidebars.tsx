@@ -1,11 +1,13 @@
-import { useMemo, useState, useRef, useEffect } from 'react'
+import { Fragment, useMemo, useState, useRef, useEffect } from 'react'
 import { Search, Hash, ListChecks, Folder, FolderOpen, FolderTree, Waypoints, FilePlus, FolderPlus, ChevronsDownUp, ChevronRight, ChevronsUpDown, FileText, Image as ImageIcon, File as FileIcon, X, Settings } from 'lucide-react'
 import { model, useModel, isMd, IMAGE_EXT } from '../model'
 import { api, FileEntry } from '../api'
-import { noteTitle, basename, Link, wordCount, SEARCH_SYNTAX } from '../../shared/markdown'
+import { noteTitle, basename, Link, wordCount, SEARCH_SYNTAX, linkMentionLine, shortestLinkText, type TagNode } from '../../shared/markdown'
 import { runCommand, hotkeysFor, formatHotkey } from '../commands'
+import { sortEntries, type FileSort } from '../../shared/file-sort'
 import { t, tn, getLanguage } from '../../shared/i18n'
 import { RelatedNotes } from './Related'
+import { Select } from './Select'
 import { TasksPanel } from './Tasks'
 
 const ICON = { size: 15, strokeWidth: 1.75 } as const
@@ -86,6 +88,7 @@ function VaultSwitcher() {
         model.openMenu(e, [
           ...others.slice(0, 8).map((v) => ({ label: v.name, run: () => model.switchVault(() => api.openVaultId(v.id)) })),
           ...(others.length ? [{ separator: true, label: '' }] : []),
+          { label: t('nav.newWindow'), run: () => api.newWindow().catch((err) => model.error(err)) },
           { label: t('nav.manageVaults'), run: () => model.set({ modal: { kind: 'vaults' } }) },
           { label: t('nav.revealVault'), run: () => api.reveal('') },
           { separator: true, label: '' },
@@ -192,10 +195,10 @@ function searchTag(tag: string) {
 
 // ---------- file explorer ----------
 
-interface TreeNode { name: string; path: string; type: 'file' | 'folder'; children: TreeNode[] }
+interface TreeNode { name: string; path: string; type: 'file' | 'folder'; mtime: number; created: number; children: TreeNode[] }
 
-function buildTree(files: FileEntry[], filter: string): TreeNode {
-  const root: TreeNode = { name: '', path: '', type: 'folder', children: [] }
+function buildTree(files: FileEntry[], filter: string, sortMode: FileSort): TreeNode {
+  const root: TreeNode = { name: '', path: '', type: 'folder', mtime: 0, created: 0, children: [] }
   const folders = new Map<string, TreeNode>([['', root]])
   const f = filter.toLowerCase()
   const sorted = [...files].sort((a, b) => a.path.localeCompare(b.path))
@@ -203,22 +206,26 @@ function buildTree(files: FileEntry[], filter: string): TreeNode {
     let n = folders.get(path)
     if (n) return n
     const parent = ensure(path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '')
-    n = { name: basename(path), path, type: 'folder', children: [] }
+    n = { name: basename(path), path, type: 'folder', mtime: 0, created: 0, children: [] }
     parent.children.push(n)
     folders.set(path, n)
     return n
   }
   for (const e of sorted) {
     if (e.type === 'folder') {
-      if (!f) ensure(e.path)
+      if (!f) {
+        const n = ensure(e.path)
+        n.mtime = e.mtime
+        n.created = e.created
+      }
       continue
     }
     if (f && !e.path.toLowerCase().includes(f)) continue
     const dir = e.path.includes('/') ? e.path.slice(0, e.path.lastIndexOf('/')) : ''
-    ensure(dir).children.push({ name: basename(e.path), path: e.path, type: 'file', children: [] })
+    ensure(dir).children.push({ name: basename(e.path), path: e.path, type: 'file', mtime: e.mtime, created: e.created, children: [] })
   }
   const sort = (n: TreeNode) => {
-    n.children.sort((a, b) => (a.type !== b.type ? (a.type === 'folder' ? -1 : 1) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })))
+    n.children = sortEntries(n.children, sortMode)
     n.children.forEach(sort)
   }
   sort(root)
@@ -227,8 +234,9 @@ function buildTree(files: FileEntry[], filter: string): TreeNode {
 
 function FileExplorer() {
   const files = useModel((s) => s.files)
+  const fileSort = useModel((s) => s.snap!.global.layout.fileSort)
   const [filter, setFilter] = useState('')
-  const tree = useMemo(() => buildTree(files, filter), [files, filter])
+  const tree = useMemo(() => buildTree(files, filter, fileSort), [files, filter, fileSort])
   const active = useModel(() => model.activeFile)
   const [dropRoot, setDropRoot] = useState(false)
 
@@ -252,6 +260,19 @@ function FileExplorer() {
         <button className="icon-btn" aria-label={t('files.collapseAll')} title={t('files.collapseAll')} onClick={() => model.set({ expanded: {} })}>
           <ChevronsDownUp {...ICON} />
         </button>
+      </div>
+      <div className="file-sort-row">
+        <Select
+          quiet
+          label={t('files.sortLabel')}
+          value={fileSort}
+          onChange={(v) => model.setLayout({ fileSort: v })}
+          options={[
+            { value: 'name', label: t('files.sortName') },
+            { value: 'modified', label: t('files.sortModified') },
+            { value: 'created', label: t('files.sortCreated') },
+          ]}
+        />
       </div>
       <div
         className={`nav-files${dropRoot ? ' is-drop-target' : ''}`}
@@ -496,22 +517,42 @@ function SearchSyntax() {
 
 function TagsPanel() {
   const indexVersion = useModel((s) => s.indexVersion)
-  const tags = useMemo(() => [...model.index.tags()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])), [indexVersion])
+  const tags = useMemo(() => model.index.tagTree(), [indexVersion])
+  const [open, setOpen] = useState<Record<string, boolean>>({})
+  const rows = (nodes: TagNode[], depth: number): React.ReactNode =>
+    nodes.map((n) => {
+      const k = n.tag.toLowerCase()
+      const isOpen = !!open[k]
+      return (
+        <Fragment key={k}>
+          <div className="tag-row" tabIndex={0} style={{ paddingLeft: 8 + depth * 14 }} onClick={() => searchTag(n.tag)} onKeyDown={(e) => e.key === 'Enter' && searchTag(n.tag)}>
+            {n.children.length ? (
+              <button
+                className="tag-toggle"
+                aria-expanded={isOpen}
+                aria-label={n.tag}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setOpen({ ...open, [k]: !isOpen })
+                }}
+              >
+                <ChevronRight size={12} strokeWidth={2} className={`tree-chevron${isOpen ? ' is-open' : ''}`} />
+              </button>
+            ) : (
+              <span className="tree-chevron-space" />
+            )}
+            <span>{depth ? n.name : n.tag}</span>
+            <span className="count">{n.count}</span>
+          </div>
+          {isOpen && rows(n.children, depth + 1)}
+        </Fragment>
+      )
+    })
   return (
     <div className="tags-panel">
       <div className="pane-subheader">{t('tags.title')}</div>
       {!tags.length && <div className="pane-empty">{t('tags.none')}</div>}
-      {tags.map(([tag, count]) => (
-        <div
-          key={tag}
-          className="tag-row"
-          tabIndex={0}
-          onClick={() => searchTag(tag)}
-        >
-          <span>{tag}</span>
-          <span className="count">{count}</span>
-        </div>
-      ))}
+      {rows(tags, 0)}
     </div>
   )
 }
@@ -530,6 +571,17 @@ function LinkContext({ source, link }: { source: string; link: Link }) {
       {line.trim().slice(0, 240)}
     </div>
   )
+}
+
+/** Turn one unlinked mention of `target` into a wiki link, in the source note. */
+async function linkMention(target: string, u: { source: string; line: number; text: string }) {
+  await model.ensureBuffer(u.source)
+  const b = model.state.buffers[u.source]
+  if (!b) return
+  if (b.conflict) return model.notice(t('tasks.conflict'), true)
+  const next = linkMentionLine(b.content, u.line, u.text, noteTitle(target), shortestLinkText(target, model.index.lookup))
+  if (next === null) return model.notice(t('tasks.changed'), true)
+  model.edit(u.source, next) // saved by autosave, which refuses to overwrite changes made on disk
 }
 
 function BacklinksPanel() {
@@ -562,6 +614,9 @@ function BacklinksPanel() {
         <div key={i} className="search-result">
           <div className="search-result-file" onClick={() => model.open(u.source, 'tab', { line: u.line, mode: 'source' })}>
             <span>{noteTitle(u.source)}</span>
+            <button className="mention-link" onClick={(e) => (e.stopPropagation(), linkMention(path!, u).catch((err) => model.error(err)))}>
+              {t('backlinks.link')}
+            </button>
           </div>
           <div className="search-result-match" onClick={() => model.open(u.source, 'tab', { line: u.line, mode: 'source' })}>
             {u.text.trim().slice(0, 240)}
