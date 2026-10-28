@@ -1,6 +1,7 @@
 // Command registry. Default hotkeys mirror the reference app's defaults (see docs/obsidian-analysis.md).
 // Users can rebind any command; overrides are stored in GLOBAL settings.
 import { openSearchPanel } from '@codemirror/search'
+import { foldAll, unfoldAll, toggleFold } from '@codemirror/language'
 import { model, setCommandRunner } from './model'
 import { toggleWrap, toggleChecklist, insertLink, deleteLine, setHeading, toggleLinePrefix } from './editor-commands'
 import { api } from './api'
@@ -31,6 +32,7 @@ export const COMMANDS: Command[] = [
   { id: 'command-palette:open', name: 'Command palette: Open', hotkeys: ['Mod+P'], run: () => model.set({ modal: { kind: 'palette' } }) },
   { id: 'switcher:open', name: 'Quick switcher: Open', hotkeys: ['Mod+O'], when: hasVault, run: () => model.set({ modal: { kind: 'switcher' } }) },
   { id: 'app:open-settings', name: 'Open settings', hotkeys: ['Mod+,'], run: () => model.set({ modal: { kind: 'settings' } }) },
+  { id: 'app:new-window', name: 'New window', run: () => api.newWindow().catch((e) => model.error(e)) },
   { id: 'app:open-vault', name: 'Open another vault', run: () => model.set({ modal: { kind: 'vaults' } }) },
   { id: 'app:close-vault', name: 'Close vault', hotkeys: ['Mod+Shift+W'], when: hasVault, run: () => model.switchVault(() => api.closeVault()) },
   { id: 'app:go-back', name: 'Navigate back', hotkeys: ['Mod+Alt+ArrowLeft'], when: hasVault, run: () => model.goBack() },
@@ -68,11 +70,15 @@ export const COMMANDS: Command[] = [
   { id: 'outgoing-links:open', name: 'Outgoing links: Show outgoing links', when: plugin('outgoing'), run: () => model.setLayout({ rightOpen: true, rightTab: 'outgoing' }) },
   { id: 'outline:open', name: 'Outline: Show outline', when: plugin('outline'), run: () => model.setLayout({ rightOpen: true, rightTab: 'outline' }) },
   { id: 'graph:open', name: 'Graph view: Open graph view', hotkeys: ['Mod+G'], when: plugin('graph'), run: () => model.openGraph() },
+  { id: 'graph:toggle-local', name: 'Graph view: Toggle local graph', when: plugin('graph'), run: () => model.toggleLocalGraph() },
   { id: 'markdown:toggle-preview', name: 'Toggle reading view', hotkeys: ['Mod+E'], when: hasNote, run: () => model.updateTab(model.activeTab.id, { mode: model.activeTab.mode === 'source' ? 'preview' : 'source' }) },
   { id: 'editor:save-file', name: 'Save current file', hotkeys: ['Mod+S'], when: hasNote, run: () => model.activeFile && model.save(model.activeFile) },
   { id: 'editor:open-search', name: 'Search current file', hotkeys: ['Mod+F'], when: hasEditor, run: ed((v) => openSearchPanel(v)) },
   { id: 'editor:open-search-replace', name: 'Search & replace in current file', hotkeys: ['Mod+Alt+F'], when: hasEditor, run: ed((v) => openSearchPanel(v)) },
   { id: 'editor:toggle-bold', name: 'Toggle bold', hotkeys: ['Mod+B'], when: hasEditor, run: ed((v) => toggleWrap(v, '**')) },
+  { id: 'editor:toggle-fold', name: 'Toggle fold on the current line', when: hasEditor, run: ed((v) => toggleFold(v)) },
+  { id: 'editor:fold-all', name: 'Fold all headings and lists', when: hasEditor, run: ed((v) => foldAll(v)) },
+  { id: 'editor:unfold-all', name: 'Unfold all headings and lists', when: hasEditor, run: ed((v) => unfoldAll(v)) },
   { id: 'editor:toggle-italics', name: 'Toggle italics', hotkeys: ['Mod+I'], when: hasEditor, run: ed((v) => toggleWrap(v, '*')) },
   { id: 'editor:toggle-strikethrough', name: 'Toggle strikethrough', when: hasEditor, run: ed((v) => toggleWrap(v, '~~')) },
   { id: 'editor:toggle-highlight', name: 'Toggle highlight', when: hasEditor, run: ed((v) => toggleWrap(v, '==')) },
@@ -91,6 +97,7 @@ export const COMMANDS: Command[] = [
   { id: 'workspace:new-tab', name: 'New tab', hotkeys: ['Mod+T'], when: hasVault, run: () => model.newTab() },
   // Without a vault there are no tabs: Cmd+W closes the window, as macOS users expect.
   { id: 'workspace:close', name: 'Close current tab', hotkeys: ['Mod+W'], run: () => (hasVault() ? model.closeTab(model.activePane.id, model.activeTab.id) : window.close()) },
+  { id: 'workspace:toggle-pin', name: 'Toggle pin', when: hasVault, run: () => model.togglePinTab(model.activeTab.id) },
   { id: 'workspace:close-others', name: 'Close all other tabs', when: hasVault, run: () => model.closeOthers(model.activePane.id, model.activeTab.id) },
   { id: 'workspace:undo-close-pane', name: 'Undo close tab', hotkeys: ['Mod+Shift+T'], when: hasVault, run: () => model.reopenClosed() },
   { id: 'workspace:next-tab', name: 'Go to next tab', hotkeys: ['Ctrl+Tab', 'Mod+Shift+]'], when: hasVault, run: () => model.cycleTab(1) },
@@ -109,6 +116,7 @@ export const COMMANDS: Command[] = [
   { id: 'attachments:report', name: 'Attachments: Show missing and unused attachments', when: hasVault, run: () => model.set({ modal: { kind: 'attachments' } }) },
   { id: 'tasks:open', name: 'Tasks: Show tasks', when: hasVault, run: () => model.setLayout({ leftOpen: true, leftTab: 'tasks' }) },
   { id: 'export:html', name: 'Export to HTML', when: hasNote, run: () => import('./export').then((m) => m.exportNote('html')) },
+  { id: 'export:vault', name: 'Export vault to HTML', when: hasVault, run: () => import('./export').then((m) => m.exportVault()) },
   { id: 'export:pdf', name: 'Export to PDF', when: hasNote, run: () => import('./export').then((m) => m.exportNote('pdf')) },
 ]
 
