@@ -1,12 +1,14 @@
 // Central renderer state + actions. Components subscribe with useModel(selector).
 import { useSyncExternalStore } from 'react'
 import type { EditorView } from '@codemirror/view'
-import { api, ApiError, Snapshot, FileEntry } from './api'
+import { api, ApiError, Snapshot, FileEntry, setFileHost } from './api'
 import type { UpdateInfo } from '../shared/update'
-import { NoteIndex, rewriteLinks, buildLookup, uniqueName, INVALID_NAME, basename, noteTitle } from '../shared/markdown'
-import { isObj, Prefs, Layout, GraphSettings } from '../shared/settings'
+import { NoteIndex, rewriteLinks, buildLookup, uniqueName, INVALID_NAME, basename, noteTitle, headingRef } from '../shared/markdown'
+import { isObj, Prefs, Layout, GraphSettings, SavedGraphView } from '../shared/settings'
+import { LayoutNode, MAX_PANES, splitLeaf, removeLeaf, setSizes, leaves, toSaved, fromSaved } from '../shared/layout'
 import { t, tn, Key, type LanguagePref } from '../shared/i18n'
 import { TEMPLATE_FOLDER, DAILY_TEMPLATE, BUILTIN_TEMPLATES, isoDate, fillTemplate, dailyNotePath, adjacentDaily, dailyDate } from '../shared/templates'
+import { merge3, assembleMerge, type MergePart } from '../shared/merge'
 
 export type ViewMode = 'source' | 'preview'
 export interface Tab {
@@ -19,9 +21,12 @@ export interface Tab {
   /** restored on open */
   cursor?: number
   scroll?: number
+  /** kept at the left, shrunk to its icon, skipped by "close others" */
+  pinned?: boolean
 }
 export interface Pane { id: string; tabs: Tab[]; active: string }
-export interface Workspace { panes: Pane[]; activePane: string; direction: 'row' | 'column'; paneSizes: number[] }
+/** `layout` places the panes; `panes` holds them in creation order. */
+export interface Workspace { panes: Pane[]; activePane: string; layout: LayoutNode }
 
 export interface Buffer {
   content: string
@@ -40,13 +45,15 @@ export type Modal =
   | { kind: 'history'; path: string }
   | { kind: 'attachments' }
   | { kind: 'import'; folder: string }
+  | { kind: 'merge'; path: string; parts: MergePart[]; mine: string; theirs: string }
   | { kind: 'prompt'; title: string; value: string; placeholder?: string; okText?: string; resolve: (v: string | null) => void }
   | { kind: 'confirm'; title: string; message: string; okText: string; danger?: boolean; resolve: (ok: boolean) => void }
 
 /** A built-in template (`id`) or a note in the Templates folder (`path`). */
 export interface Template { name: string; id?: (typeof BUILTIN_TEMPLATES)[number]; path?: string }
 
-export interface MenuItem { label: string; run?: () => void; danger?: boolean; separator?: boolean; disabled?: boolean }
+/** `checked` makes the item one choice of a dropdown (a tick marks the current one). */
+export interface MenuItem { label: string; run?: () => void; danger?: boolean; separator?: boolean; disabled?: boolean; checked?: boolean }
 
 export interface State {
   snap: Snapshot | null
@@ -56,7 +63,7 @@ export interface State {
   buffers: Record<string, Buffer>
   ws: Workspace
   modal: Modal | null
-  menu: { x: number; y: number; items: MenuItem[] } | null
+  menu: { x: number; y: number; items: MenuItem[]; minWidth?: number } | null
   notices: { id: number; text: string; error?: boolean }[]
   /** a newer release found on GitHub at launch; null once dismissed */
   update: UpdateInfo | null
@@ -82,11 +89,13 @@ const emptyTab = (): Tab => ({ id: newId(), kind: 'empty', mode: 'source', back:
 const defaultWs = (): Workspace => {
   const t = emptyTab()
   const p = { id: newId(), tabs: [t], active: t.id }
-  return { panes: [p], activePane: p.id, direction: 'row', paneSizes: [1] }
+  return { panes: [p], activePane: p.id, layout: p.id }
 }
 
 export const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i
 export const isMd = (p: string) => /\.md$/i.test(p)
+/** Window width (px) under which the side docks float over the note; matches the CSS media query. */
+export const NARROW = 720
 const dirOf = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '')
 
 class Model {
@@ -137,6 +146,11 @@ class Model {
 
   // ---------- boot ----------
   async init() {
+    // shrinking the window under NARROW with both docks open would hide the note behind them
+    window.addEventListener('resize', () => {
+      const l = this.state.snap?.global.layout
+      if (window.innerWidth <= NARROW && l?.leftOpen && l.rightOpen) this.setLayout({ rightOpen: false })
+    })
     api.on('state', (s) => this.onSnapshot(s as Snapshot))
     api.on('fs:changed', (paths) => this.onFsChanged(paths as string[]))
     api.on('command', (id) => runCommandById(String(id)))
@@ -151,6 +165,7 @@ class Model {
     if (!changedVault) return
     if (this.vaultId) await this.flushAll()
     this.vaultId = s.vault?.id ?? null
+    if (s.vault) setFileHost(s.vault.id)
     if (!s.vault) {
       this.set({ files: [], buffers: {}, ws: defaultWs(), loading: false, recent: [], pinned: [], dismissedRelated: [], cursor: null })
       return
@@ -188,7 +203,9 @@ class Model {
     const fallback = { ws: defaultWs(), expanded: {}, recent, pinned, dismissedRelated }
     if (!isObj(raw) || !Array.isArray(raw.panes)) return fallback
     const panes: Pane[] = []
-    for (const p of raw.panes.slice(0, 8)) {
+    const ids: (string | undefined)[] = [] // saved pane index -> restored pane id
+    for (const p of raw.panes.slice(0, MAX_PANES)) {
+      ids.push(undefined)
       if (!isObj(p) || !Array.isArray(p.tabs)) continue
       const tabs: Tab[] = []
       for (const t of p.tabs.slice(0, 50)) {
@@ -206,18 +223,22 @@ class Model {
           fwd: strs(t.fwd),
           cursor: typeof t.cursor === 'number' ? t.cursor : undefined,
           scroll: typeof t.scroll === 'number' ? t.scroll : undefined,
+          pinned: t.pinned === true || undefined,
         })
       }
       if (!tabs.length) tabs.push(emptyTab())
       const activeIdx = typeof p.activeIndex === 'number' ? Math.min(Math.max(0, p.activeIndex), tabs.length - 1) : 0
       panes.push({ id: newId(), tabs, active: tabs[activeIdx].id })
+      ids[ids.length - 1] = panes[panes.length - 1].id
     }
     if (!panes.length) return fallback
     const ai = typeof raw.activePaneIndex === 'number' ? Math.min(Math.max(0, raw.activePaneIndex), panes.length - 1) : 0
+    // older files (and any layout that does not add up) put the panes in one row or column
     const sizes = Array.isArray(raw.paneSizes) && raw.paneSizes.length === panes.length && raw.paneSizes.every((n) => typeof n === 'number' && n > 0) ? (raw.paneSizes as number[]) : panes.map(() => 1)
+    const layout = fromSaved(raw.layout, ids) ?? (panes.length === 1 ? panes[0].id : { dir: raw.direction === 'column' ? ('column' as const) : ('row' as const), children: panes.map((p) => p.id), sizes })
     const expanded: Record<string, boolean> = {}
     if (isObj(raw.expanded)) for (const [k, v] of Object.entries(raw.expanded)) if (v === true && existing.has(k)) expanded[k] = true
-    return { ws: { panes, activePane: panes[ai].id, direction: raw.direction === 'column' ? 'column' : 'row', paneSizes: sizes }, expanded, recent, pinned, dismissedRelated }
+    return { ws: { panes, activePane: panes[ai].id, layout }, expanded, recent, pinned, dismissedRelated }
   }
 
   private persistWorkspace() {
@@ -229,12 +250,11 @@ class Model {
     if (!this.vaultId) return Promise.resolve()
     const { ws, expanded, recent, pinned, dismissedRelated } = this.state
     const data = {
-      direction: ws.direction,
-      paneSizes: ws.paneSizes,
+      layout: toSaved(ws.layout, new Map(ws.panes.map((p, i) => [p.id, i]))),
       activePaneIndex: ws.panes.findIndex((p) => p.id === ws.activePane),
       panes: ws.panes.map((p) => ({
         activeIndex: p.tabs.findIndex((t) => t.id === p.active),
-        tabs: p.tabs.map(({ kind, path, mode, back, fwd, cursor, scroll }) => ({ kind, path, mode, back, fwd, cursor, scroll })),
+        tabs: p.tabs.map(({ kind, path, mode, back, fwd, cursor, scroll, pinned }) => ({ kind, path, mode, back, fwd, cursor, scroll, pinned })),
       })),
       expanded,
       recent,
@@ -264,9 +284,9 @@ class Model {
     return new Promise((resolve) => this.set({ modal: { kind: 'confirm', title, message, okText, danger, resolve } }))
   }
 
-  openMenu(e: { clientX: number; clientY: number; preventDefault(): void }, items: MenuItem[]) {
+  openMenu(e: { clientX: number; clientY: number; preventDefault(): void }, items: MenuItem[], minWidth?: number) {
     e.preventDefault()
-    this.set({ menu: { x: e.clientX, y: e.clientY, items } })
+    this.set({ menu: { x: e.clientX, y: e.clientY, items, minWidth } })
   }
 
   // ---------- settings ----------
@@ -278,7 +298,7 @@ class Model {
     }
   }
 
-  async setVault(patch: { overrides?: Record<string, unknown>; graph?: Partial<GraphSettings>; attachmentFolder?: string }) {
+  async setVault(patch: { overrides?: Record<string, unknown>; graph?: Partial<GraphSettings>; graphViews?: SavedGraphView[]; graphColors?: Record<string, string>; attachmentFolder?: string }) {
     try {
       await api.updateVault(patch)
     } catch (e) {
@@ -288,6 +308,11 @@ class Model {
 
   /** Layout changes (sidebar sizes etc.) are applied locally at once and persisted globally. */
   setLayout(patch: Partial<Layout>) {
+    // below NARROW both docks float over the note: opening one closes the other, or the note disappears
+    if (window.innerWidth <= NARROW) {
+      if (patch.leftOpen && patch.rightOpen === undefined) patch = { ...patch, rightOpen: false }
+      else if (patch.rightOpen && patch.leftOpen === undefined) patch = { ...patch, leftOpen: false }
+    }
     const snap = this.state.snap!
     this.set({ snap: { ...snap, global: { ...snap.global, layout: { ...snap.global.layout, ...patch } } } })
     this.setGlobal({ layout: patch })
@@ -315,6 +340,9 @@ class Model {
   }
 
   private setWs(ws: Workspace) {
+    // pinned tabs always lead their pane, whatever opened or moved a tab
+    const order = (p: Pane) => (p.tabs.some((t, i) => t.pinned && i > 0 && !p.tabs[i - 1].pinned) ? { ...p, tabs: [...p.tabs].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned)) } : p)
+    ws = { ...ws, panes: ws.panes.map(order) }
     this.set({ ws })
     this.persistWorkspace()
   }
@@ -373,13 +401,7 @@ class Model {
     this.closedTabs.push({ paneId, tab })
     this.editors.delete(tabId)
     const tabs = pane.tabs.filter((t) => t.id !== tabId)
-    if (!tabs.length && ws.panes.length > 1) {
-      const i = ws.panes.indexOf(pane)
-      const panes = ws.panes.filter((p) => p !== pane)
-      const paneSizes = ws.paneSizes.filter((_, j) => j !== i)
-      this.setWs({ ...ws, panes, paneSizes, activePane: panes[Math.max(0, i - 1)].id })
-      return
-    }
+    if (!tabs.length && ws.panes.length > 1) return this.closePane(paneId)
     if (!tabs.length) tabs.push(emptyTab())
     const active = pane.active === tabId ? tabs[Math.min(idx, tabs.length - 1)].id : pane.active
     this.setWs({ ...ws, panes: ws.panes.map((p) => (p.id === paneId ? { ...p, tabs, active } : p)) })
@@ -389,7 +411,11 @@ class Model {
 
   closeOthers(paneId: string, tabId: string) {
     const pane = this.state.ws.panes.find((p) => p.id === paneId)
-    for (const t of pane?.tabs ?? []) if (t.id !== tabId) this.closeTab(paneId, t.id)
+    for (const t of pane?.tabs ?? []) if (t.id !== tabId && !t.pinned) this.closeTab(paneId, t.id)
+  }
+
+  togglePinTab(tabId: string) {
+    this.mapTabs((t) => (t.id === tabId ? { ...t, pinned: !t.pinned || undefined } : t))
   }
 
   reopenClosed(): void {
@@ -414,23 +440,32 @@ class Model {
     if (t) this.selectTab(p.id, t.id)
   }
 
+  /** Remove an emptied pane; focus moves to the pane before it on screen. */
+  private closePane(paneId: string) {
+    const ws = this.state.ws
+    const order = leaves(ws.layout)
+    const layout = removeLeaf(ws.layout, paneId)
+    if (!layout) return
+    const panes = ws.panes.filter((p) => p.id !== paneId)
+    const i = order.indexOf(paneId)
+    const activePane = ws.activePane !== paneId ? ws.activePane : order[i - 1] ?? order[i + 1]
+    this.setWs({ ...ws, panes, layout, activePane })
+  }
+
   split(direction: 'row' | 'column', path?: string) {
     const ws = this.state.ws
-    if (ws.panes.length >= 4) return this.notice(t('notice.maxPanes'))
+    if (ws.panes.length >= MAX_PANES) return this.notice(t('notice.maxPanes', { n: MAX_PANES }))
     const src = this.activeTab
     const tab: Tab = path ? { ...emptyTab(), kind: 'note', path, mode: this.prefs.defaultViewMode } : { ...src, id: newId(), back: [...src.back], fwd: [...src.fwd] }
     const pane: Pane = { id: newId(), tabs: [tab], active: tab.id }
-    const i = ws.panes.findIndex((p) => p.id === ws.activePane)
-    const panes = [...ws.panes]
-    panes.splice(i + 1, 0, pane)
-    const paneSizes = [...ws.paneSizes]
-    paneSizes.splice(i + 1, 0, ws.paneSizes[i] ?? 1)
-    this.setWs({ ...ws, panes, paneSizes, activePane: pane.id, direction: ws.panes.length === 1 ? direction : ws.direction })
+    // the new pane goes next to the active one, splitting only its space
+    this.setWs({ ...ws, panes: [...ws.panes, pane], layout: splitLeaf(ws.layout, ws.activePane, pane.id, direction), activePane: pane.id })
     if (tab.path && tab.kind === 'note') this.ensureBuffer(tab.path)
   }
 
-  setPaneSizes(paneSizes: number[]) {
-    this.setWs({ ...this.state.ws, paneSizes })
+  /** Sizes of the split at `path` (child indexes from the root of the layout). */
+  setPaneSizes(path: number[], sizes: number[]) {
+    this.setWs({ ...this.state.ws, layout: setSizes(this.state.ws.layout, path, sizes) })
   }
 
   moveTab(fromPane: string, tabId: string, toPane: string, toIndex: number) {
@@ -449,13 +484,13 @@ class Model {
       const active = p.id === toPane ? tab.id : tabs.some((t) => t.id === p.active) ? p.active : tabs[0]?.id
       return { ...p, tabs, active }
     })
-    let paneSizes = ws.paneSizes
-    const emptyIdx = panes.findIndex((p) => !p.tabs.length)
-    if (emptyIdx >= 0) {
-      panes = panes.filter((_, i) => i !== emptyIdx)
-      paneSizes = paneSizes.filter((_, i) => i !== emptyIdx)
+    let layout = ws.layout
+    const empty = panes.find((p) => !p.tabs.length)
+    if (empty) {
+      panes = panes.filter((p) => p !== empty)
+      layout = removeLeaf(layout, empty.id) ?? layout
     }
-    this.setWs({ ...ws, panes, paneSizes, activePane: toPane })
+    this.setWs({ ...ws, panes, layout, activePane: toPane })
   }
 
   // ---------- opening & navigation ----------
@@ -508,6 +543,14 @@ class Model {
     return null
   }
 
+  /** Switch the graph between the whole vault and the open note's neighbourhood, showing it. */
+  toggleLocalGraph() {
+    const g = this.state.snap?.vault?.settings.graph
+    if (!g) return
+    this.setVault({ graph: { local: !g.local } })
+    this.openGraph()
+  }
+
   openGraph(where: 'tab' | 'new' = 'new') {
     const existing = this.state.ws.panes.flatMap((p) => p.tabs.map((t) => [p, t] as const)).find(([, t]) => t.kind === 'graph')
     if (existing) return this.selectTab(existing[0].id, existing[1].id)
@@ -517,14 +560,27 @@ class Model {
 
   /** Follow an internal link from `source`. Unresolved links create the note (reference behavior). */
   async followLink(target: string, source: string, newTab = false) {
-    const [linkpath, sub = ''] = target.split('#')
-    const resolved = this.index.resolve(linkpath, source)
+    let [linkpath, sub = ''] = target.split('#')
+    // [[Note^id]] is the block form of [[Note#^id]]; keep the ^ in `sub` for both
+    if (!sub && linkpath.includes('^')) {
+      const i = linkpath.indexOf('^')
+      sub = linkpath.slice(i)
+      linkpath = linkpath.slice(0, i)
+    }
+    // [[#Heading]] points into the note it is written in
+    const resolved = linkpath ? this.index.resolve(linkpath, source) : source || null
     const where = newTab ? 'new' : 'tab'
     if (resolved) {
       let line: number | undefined
       if (sub && isMd(resolved)) {
-        const h = this.index.notes.get(resolved)?.meta.headings.find((x) => x.text.toLowerCase() === sub.toLowerCase())
-        line = h?.line
+        const meta = this.index.notes.get(resolved)?.meta
+        if (sub.startsWith('^')) {
+          const want = sub.slice(1).toLowerCase()
+          line = meta?.blocks.find((b) => b.id.toLowerCase() === want)?.line
+        } else {
+          const want = headingRef(sub).toLowerCase()
+          line = meta?.headings.find((x) => headingRef(x.text).toLowerCase() === want)?.line
+        }
       }
       return this.open(resolved, where, { line })
     }
@@ -645,6 +701,48 @@ class Model {
     }
   }
 
+  /**
+   * Three-way merge of a 'modified' conflict: `saved` is the common base, the buffer
+   * is mine, the file on disk is theirs. Clean merges save at once; conflicting
+   * regions open the merge modal, one choice each.
+   */
+  async mergeConflict(path: string) {
+    const b = this.state.buffers[path]
+    if (!b || b.conflict !== 'modified') return
+    let theirs: string
+    try {
+      theirs = (await api.read(path)).content
+    } catch (e) {
+      return this.error(e)
+    }
+    const { parts, conflicts } = merge3(b.saved, b.content, theirs)
+    if (!conflicts) return this.applyMerge(path, parts, [], b.content, theirs)
+    this.set({ modal: { kind: 'merge', path, parts, mine: b.content, theirs } })
+  }
+
+  /** Write the merged text and save it. Aborts if the buffer or the file changed since the merge was computed. */
+  async applyMerge(path: string, parts: MergePart[], choices: ('mine' | 'theirs')[], expectedMine: string, expectedTheirs: string) {
+    const b = this.state.buffers[path]
+    if (!b) return
+    const changed = () => {
+      this.set({ modal: null })
+      this.notice(t('conflict.mergeChanged'), true)
+    }
+    if (b.content !== expectedMine) return changed()
+    try {
+      const n = await api.read(path) // fresh mtime: save() still refuses if the file races us
+      // a newer disk version was not part of this merge: writing would silently drop it
+      if (n.content !== expectedTheirs) return changed()
+      // saved becomes the disk text just read, so save() writes whenever the merge differs from it
+      this.setBuffer(path, { ...b, saved: n.content, mtime: n.mtime, conflict: undefined })
+      this.edit(path, assembleMerge(parts, choices))
+      if (await this.save(path)) this.notice(t('conflict.merged'))
+    } catch (e) {
+      this.error(e)
+    }
+    if (this.state.modal?.kind === 'merge' && this.state.modal.path === path) this.set({ modal: null })
+  }
+
   // ---------- external changes ----------
   private fsTimer = 0
   private async onFsChanged(paths: string[]) {
@@ -718,6 +816,22 @@ class Model {
       if (parent) this.set({ expanded: { ...this.state.expanded, ...this.ancestors(parent) } })
       await this.open(n.path, opts.where ?? (this.activeTab.kind === 'empty' ? 'tab' : 'new'), { mode: 'source' })
       if (!opts.path) this.set({ focusTitle: this.activeTab.id })
+      return n.path
+    } catch (e) {
+      this.error(e)
+      return null
+    }
+  }
+
+  /** Create a note file for a [[link]] being typed, without opening it or leaving the current note. */
+  async createNoteFile(name: string): Promise<string | null> {
+    const folder = this.newNoteFolder()
+    const path = folder ? `${folder}/${name}.md` : `${name}.md`
+    if (this.state.files.some((f) => f.path === path)) return path
+    try {
+      const n = await api.create(path, '')
+      this.index.upsert(n.path, n.content)
+      await this.refreshFiles()
       return n.path
     } catch (e) {
       this.error(e)
@@ -802,6 +916,8 @@ class Model {
     this.mapTabs((t) => ({ ...t, path: mv(t.path), back: t.back.map((p) => mv(p)!), fwd: t.fwd.map((p) => mv(p)!) }))
     const mvPair = (k: string) => k.split('\u0000').map((p) => mv(p)!).sort().join('\u0000')
     this.set({ recent: this.state.recent.map((p) => mv(p)!), pinned: this.state.pinned.map((p) => mv(p)!), dismissedRelated: this.state.dismissedRelated.map(mvPair) })
+    const views = this.state.snap?.vault?.settings.graphViews ?? []
+    if (views.some((v) => v.center && moves.has(v.center))) this.setVault({ graphViews: views.map((v) => ({ ...v, center: mv(v.center) })) })
     if (isFolder) {
       const expanded: Record<string, boolean> = {}
       for (const [k, v] of Object.entries(this.state.expanded)) expanded[k === from || k.startsWith(from + '/') ? to + k.slice(from.length) : k] = v
