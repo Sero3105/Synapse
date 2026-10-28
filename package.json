@@ -1,7 +1,7 @@
 {
   "name": "synapse",
   "productName": "Synapse",
-  "version": "1.4.0",
+  "version": "1.5.1",
   "description": "Local-first Markdown knowledge base for macOS",
   "author": "Synapse",
   "license": "MIT",
@@ -21,7 +21,8 @@
     "package": "npm run build && npm run notices && electron-builder --mac",
     "install:app": "node scripts/install-app.mjs",
     "sign:update": "node scripts/sign-update.mjs",
-    "notices": "node scripts/third-party-notices.mjs"
+    "notices": "node scripts/third-party-notices.mjs",
+    "dmg-background": "electron scripts/make-dmg-background.mjs"
   },
   "build": {
     "appId": "com.synapse.notes",
@@ -90,10 +91,8 @@
     "dmg": {
       "title": "Synapse ${version}",
       "artifactName": "Synapse-${version}-${arch}.dmg",
-      "window": {
-        "width": 540,
-        "height": 380
-      },
+      "background": "build/background.tiff",
+      "iconSize": 88,
       "contents": [
         {
           "x": 140,
@@ -105,8 +104,23 @@
           "y": 190,
           "type": "link",
           "path": "/Applications"
+        },
+        {
+          "x": 140,
+          "y": 640,
+          "type": "file",
+          "path": "build/background.tiff",
+          "name": ".background.tiff"
+        },
+        {
+          "x": 400,
+          "y": 640,
+          "type": "file",
+          "path": "build/volume.icns",
+          "name": ".VolumeIcon.icns"
         }
-      ]
+      ],
+      "icon": "build/volume.icns"
     }
   },
   "devDependencies": {
