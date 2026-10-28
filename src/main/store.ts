@@ -161,25 +161,68 @@ export class AppStore {
     })
   }
 
-  getWindowState(): WindowState | null {
+  /** The vault's own window size and place, else the last window's. The file keeps the last at the top level. */
+  getWindowState(vaultId?: string): WindowState | null {
     const d = readJson(this.windowFile).data
-    if (!isObj(d) || typeof d.width !== 'number' || typeof d.height !== 'number') return null
-    return {
-      x: typeof d.x === 'number' ? d.x : undefined,
-      y: typeof d.y === 'number' ? d.y : undefined,
-      width: Math.max(400, d.width),
-      height: Math.max(300, d.height),
-      isMaximized: d.isMaximized === true,
-    }
+    if (!isObj(d)) return null
+    return (vaultId && isObj(d.vaults) && toWindowState(d.vaults[vaultId])) || toWindowState(d)
   }
 
-  saveWindowState(s: WindowState) {
+  saveWindowState(s: WindowState, vaultId?: string) {
     try {
-      atomicWrite(this.windowFile, JSON.stringify(s))
+      const d = readJson(this.windowFile).data
+      const vaults: Record<string, unknown> = isObj(d) && isObj(d.vaults) ? { ...d.vaults } : {}
+      if (vaultId) {
+        delete vaults[vaultId] // re-added last: the oldest entries are the ones dropped
+        vaults[vaultId] = s
+      }
+      atomicWrite(this.windowFile, JSON.stringify({ ...s, vaults: Object.fromEntries(Object.entries(vaults).slice(-50)) }))
     } catch (e) {
       console.error('window state not saved', e)
     }
   }
+}
+
+function toWindowState(d: unknown): WindowState | null {
+  if (!isObj(d) || typeof d.width !== 'number' || typeof d.height !== 'number') return null
+  return {
+    x: typeof d.x === 'number' ? d.x : undefined,
+    y: typeof d.y === 'number' ? d.y : undefined,
+    width: Math.max(400, d.width),
+    height: Math.max(300, d.height),
+    isMaximized: d.isMaximized === true,
+  }
+}
+
+type Rect = { x: number; y: number; width: number; height: number }
+const CASCADE = 28
+
+/**
+ * Where a new window goes. Saved bounds are kept if their top area is on a connected display (a
+ * detached monitor would leave the window unreachable); a spot already taken by another window
+ * moves down-right until free, wrapping back to the display's corner.
+ */
+export function placeWindow(saved: WindowState | null, workAreas: Rect[], taken: Rect[], fallback = { width: 1200, height: 800 }): WindowState {
+  const width = saved?.width ?? fallback.width
+  const height = saved?.height ?? fallback.height
+  const onScreen = (x: number, y: number) => workAreas.some((a) => x + 100 > a.x && x + 100 < a.x + a.width && y >= a.y && y + 40 < a.y + a.height)
+  let x = saved?.x
+  let y = saved?.y
+  if (x === undefined || y === undefined || !onScreen(x, y)) {
+    if (!taken.length) return { width, height, isMaximized: saved?.isMaximized ?? false } // the OS centres it
+    x = taken[taken.length - 1].x
+    y = taken[taken.length - 1].y
+  }
+  const area = workAreas.find((a) => x! >= a.x && x! < a.x + a.width && y! >= a.y && y! < a.y + a.height) ?? workAreas[0]
+  for (let i = 0; i < 50 && taken.some((r) => Math.abs(r.x - x!) < CASCADE / 2 && Math.abs(r.y - y!) < CASCADE / 2); i++) {
+    x += CASCADE
+    y += CASCADE
+    if (area && (x + Math.min(width, 400) > area.x + area.width || y + Math.min(height, 300) > area.y + area.height)) {
+      x = area.x + (i % 5) * CASCADE
+      y = area.y
+    }
+  }
+  return { x, y, width, height, isMaximized: saved?.isMaximized ?? false }
 }
 
 /** Per-vault settings in <vault>/.synapse/settings.json. */

@@ -7,7 +7,7 @@ import crypto from 'node:crypto'
 import { atomicWrite } from './store'
 import type { NoteHistory } from './history'
 
-export interface FileEntry { path: string; type: 'file' | 'folder'; mtime: number; size: number }
+export interface FileEntry { path: string; type: 'file' | 'folder'; mtime: number; /** birthtime; 0 when the filesystem does not report one */ created: number; size: number }
 export interface NoteData { path: string; content: string; mtime: number }
 
 export class VaultError extends Error {
@@ -74,12 +74,17 @@ export class Vault {
         if (isHiddenName(e.name) || e.isSymbolicLink()) continue
         const abs = path.join(dir, e.name)
         if (e.isDirectory()) {
-          out.push({ path: this.rel(abs), type: 'folder', mtime: 0, size: 0 })
+          try {
+            const st = await fsp.stat(abs)
+            out.push({ path: this.rel(abs), type: 'folder', mtime: st.mtimeMs, created: st.birthtimeMs || 0, size: 0 })
+          } catch {
+            out.push({ path: this.rel(abs), type: 'folder', mtime: 0, created: 0, size: 0 })
+          }
           await walk(abs)
         } else if (e.isFile()) {
           try {
             const st = await fsp.stat(abs)
-            out.push({ path: this.rel(abs), type: 'file', mtime: st.mtimeMs, size: st.size })
+            out.push({ path: this.rel(abs), type: 'file', mtime: st.mtimeMs, created: st.birthtimeMs || 0, size: st.size })
           } catch { /* vanished between readdir and stat */ }
         }
       }
