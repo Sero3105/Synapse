@@ -63,3 +63,15 @@ test('settings opened from the keyboard draw no focus ring around the dialog, co
   }
   await app.close()
 })
+
+test('in a narrow window only one side dock is open at a time', async () => {
+  const { app, win } = await launch(env)
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(640, 700))
+  const layout = () => win.evaluate(() => { const l = (window as any).__synapse.state.snap.global.layout; return [l.leftOpen, l.rightOpen] })
+  await expect.poll(layout).toEqual([true, false]) // shrinking closed the right one
+  await win.evaluate(() => (window as any).__synapse.setLayout({ rightOpen: true }))
+  expect(await layout()).toEqual([false, true])
+  await win.evaluate(() => (window as any).__synapse.setLayout({ leftOpen: true }))
+  expect(await layout()).toEqual([true, false])
+  await app.close()
+})

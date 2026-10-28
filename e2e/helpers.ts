@@ -1,5 +1,5 @@
 // Shared setup for feature specs: an isolated temp vault and app-data folder per test.
-import { _electron, ElectronApplication, Page } from '@playwright/test'
+import { _electron, ElectronApplication, Page, Locator } from '@playwright/test'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -51,3 +51,10 @@ export async function palette(win: Page, text: string) {
 }
 
 export const cleanup = (env: Env) => fs.rmSync(env.tmp, { recursive: true, force: true })
+
+/** Pick a choice in one of the app's dropdowns (Select.tsx): its button is named "<label>: <current choice>". */
+export async function choose(win: Page, label: string, option: string, within: Page | Locator = win) {
+  const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  await within.getByRole('button', { name: new RegExp(`^${esc}:`) }).click()
+  await win.getByRole('menuitemradio', { name: option, exact: true }).click()
+}

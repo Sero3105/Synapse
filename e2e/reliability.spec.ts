@@ -57,6 +57,6 @@ test('a vault deleted and recreated empty does not get the old note written back
   await expect(win.locator('.cm-content')).toContainText('one two') // the text is still in the editor
   // quitting now asks "quit anyway?" in a native dialog (unsaved text is protected): end the process instead
   const exited = new Promise((r) => app.process().once('exit', r))
-  app.process().kill()
+  app.process().kill('SIGKILL') // SIGTERM would become a normal quit, waiting on the "quit anyway?" dialog
   await exited
 })

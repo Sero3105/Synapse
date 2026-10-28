@@ -5,6 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import http from 'node:http'
+import { choose } from './helpers'
 
 let tmp: string
 let userData: string
@@ -94,7 +95,7 @@ test('mandatory settings acceptance scenario', async () => {
   await expect(win.getByTestId('file-explorer')).toBeVisible()
   // 3-4. dark theme + font size
   await openSettings(win, 'Appearance')
-  await win.getByLabel('Base color scheme', { exact: true }).selectOption('dark')
+  await choose(win, 'Base color scheme', 'Dark')
   const slider = win.getByLabel('Font size', { exact: true })
   await slider.focus()
   for (let i = 0; i < 3; i++) await slider.press('ArrowRight')
@@ -117,7 +118,7 @@ test('mandatory settings acceptance scenario', async () => {
   // 11. vault-specific setting in B
   await openSettings(win, 'Editor')
   const row = win.locator('[data-setting="showLineNumber"]')
-  await row.getByLabel('Scope for Show line numbers').selectOption('vault')
+  await choose(win, 'Scope for Show line numbers', 'This vault only', row)
   await row.getByRole('switch').click()
   await expect.poll(async () => (await prefs(win)).showLineNumber).toBe(true)
   await win.keyboard.press('Escape')
@@ -129,7 +130,7 @@ test('mandatory settings acceptance scenario', async () => {
   expect((await prefs(win)).showLineNumber).toBe(true)
   // 16. change a global preference while B is open
   await openSettings(win, 'Appearance')
-  await win.getByLabel('Base color scheme', { exact: true }).selectOption('light')
+  await choose(win, 'Base color scheme', 'Light')
   await win.keyboard.press('Escape')
   // 17-18. applies in A too
   await switchTo(win, 'Vault A')
@@ -355,7 +356,7 @@ test('language: switch to Italian, persists across restart, back to English', as
   let { app, win } = await launch()
   await win.keyboard.press('Meta+Comma')
   await win.getByRole('button', { name: 'General', exact: true }).click()
-  await win.getByLabel('Language', { exact: true }).selectOption('it')
+  await choose(win, 'Language', 'Italiano')
   await expect(win.getByRole('button', { name: 'Generali', exact: true })).toBeVisible()
   await win.keyboard.press('Escape')
   await expect(win.locator('.jump-field')).toHaveText(/Vai alla nota/)
@@ -370,7 +371,7 @@ test('language: switch to Italian, persists across restart, back to English', as
   await expect(win.locator('.jump-field')).toHaveText(/Vai alla nota/)
   await win.keyboard.press('Meta+Comma')
   await win.getByRole('button', { name: 'Generali', exact: true }).click()
-  await win.getByLabel('Lingua', { exact: true }).selectOption('en')
+  await choose(win, 'Lingua', 'English')
   await expect(win.getByRole('button', { name: 'General', exact: true })).toBeVisible()
   await app.close()
 })
@@ -601,10 +602,11 @@ test('version history: earlier text is kept outside the vault and restored on co
   await app.close()
 })
 
-async function serveRelease(tag: string) {
+async function serveRelease(tag: string, assets: string[] = []) {
   const server = http.createServer((_req, res) => {
     res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify({ tag_name: tag, html_url: `https://github.com/Sero3105/Synapse/releases/tag/${tag}`, draft: false, prerelease: false }))
+    const dl = (name: string) => ({ name, browser_download_url: `https://github.com/Sero3105/Synapse/releases/download/${tag}/${name}` })
+    res.end(JSON.stringify({ tag_name: tag, html_url: `https://github.com/Sero3105/Synapse/releases/tag/${tag}`, draft: false, prerelease: false, assets: assets.map(dl) }))
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
   updateFeed = `http://127.0.0.1:${(server.address() as { port: number }).port}/latest`
@@ -629,6 +631,22 @@ test('a newer release on GitHub shows an update notice, unless turned off', asyn
     await expect(win.getByTestId('file-explorer')).toBeVisible()
     await win.waitForTimeout(1000)
     await expect(win.getByTestId('update-notice')).toHaveCount(0)
+    await app.close()
+  } finally {
+    server.close()
+    updateFeed = 'http://127.0.0.1:9/none'
+  }
+})
+
+test('a release with a signed zip offers the in-app update', async () => {
+  seedRegistry('A')
+  const zip = `Synapse-99.0.0-${process.arch}.zip`
+  const server = await serveRelease('v99.0.0', [zip, `${zip}.sig`])
+  try {
+    const { app, win } = await launch()
+    const notice = win.getByTestId('update-notice')
+    await expect(notice.getByRole('button', { name: 'Update and restart' })).toBeVisible()
+    await expect(notice.getByRole('button', { name: 'Download' })).toHaveCount(0)
     await app.close()
   } finally {
     server.close()

@@ -3,7 +3,7 @@
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
-import { makeEnv, launch, cleanup, type Env } from './helpers'
+import { makeEnv, launch, cleanup, choose, type Env } from './helpers'
 
 const REAL_FONT = ['/System/Library/Fonts/Supplemental/Georgia.ttf', '/System/Library/Fonts/Supplemental/Verdana.ttf'].find((p) => fs.existsSync(p))
 
@@ -28,7 +28,7 @@ test('font picker: search, select, persistence across restart, removal', async (
 
   // light theme: picker renders and previews load
   let setting = await openPicker()
-  await win.getByLabel('Base color scheme', { exact: true }).selectOption('light')
+  await choose(win, 'Base color scheme', 'Light')
   await expect(win.locator('body')).toHaveClass(/theme-light/)
   await expect(setting.locator('.font-picker')).toBeVisible()
   await expect(setting.getByText('Your fonts')).toBeVisible()
