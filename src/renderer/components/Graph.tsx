@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Settings2, RotateCcw } from 'lucide-react'
-import { model, useModel } from '../model'
-import { noteTitle, searchNotes } from '../../shared/markdown'
-import { visibleNodes, neighbours } from '../../shared/graph-filter'
-import { t } from '../../shared/i18n'
+import { Settings2, RotateCcw, Crosshair, Pencil, Trash2, ChevronDown, X } from 'lucide-react'
+import { model, useModel, isMd, newId } from '../model'
+import { noteTitle, searchNotes, fuzzyScore } from '../../shared/markdown'
+import { visibleNodes, neighbours, localNodes, colorGroups } from '../../shared/graph-filter'
+import type { SavedGraphView, GraphSettings } from '../../shared/settings'
+import { layoutStep } from '../../shared/graph-layout'
+import { t, tn } from '../../shared/i18n'
+
+/** Colour key of a node: its top-level folder, or the top level of its first tag; null keeps the default colour. */
+function groupOf(id: string, by: GraphSettings['colorBy']): string | null {
+  if (by === 'folder') return id.includes('/') && !id.startsWith('?') ? id.slice(0, id.indexOf('/')) : null
+  if (by === 'tag') return model.index.notes.get(id)?.meta.tags[0]?.split('/')[0].toLowerCase() ?? null
+  return null
+}
 
 interface Node { id: string; label: string; x: number; y: number; vx: number; vy: number; deg: number; unresolved: boolean; fixed?: boolean }
 
@@ -11,20 +20,36 @@ export function GraphView() {
   const canvas = useRef<HTMLCanvasElement>(null)
   const indexVersion = useModel((s) => s.indexVersion)
   const settings = useModel((s) => s.snap!.vault!.settings.graph)
+  const views = useModel((s) => s.snap!.vault!.settings.graphViews)
+  // the note the local graph follows: the open one, or the last opened when the graph tab itself is active
+  const followed = useModel((s) => {
+    const f = model.activeFile
+    return f && isMd(f) ? f : s.recent.find(isMd) ?? null
+  })
+  // a saved view can fix the centre on one note until the user lets it follow again
+  const [pinnedCenter, setPinnedCenter] = useState<string | null>(null)
+  const center = settings.local ? (pinnedCenter && model.index.notes.has(pinnedCenter) ? pinnedCenter : followed) : null
   const [panel, setPanel] = useState(false)
   const sim = useRef<{ nodes: Node[]; edges: [number, number][]; alpha: number; restart: () => void; resetView: () => void } | null>(null)
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
   const [orphansOnly, setOrphansOnly] = useState(false)
-  const [empty, setEmpty] = useState(false)
+  const [shown, setShown] = useState(-1) // notes drawn; -1 until the first frame
   useEffect(() => {
     const id = setTimeout(() => setDebounced(query), 150)
     return () => clearTimeout(id)
   }, [query])
   // Filter and selection live in refs read by the draw loop, so changing them never rebuilds the simulation.
   const match = useMemo(() => (debounced.trim() ? new Set(searchNotes([...model.index.notes.values()], debounced, Infinity).map((h) => h.path)) : null), [debounced, indexVersion])
-  const filter = useRef({ match, orphansOnly })
-  filter.current = useMemo(() => ({ match, orphansOnly }), [match, orphansOnly])
+  const local = settings.local ? { center, depth: settings.depth } : null
+  const filter = useRef({ match, orphansOnly, local })
+  filter.current = useMemo(() => ({ match, orphansOnly, local }), [match, orphansOnly, settings.local, center, settings.depth])
+  const customColors = useModel((s) => s.snap!.vault!.settings.graphColors)
+  const groups = useMemo(() => colorGroups([...model.index.notes.keys()].map((p) => groupOf(p, settings.colorBy)), customColors), [indexVersion, settings.colorBy, customColors])
+  // read by the draw loop: a new colour shows at once, without rebuilding the layout
+  const groupsRef = useRef(groups)
+  groupsRef.current = groups
+  const [picker, setPicker] = useState(false)
   const selected = useRef<string | null>(null)
   const filtered = !!match || orphansOnly
 
@@ -58,10 +83,10 @@ export function GraphView() {
       nodes[b].deg++
     }
     const ids = nodes.map((n) => n.id)
+    const keys = nodes.map((n) => groupOf(n.id, settings.colorBy))
     const degs = nodes.map((n) => n.deg)
     let shownFilter: typeof filter.current | null = null
     let visible: boolean[] = []
-    let anyVisible: boolean | null = null
     let view = { x: 0, y: 0, k: 1 }
     const state = { nodes, edges, alpha: prev.size ? 0.3 : 1, restart: () => (state.alpha = 1), resetView: () => (view = { x: 0, y: 0, k: 1 }) }
     sim.current = state
@@ -100,57 +125,8 @@ export function GraphView() {
       return best
     }
 
-    // shortcut: O(n²) repulsion; fine up to ~2k notes, switch to Barnes-Hut for larger vaults.
     const step = () => {
-      const { linkDistance, repel } = settings
-      const a = state.alpha
-      for (let i = 0; i < nodes.length; i++) {
-        if (!visible[i]) continue
-        const n = nodes[i]
-        for (let j = i + 1; j < nodes.length; j++) {
-          if (!visible[j]) continue
-          const m = nodes[j]
-          let dx = n.x - m.x
-          let dy = n.y - m.y
-          let d2 = dx * dx + dy * dy
-          if (d2 < 0.01) {
-            dx = Math.random() - 0.5
-            dy = Math.random() - 0.5
-            d2 = 0.25
-          }
-          if (d2 > 250000) continue
-          const f = (repel * a) / d2
-          n.vx += dx * f
-          n.vy += dy * f
-          m.vx -= dx * f
-          m.vy -= dy * f
-        }
-        // gravity keeps orphans and separate clusters in view
-        n.vx -= n.x * 0.02 * a
-        n.vy -= n.y * 0.02 * a
-      }
-      for (const [i, j] of edges) {
-        const n = nodes[i]
-        const m = nodes[j]
-        const dx = m.x - n.x
-        const dy = m.y - n.y
-        const d = Math.sqrt(dx * dx + dy * dy) || 1
-        const f = ((d - linkDistance) / d) * 0.05 * a
-        n.vx += dx * f
-        n.vy += dy * f
-        m.vx -= dx * f
-        m.vy -= dy * f
-      }
-      for (const n of nodes) {
-        if (n.fixed) {
-          n.vx = n.vy = 0
-          continue
-        }
-        n.vx *= 0.6
-        n.vy *= 0.6
-        n.x += Math.max(-30, Math.min(30, n.vx))
-        n.y += Math.max(-30, Math.min(30, n.vy))
-      }
+      layoutStep(nodes, edges, visible, settings, state.alpha)
       state.alpha = Math.max(0, state.alpha * 0.985 - 0.0005)
     }
 
@@ -158,10 +134,25 @@ export function GraphView() {
     let raf = 0
     const draw = () => {
       if (shownFilter !== filter.current) {
+        const was = shownFilter?.local
         shownFilter = filter.current
         visible = visibleNodes(ids, degs, { ...shownFilter, showOrphans: settings.showOrphans })
-        const any = visible.some(Boolean)
-        if (any !== anyVisible) setEmpty(!(anyVisible = any))
+        const loc = shownFilter.local
+        if (loc) {
+          const c = loc.center ? idx.get(loc.center) ?? -1 : -1
+          visible = localNodes(edges, visible, c, loc.depth)
+          // new centre or depth: move the centre to the middle and let its neighbourhood settle around it
+          if (c >= 0 && (was?.center !== loc.center || was?.depth !== loc.depth)) {
+            const { x, y } = nodes[c]
+            for (const n of nodes) {
+              n.x -= x
+              n.y -= y
+            }
+            view = { x: 0, y: 0, k: 1 }
+            state.alpha = Math.max(state.alpha, 0.6)
+          }
+        }
+        setShown(visible.filter(Boolean).length)
       }
       if (state.alpha > 0.002) step()
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -195,10 +186,10 @@ export function GraphView() {
       ctx.lineJoin = 'round'
       nodes.forEach((n, i) => {
         if (!visible[i]) return
-        const focus = i === focusIdx || n.id === active
+        const focus = i === focusIdx || n.id === (shownFilter?.local?.center ?? active)
         const dim = focusIdx >= 0 && !focus && !neighbors.has(i)
         ctx.globalAlpha = dim ? 0.25 : 1
-        ctx.fillStyle = focus ? accent : n.unresolved ? unresColor : nodeColor
+        ctx.fillStyle = focus ? accent : n.unresolved ? unresColor : (keys[i] && groupsRef.current.color.get(keys[i]!)) || nodeColor
         // a soft accent halo on the focused note only; a ring in the page colour separates every node from its links
         if (focus) {
           ctx.shadowColor = accent
@@ -301,19 +292,124 @@ export function GraphView() {
     setQuery('')
     setDebounced('')
     setOrphansOnly(false)
+    setPinnedCenter(null)
     selected.current = null
     sim.current?.resetView()
+  }
+  // the colour picker fires while dragging: save once it settles
+  const colorTimer = useRef(0)
+  const pickColor = (key: string, color: string | null) => {
+    clearTimeout(colorTimer.current)
+    colorTimer.current = window.setTimeout(() => {
+      const next = { ...model.state.snap!.vault!.settings.graphColors }
+      if (color) next[key] = color
+      else delete next[key]
+      model.setVault({ graphColors: next })
+    }, color ? 200 : 0)
+  }
+  const setLocal = (on: boolean) => {
+    setPinnedCenter(null)
+    set({ local: on })
+  }
+
+  // ---------- saved views (vault settings) ----------
+  const saveViews = (list: SavedGraphView[]) => model.setVault({ graphViews: list })
+  const saveView = async () => {
+    const name = (await model.prompt(t('graph.viewName')))?.trim()
+    if (!name) return
+    const v: SavedGraphView = { id: newId(), name, graph: { ...settings }, query, orphansOnly, ...(center ? { center } : {}) }
+    // saving under an existing name updates that view
+    const i = views.findIndex((x) => x.name.toLowerCase() === name.toLowerCase())
+    saveViews(i >= 0 ? views.map((x, j) => (j === i ? { ...v, id: x.id } : x)) : [...views, v])
+  }
+  const applyView = (v: SavedGraphView) => {
+    model.setVault({ graph: v.graph })
+    setQuery(v.query)
+    setDebounced(v.query)
+    setOrphansOnly(v.orphansOnly)
+    setPinnedCenter(v.center ?? null)
+    selected.current = null
+  }
+  const renameView = async (v: SavedGraphView) => {
+    const name = (await model.prompt(t('graph.renameView', { name: v.name }), v.name))?.trim()
+    if (name && name !== v.name) saveViews(views.map((x) => (x.id === v.id ? { ...x, name } : x)))
+  }
+  const deleteView = async (v: SavedGraphView) => {
+    if (await model.confirm(t('graph.deleteView', { name: v.name }), t('graph.deleteViewBody', { name: v.name }))) saveViews(views.filter((x) => x.id !== v.id))
   }
   return (
     <div className="graph-view" data-testid="graph" onKeyDown={(e) => e.key === 'Escape' && (selected.current = null)}>
       <canvas ref={canvas} className="graph-canvas" tabIndex={0} aria-label={t('graph.label')} />
-      {filtered && empty && (
+      {settings.local && (
+        <div className="graph-localbar" role="group" aria-label={t('graph.local')}>
+          <span className="graph-localbar-label">{t('graph.localOf')}</span>
+          <button className="select" data-testid="graph-center" aria-haspopup="dialog" aria-expanded={picker} aria-label={`${t('graph.chooseCenter')}: ${center ? noteTitle(center) : ''}`} onClick={() => setPicker(!picker)}>
+            <span className="select-value">{center ? noteTitle(center) : t('graph.chooseCenter')}</span>
+            <ChevronDown size={13} strokeWidth={2} aria-hidden />
+          </button>
+          <div className="segmented" role="radiogroup" aria-label={t('graph.depth')} title={t('graph.depth')}>
+            {[1, 2].map((d) => (
+              <button key={d} role="radio" aria-checked={settings.depth === d} className={`segment${settings.depth === d ? ' is-active' : ''}`} onClick={() => set({ depth: d })}>
+                {d}
+              </button>
+            ))}
+          </div>
+          <button className="icon-btn" aria-label={t('graph.backToGlobal')} title={t('graph.backToGlobal')} onClick={() => setLocal(false)}>
+            <X size={14} />
+          </button>
+          {picker && (
+            <NotePicker
+              pinned={!!pinnedCenter}
+              close={() => setPicker(false)}
+              pick={(p) => {
+                setPinnedCenter(p)
+                setPicker(false)
+              }}
+            />
+          )}
+        </div>
+      )}
+      {settings.local && !center ? (
+        <div className="graph-empty" role="status">
+          <span>{t('graph.noCenter')}</span>
+          <button className="btn" onClick={() => setPicker(true)}>{t('graph.chooseCenter')}</button>
+        </div>
+      ) : filtered && shown === 0 && (
         <div className="graph-empty" role="status">
           <span>{t('graph.noMatch')}</span>
           <button className="btn" onClick={reset}>{t('graph.reset')}</button>
         </div>
       )}
+      <div className="graph-corner">
+        {settings.colorBy !== 'none' && groups.legend.length > 0 && (
+          <ul className="graph-legend" aria-label={t('graph.legend')} data-testid="graph-legend">
+            {groups.legend.map((l) => (
+              <li key={l.key}>
+                <label className="graph-legend-swatch" title={t('graph.pickColor', { name: l.key })}>
+                  <span className="graph-legend-dot" style={{ background: l.color }} />
+                  {/* keyed by colour: the picker starts from the colour shown, and follows a reset */}
+                  <input key={l.color} type="color" defaultValue={l.color} aria-label={t('graph.pickColor', { name: l.key })} onChange={(e) => pickColor(l.key, e.target.value)} />
+                </label>
+                <span className="graph-legend-name">{l.key}</span>
+                {l.custom && (
+                  <button className="graph-legend-reset" aria-label={t('graph.resetColor', { name: l.key })} title={t('graph.resetColor', { name: l.key })} onClick={() => pickColor(l.key, null)}>
+                    <X size={11} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        {shown >= 0 && (
+          <div className="graph-count" role="status" data-testid="graph-count">
+            {tn('graph.count', shown)}
+          </div>
+        )}
+      </div>
       <div className="graph-controls">
+        <button className={`icon-btn${settings.local ? ' is-active' : ''}`} aria-pressed={settings.local} aria-label={t('graph.local')} title={t('graph.local')} onClick={() => setLocal(!settings.local)}>
+          <Crosshair size={16} />
+        </button>
         <button className="icon-btn" aria-label={t('graph.restart')} title={t('graph.restart')} onClick={() => sim.current?.restart()}>
           <RotateCcw size={16} />
         </button>
@@ -324,6 +420,13 @@ export function GraphView() {
       {panel && (
         <div className="graph-settings">
           <div className="graph-settings-title">{t('graph.settings')} <span className="scope-pill">{t('graph.thisVault')}</span></div>
+          <div className="segmented" role="radiogroup" aria-label={t('graph.mode')}>
+            {[false, true].map((on) => (
+              <button key={String(on)} role="radio" aria-checked={settings.local === on} className={`segment${settings.local === on ? ' is-active' : ''}`} onClick={() => setLocal(on)}>
+                {t(on ? 'graph.local' : 'graph.global')}
+              </button>
+            ))}
+          </div>
           <input
             className="text-input"
             placeholder={t('graph.filter')}
@@ -342,6 +445,16 @@ export function GraphView() {
           <label className="check-row">
             <input type="checkbox" checked={settings.showUnresolved} onChange={(e) => set({ showUnresolved: e.target.checked })} /> {t('graph.unresolved')}
           </label>
+          <div className="slider-row">
+            {t('graph.colorBy')}
+            <div className="segmented" role="radiogroup" aria-label={t('graph.colorBy')}>
+              {(['none', 'folder', 'tag'] as const).map((c) => (
+                <button key={c} role="radio" aria-checked={settings.colorBy === c} className={`segment${settings.colorBy === c ? ' is-active' : ''}`} onClick={() => set({ colorBy: c })}>
+                  {t(c === 'none' ? 'graph.colorNone' : c === 'folder' ? 'graph.colorFolder' : 'graph.colorTag')}
+                </button>
+              ))}
+            </div>
+          </div>
           <label className="slider-row">
             {t('graph.distance')}
             <input type="range" min={20} max={400} value={settings.linkDistance} style={{ '--fill': `${((settings.linkDistance - 20) / 380) * 100}%` } as React.CSSProperties} onChange={(e) => set({ linkDistance: Number(e.target.value) })} />
@@ -350,10 +463,91 @@ export function GraphView() {
             {t('graph.repel')}
             <input type="range" min={50} max={3000} value={settings.repel} style={{ '--fill': `${((settings.repel - 50) / 2950) * 100}%` } as React.CSSProperties} onChange={(e) => set({ repel: Number(e.target.value) })} />
           </label>
+          <div className="graph-views" role="group" aria-label={t('graph.views')}>
+            <div className="graph-views-title">{t('graph.views')}</div>
+            {!views.length && <p className="graph-hint">{t('graph.noViews')}</p>}
+            {views.map((v) => (
+              <div key={v.id} className="graph-view-row">
+                <button className="graph-view-name" title={t('graph.applyView')} onClick={() => applyView(v)}>
+                  {v.name}
+                </button>
+                <button className="icon-btn" aria-label={t('graph.renameView', { name: v.name })} title={t('graph.renameView', { name: v.name })} onClick={() => renameView(v)}>
+                  <Pencil size={14} />
+                </button>
+                <button className="icon-btn" aria-label={t('graph.deleteView', { name: v.name })} title={t('graph.deleteView', { name: v.name })} onClick={() => deleteView(v)}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+            <button className="btn" onClick={saveView}>{t('graph.saveView')}</button>
+          </div>
           <p className="graph-hint">{t('graph.selectHint')}</p>
           <button className="btn" onClick={reset}>{t('graph.reset')}</button>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Search box over the vault's notes, to centre the local graph on one of them. */
+function NotePicker({ pick, close, pinned }: { pick: (path: string | null) => void; close: () => void; pinned: boolean }) {
+  const [query, setQuery] = useState('')
+  const [sel, setSel] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+  const recent = useModel((s) => s.recent)
+  const results = useMemo(() => {
+    const notes = [...model.index.notes.keys()]
+    if (!query.trim()) {
+      // recently opened first, then the rest by name
+      const first = recent.filter((p) => model.index.notes.has(p))
+      return [...first, ...notes.filter((p) => !first.includes(p)).sort((a, b) => a.localeCompare(b))].slice(0, 50)
+    }
+    return notes
+      .map((p) => ({ p, s: fuzzyScore(query, p) }))
+      .filter((x) => x.s >= 0)
+      .sort((a, b) => b.s - a.s)
+      .slice(0, 50)
+      .map((x) => x.p)
+  }, [query, recent])
+  // "follow the open note" comes first when the centre is fixed
+  const items: (string | null)[] = pinned ? [null, ...results] : results
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => !(e.target as HTMLElement).closest('.graph-picker, .graph-localbar') && close()
+    window.addEventListener('mousedown', onDown)
+    return () => window.removeEventListener('mousedown', onDown)
+  }, [close])
+  useEffect(() => setSel(0), [query])
+  return (
+    <div className="graph-picker" ref={ref} role="dialog" aria-label={t('graph.chooseCenter')}>
+      <input
+        className="text-input"
+        autoFocus
+        placeholder={t('graph.searchNote')}
+        aria-label={t('graph.searchNote')}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') (e.preventDefault(), setSel(Math.min(sel + 1, items.length - 1)))
+          else if (e.key === 'ArrowUp') (e.preventDefault(), setSel(Math.max(sel - 1, 0)))
+          else if (e.key === 'Enter' && items[sel] !== undefined) pick(items[sel])
+          else if (e.key === 'Escape') (e.stopPropagation(), close())
+        }}
+      />
+      <div className="graph-picker-list" role="listbox" aria-label={t('graph.chooseCenter')}>
+        {items.map((p, i) => (
+          <div key={p ?? ''} role="option" aria-selected={i === sel} className={`graph-picker-item${i === sel ? ' is-selected' : ''}`} onMouseEnter={() => setSel(i)} onClick={() => pick(p)}>
+            {p === null ? (
+              <span className="graph-picker-follow">{t('graph.followActive')}</span>
+            ) : (
+              <>
+                <span className="graph-picker-title">{noteTitle(p)}</span>
+                {p.includes('/') && <span className="graph-picker-folder">{p.slice(0, p.lastIndexOf('/'))}</span>}
+              </>
+            )}
+          </div>
+        ))}
+        {!items.length && <div className="graph-picker-empty">{t('search.noResults')}</div>}
+      </div>
     </div>
   )
 }
