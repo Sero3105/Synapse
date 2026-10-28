@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { EditorView, keymap, lineNumbers, drawSelection, highlightActiveLine, Decoration, MatchDecorator, ViewPlugin, ViewUpdate, DecorationSet, dropCursor, rectangularSelection, crosshairCursor } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers, drawSelection, highlightActiveLine, Decoration, MatchDecorator, ViewPlugin, ViewUpdate, DecorationSet, dropCursor, rectangularSelection, crosshairCursor, gutters } from '@codemirror/view'
 import { EditorState, Compartment, EditorSelection } from '@codemirror/state'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
@@ -227,7 +227,9 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
           syntaxHighlighting(hl),
           wikiPlugin,
           autocompletion({ override: [wikiCompletions(path)], icons: false }),
-          c.lines.of(p.showLineNumber ? lineNumbers() : []),
+          // without line numbers the fold gutter sits outside the editor (styles.css): unfixed, CodeMirror
+          // stops treating the text's first 22px as covered, which hid the [[ popup at the start of a line
+          c.lines.of(p.showLineNumber ? lineNumbers() : gutters({ fixed: false })),
           c.tab.of([EditorState.tabSize.of(p.tabSize), indentUnit.of(' '.repeat(p.tabSize))]),
           c.spell.of(EditorView.contentAttributes.of({ spellcheck: String(p.spellcheck), autocorrect: 'off' })),
           c.pair.of(p.autoPairBrackets ? closeBrackets() : []),
@@ -318,7 +320,7 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
     const c = comps.current
     v.dispatch({
       effects: [
-        c.lines.reconfigure(prefs.showLineNumber ? lineNumbers() : []),
+        c.lines.reconfigure(prefs.showLineNumber ? lineNumbers() : gutters({ fixed: false })),
         c.tab.reconfigure([EditorState.tabSize.of(prefs.tabSize), indentUnit.of(' '.repeat(prefs.tabSize))]),
         c.spell.reconfigure(EditorView.contentAttributes.of({ spellcheck: String(prefs.spellcheck), autocorrect: 'off' })),
         c.pair.reconfigure(prefs.autoPairBrackets ? closeBrackets() : []),
