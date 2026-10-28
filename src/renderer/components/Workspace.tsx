@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, Fragment } from 'react'
-import { X, Plus, ArrowLeft, ArrowRight, BookOpen, Pencil, MoreHorizontal, FileText, Waypoints, Image as ImageIcon, File as FileIcon, FilePlus, CalendarDays, Search, Pin, Clock, PenLine } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { X, Plus, ExternalLink, ArrowLeft, ArrowRight, BookOpen, Pencil, MoreHorizontal, FileText, Waypoints, Image as ImageIcon, File as FileIcon, FilePlus, CalendarDays, Search, Pin, Clock, PenLine } from 'lucide-react'
 import { model, useModel, Pane, Tab, IMAGE_EXT, isMd } from '../model'
 import { Editor } from './Editor'
 import { Reading } from './Reading'
@@ -9,30 +9,32 @@ import { basename, noteTitle, INVALID_NAME } from '../../shared/markdown'
 import { runCommand, hotkeysFor, formatHotkey } from '../commands'
 import { t as tr, tn } from '../../shared/i18n'
 import { startLists } from '../../shared/start'
+import { layoutRects, Bar, LayoutNode, Split } from '../../shared/layout'
 
 export function Workspace() {
   const ws = useModel((s) => s.ws)
   const ref = useRef<HTMLDivElement>(null)
+  const { panes, bars } = useMemo(() => layoutRects(ws.layout), [ws.layout])
 
-  const startResize = (i: number) => (e: React.PointerEvent) => {
+  const startResize = (bar: Bar) => (e: React.PointerEvent) => {
     e.preventDefault()
-    const el = ref.current!
-    const rect = el.getBoundingClientRect()
-    const total = ws.paneSizes.reduce((a, b) => a + b, 0)
-    const horizontal = ws.direction === 'row'
-    const startPos = horizontal ? e.clientX : e.clientY
-    const extent = horizontal ? rect.width : rect.height
-    const sizes = [...ws.paneSizes]
+    const box = ref.current!.getBoundingClientRect()
+    const row = bar.dir === 'row'
+    // the split's own length on screen; its sizes are relative, so they scale with it
+    const extent = row ? box.width * bar.split.w : box.height * bar.split.h
+    const startPos = row ? e.clientX : e.clientY
+    const sizes = splitAt(ws.layout, bar.path).sizes
+    const total = sizes.reduce((a, b) => a + b, 0)
     const move = (ev: PointerEvent) => {
-      const delta = (((horizontal ? ev.clientX : ev.clientY) - startPos) / extent) * total
-      const a = sizes[i] + delta
-      const b = sizes[i + 1] - delta
+      const delta = (((row ? ev.clientX : ev.clientY) - startPos) / extent) * total
+      const a = sizes[bar.index] + delta
+      const b = sizes[bar.index + 1] - delta
       const min = total * 0.1
       if (a < min || b < min) return
       const next = [...sizes]
-      next[i] = a
-      next[i + 1] = b
-      model.setPaneSizes(next)
+      next[bar.index] = a
+      next[bar.index + 1] = b
+      model.setPaneSizes(bar.path, next)
     }
     const up = () => {
       window.removeEventListener('pointermove', move)
@@ -42,18 +44,42 @@ export function Workspace() {
     window.addEventListener('pointerup', up)
   }
 
+  // Panes stay one flat list placed from the layout tree: changing the tree never remounts a pane,
+  // so editors keep their undo history and scroll position.
+  const near = (a: number, b: number) => Math.abs(a - b) < 1e-6
+  const edge = (start: number, len: number) => ({ from: `calc(${start * 100}% + ${near(start, 0) ? 0 : GAP / 2}px)`, to: `calc(${(1 - start - len) * 100}% + ${near(start + len, 1) ? 0 : GAP / 2}px)` })
   return (
-    <div className={`workspace-split dir-${ws.direction}`} ref={ref}>
-      {ws.panes.map((p, i) => (
-        <Fragment key={p.id}>
-          {i > 0 && <div className="pane-resizer" onPointerDown={startResize(i - 1)} role="separator" aria-orientation={ws.direction === 'row' ? 'vertical' : 'horizontal'} />}
-          <div className="pane-slot" style={{ flexGrow: ws.paneSizes[i] ?? 1 }}>
+    <div className="workspace-split" ref={ref}>
+      {ws.panes.map((p) => {
+        const r = panes.get(p.id)
+        if (!r) return null
+        const h = edge(r.x, r.w)
+        const v = edge(r.y, r.h)
+        const cls = `pane-slot${near(r.y, 0) && near(r.x, 0) ? ' is-top-left' : ''}${near(r.y, 0) && near(r.x + r.w, 1) ? ' is-top-right' : ''}`
+        return (
+          <div key={p.id} className={cls} style={{ left: h.from, right: h.to, top: v.from, bottom: v.to }}>
             <PaneView pane={p} active={p.id === ws.activePane} />
           </div>
-        </Fragment>
-      ))}
+        )
+      })}
+      {bars.map((b) => {
+        const row = b.dir === 'row'
+        const at = row ? b.split.x + b.at * b.split.w : b.split.y + b.at * b.split.h
+        const style = row
+          ? { left: `calc(${at * 100}% - ${GAP / 2}px)`, width: GAP, top: `${b.split.y * 100}%`, height: `${b.split.h * 100}%` }
+          : { top: `calc(${at * 100}% - ${GAP / 2}px)`, height: GAP, left: `${b.split.x * 100}%`, width: `${b.split.w * 100}%` }
+        return <div key={`${b.path.join('.')}:${b.index}`} className={`pane-resizer dir-${b.dir}`} style={style} onPointerDown={startResize(b)} role="separator" aria-orientation={row ? 'vertical' : 'horizontal'} />
+      })}
     </div>
   )
+}
+
+const GAP = 6 // px between panes, the width of a border
+
+function splitAt(n: LayoutNode, path: number[]): Split {
+  let m = n
+  for (const i of path) m = (m as Split).children[i]
+  return m as Split
 }
 
 function tabTitle(t: Tab) {
@@ -73,6 +99,11 @@ function PaneView({ pane, active }: { pane: Pane; active: boolean }) {
   // selector returns a string so useSyncExternalStore gets a stable snapshot
   const dirty = useModel((s) => pane.tabs.map((t) => (t.path && s.buffers[t.path] && s.buffers[t.path].content !== s.buffers[t.path].saved ? 1 : 0)).join('')).split('').map((c) => c === '1')
   const [dragOver, setDragOver] = useState<number | null>(null)
+  const strip = useRef<HTMLDivElement>(null)
+  // with more tabs than fit, the strip scrolls: keep the active one in view
+  useEffect(() => {
+    strip.current?.querySelector('.tab.is-active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [tab.id, pane.tabs.length])
 
   const onDrop = (e: React.DragEvent, index: number) => {
     const data = e.dataTransfer.getData('application/x-synapse-tab')
@@ -90,14 +121,15 @@ function PaneView({ pane, active }: { pane: Pane; active: boolean }) {
   return (
     <div className={`pane${active ? ' is-active' : ''}`} onMouseDown={() => model.focusPane(pane.id)} data-testid="pane">
       <div className="tab-header" onDragOver={(e) => { e.preventDefault(); setDragOver(pane.tabs.length) }} onDragLeave={() => setDragOver(null)} onDrop={(e) => onDrop(e, pane.tabs.length)}>
-        <div className="tab-strip" role="tablist">
+        <div className="tab-strip" role="tablist" ref={strip}>
           {pane.tabs.map((t, i) => (
             <div
               key={t.id}
               role="tab"
               aria-selected={t.id === tab.id}
               tabIndex={0}
-              className={`tab${t.id === tab.id ? ' is-active' : ''}${dragOver === i ? ' drop-before' : ''}`}
+              className={`tab${t.id === tab.id ? ' is-active' : ''}${t.pinned ? ' is-pinned' : ''}${dragOver === i ? ' drop-before' : ''}`}
+              aria-label={t.pinned ? tabTitle(t) : undefined}
               title={t.path ?? tabTitle(t)}
               draggable
               onDragStart={(e) => {
@@ -118,6 +150,7 @@ function PaneView({ pane, active }: { pane: Pane; active: boolean }) {
               onAuxClick={(e) => e.button === 1 && model.closeTab(pane.id, t.id)}
               onContextMenu={(e) =>
                 model.openMenu(e, [
+                  { label: tr(t.pinned ? 'tab.unpin' : 'tab.pin'), run: () => model.togglePinTab(t.id) },
                   { label: tr('tab.close'), run: () => model.closeTab(pane.id, t.id) },
                   { label: tr('tab.closeOthers'), run: () => model.closeOthers(pane.id, t.id) },
                   { separator: true, label: '' },
@@ -129,18 +162,20 @@ function PaneView({ pane, active }: { pane: Pane; active: boolean }) {
               }
             >
               <span className="tab-icon"><TabIcon t={t} /></span>
-              <span className="tab-title">{tabTitle(t)}</span>
+              {!t.pinned && <span className="tab-title">{tabTitle(t)}</span>}
               {dirty[i] && <span className="tab-dirty" aria-label={tr('tab.unsaved')} />}
-              <button
-                className="tab-close"
-                aria-label={tr('tab.closeNamed', { name: tabTitle(t) })}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  model.closeTab(pane.id, t.id)
-                }}
-              >
-                <X size={13} />
-              </button>
+              {!t.pinned && (
+                <button
+                  className="tab-close"
+                  aria-label={tr('tab.closeNamed', { name: tabTitle(t) })}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    model.closeTab(pane.id, t.id)
+                  }}
+                >
+                  <X size={13} />
+                </button>
+              )}
             </div>
           ))}
           <button className="tab-new icon-btn" aria-label={tr('tab.new')} onClick={() => model.newTab(pane.id)}>
@@ -200,6 +235,11 @@ function ViewHeader({ tab, paneId }: { tab: Tab; paneId: string }) {
             {tab.mode === 'source' ? <BookOpen size={16} /> : <Pencil size={16} />}
           </button>
         )}
+        {tab.kind === 'file' && tab.path && /\.pdf$/i.test(tab.path) && (
+          <button className="icon-btn" aria-label={tr('view.openPdf')} title={tr('view.openPdf')} onClick={() => api.openFile(tab.path!).catch((e) => model.error(e))}>
+            <ExternalLink size={16} />
+          </button>
+        )}
         <button
           className="icon-btn"
           aria-label={tr('view.more')}
@@ -236,14 +276,19 @@ function NoteBody({ tab, paneId }: { tab: Tab; paneId: string }) {
           <button className="btn" onClick={() => model.resolveConflict(path, 'disk')}>
             {conflict === 'modified' ? tr('conflict.loadDisk') : tr('conflict.discard')}
           </button>
-          <button className="btn mod-cta" onClick={() => model.resolveConflict(path, 'mine')}>
+          <button className="btn" onClick={() => model.resolveConflict(path, 'mine')}>
             {conflict === 'modified' ? tr('conflict.keepMine') : tr('conflict.restoreMine')}
           </button>
+          {conflict === 'modified' && (
+            <button className="btn mod-cta" onClick={() => model.mergeConflict(path)}>
+              {tr('conflict.merge')}
+            </button>
+          )}
         </div>
       )}
       <div className="note-scroll">
         {prefs.showInlineTitle && <InlineTitle tab={tab} />}
-        {tab.mode === 'source' ? <Editor tab={tab} paneId={paneId} /> : <Reading path={path} />}
+        {tab.mode === 'source' ? <Editor tab={tab} paneId={paneId} /> : <Reading path={path} tabId={tab.id} />}
       </div>
     </div>
   )
@@ -299,6 +344,13 @@ function InlineTitle({ tab }: { tab: Tab }) {
 }
 
 function FileBody({ path }: { path: string }) {
+  // Chromium's own PDF viewer (pages, zoom, search, print) inside the tab
+  if (/\.pdf$/i.test(path))
+    return (
+      <div className="pdf-view">
+        <iframe className="pdf-frame" src={fileUrl(path)} title={basename(path)} data-testid="pdf-frame" />
+      </div>
+    )
   if (IMAGE_EXT.test(path))
     return (
       <div className="file-view">
@@ -310,7 +362,6 @@ function FileBody({ path }: { path: string }) {
       <div className="empty-title">{basename(path)}</div>
       <div className="empty-sub">{tr('view.unsupported')}</div>
       <div className="row">
-        {/\.pdf$/i.test(path) && <button className="btn mod-cta" onClick={() => api.openFile(path).catch((e) => model.error(e))}>{tr('view.openPdf')}</button>}
         <button className="btn" onClick={() => api.reveal(path)}>{tr('common.revealInFinder')}</button>
       </div>
     </div>
