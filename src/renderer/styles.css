@@ -552,7 +552,9 @@ input[type=range]:focus-visible::-webkit-slider-runnable-track { box-shadow: ins
 .conflict-banner span { flex: 1; min-width: 200px; }
 
 /* editor */
-.cm-host { flex: 1; min-height: 200px; }
+/* grows with the text (flex-basis auto): CodeMirror hides tooltips outside the editor box, so a box
+   shorter than its overflowing text parked the [[ popup off-screen anywhere below the first screenful */
+.cm-host { flex: 1 0 auto; min-height: 200px; }
 .cm-host .cm-editor { height: 100%; background: transparent; color: var(--ink); font: 450 var(--font-text-size) / var(--text-leading) var(--font-text); }
 .cm-host .cm-editor.cm-focused { outline: none; }
 .cm-host .cm-scroller { font: inherit; line-height: inherit; overflow: visible; }

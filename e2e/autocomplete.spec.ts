@@ -33,6 +33,26 @@ test('[[ in a vault with only the open note still suggests that note', async () 
   await app.close()
 })
 
+test('[[ at the end of a long note shows the popup on screen', async () => {
+  const lines = Array.from({ length: 120 }, (_, i) => `line ${i}`).join('\n')
+  env = makeEnv({ 'Long.md': `# Long\n\n${lines}\n`, 'Ideas.md': '# Ideas\n' })
+  const { app, win } = await launch(env)
+  await open(win, 'Long.md')
+  // below the first screenful: the editor box once stopped there while the text overflowed it, and
+  // CodeMirror hides tooltips whose anchor lies outside the editor box
+  await win.keyboard.press('Meta+ArrowDown')
+  await win.keyboard.type('[[ide')
+  const list = win.locator('.cm-tooltip-autocomplete')
+  await expect(list.locator('li').first()).toContainText('Ideas')
+  const box = await list.evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    return { y: r.y, inner: window.innerHeight }
+  })
+  expect(box.y).toBeGreaterThanOrEqual(0)
+  expect(box.y).toBeLessThan(box.inner)
+  await app.close()
+})
+
 test('[[ with no match offers to create the note, without leaving the current one', async () => {
   env = makeEnv({ 'Solo.md': '# Solo\n\n', 'Ideas.md': '# Ideas\n' })
   const { app, win } = await launch(env)
