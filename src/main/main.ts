@@ -15,6 +15,8 @@ import { prepareUpdate } from './updater'
 app.setName('Synapse')
 // Tests point this at a temp dir; normal runs use ~/Library/Application Support/Synapse.
 if (process.env.SYNAPSE_USER_DATA) app.setPath('userData', process.env.SYNAPSE_USER_DATA)
+// Tests set this: windows are never shown and the app never takes focus or a Dock icon, so a run does not interrupt work on this Mac.
+const hidden = !!process.env.SYNAPSE_HIDDEN
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'synapse-file', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
@@ -107,8 +109,8 @@ async function activate(ctx: Ctx, folder: string, create = false) {
   // two windows editing the same files would race each other's saves and workspace: show the other one instead
   const other = windowWithVault(folder, ctx)
   if (other) {
-    other.win.show()
-    other.win.focus()
+    if (!hidden) other.win.show()
+    if (!hidden) other.win.focus()
     throw new VaultError('EWINDOW', 'Vault open in another window')
   }
   const next = await openVault(store, folder, trash, { create })
@@ -237,7 +239,7 @@ const handlers: Record<string, Handler> = {
     const v = id === undefined ? null : store.getRegistry().vaults[String(id)]
     if (id !== undefined && !v) throw new VaultError('ENOENT', 'Unknown vault')
     const other = v && windowWithVault(v.path)
-    if (other) return other.win.focus()
+    if (other) return hidden || other.win.focus()
     const ctx = createWindow(null, v ? String(id) : undefined)
     if (v) await activate(ctx, v.path).catch((e) => console.error('could not open vault in new window', e))
   },
@@ -301,8 +303,8 @@ function createWindow(current: OpenVault | null = null, vaultId = current?.id): 
     watch(ctx, current.vault.root)
     win.setRepresentedFilename(current.vault.root)
   }
-  if (place.isMaximized) win.maximize()
-  win.once('ready-to-show', () => win.show())
+  if (place.isMaximized && !hidden) win.maximize()
+  win.once('ready-to-show', () => hidden || win.show())
   // the title names the vault ("Vault - Synapse"): the page's own <title> must not replace it
   win.on('page-title-updated', (e) => e.preventDefault())
 
@@ -454,6 +456,7 @@ app.on('second-instance', () => {
 })
 
 app.whenReady().then(async () => {
+  if (hidden) app.setActivationPolicy('accessory')
   store = new AppStore(app.getPath('userData'))
   fonts = new FontStore(path.join(app.getPath('userData'), 'fonts'))
   // Deny web permission requests (notifications, geolocation, media, ...); the app needs none

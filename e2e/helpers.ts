@@ -26,19 +26,12 @@ export async function launch(env: Env): Promise<{ app: ElectronApplication; win:
   const exe = process.env.SYNAPSE_APP
   const app = await _electron.launch({
     ...(exe ? { executablePath: exe, args: [] } : { args: [path.join(__dirname, '..')] }),
-    env: { ...process.env, SYNAPSE_USER_DATA: env.userData, SYNAPSE_UPDATE_FEED: 'http://127.0.0.1:9/none' },
+    // SYNAPSE_HIDDEN: no window on screen, no focus taken, so typing on this Mac never lands in a test; Playwright drives it through CDP
+    env: { ...process.env, SYNAPSE_USER_DATA: env.userData, SYNAPSE_UPDATE_FEED: 'http://127.0.0.1:9/none', SYNAPSE_HIDDEN: '1' },
   })
   const win = await app.firstWindow()
   win.on('pageerror', (e) => console.error('pageerror', e))
   await win.waitForLoadState('domcontentloaded')
-  // Keep the test window away from the real keyboard: shown windows take focus, and anything typed on
-  // this Mac during a run lands in the test editor (verified with an OS-level keystroke). Playwright
-  // drives the hidden window through CDP as before.
-  await app.evaluate(async ({ BrowserWindow }) => {
-    const w = BrowserWindow.getAllWindows()[0]
-    while (!w.isVisible()) await new Promise((r) => setTimeout(r, 20))
-    w.hide()
-  })
   // commands that need a vault are offered only once it has loaded
   await win.getByTestId('file-explorer').waitFor()
   return { app, win }

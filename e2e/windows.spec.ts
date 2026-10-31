@@ -22,8 +22,6 @@ test('a second vault opens in its own window; each window works on its own files
   fs.writeFileSync(reg, JSON.stringify(r))
 
   const { app, win } = await launch(env)
-  // new windows show and take focus: hide them like the first, so typing on this Mac never lands in a test
-  await app.evaluate(({ app: a }) => a.on('browser-window-created', (_e, w) => w.on('show', () => setImmediate(() => w.hide()))))
   await palette(win, 'open another vault')
   const opened = app.waitForEvent('window')
   await win.locator('.vault-row', { hasText: 'Vault B' }).click({ button: 'right' })
@@ -75,7 +73,6 @@ test('a second vault opens in its own window; each window works on its own files
 test('New window opens the starter screen without touching the current vault', async () => {
   env = makeEnv({ 'A note.md': 'a' })
   const { app, win } = await launch(env)
-  await app.evaluate(({ app: a }) => a.on('browser-window-created', (_e, w) => w.on('show', () => setImmediate(() => w.hide()))))
   const opened = app.waitForEvent('window')
   await palette(win, 'new window')
   const w2 = await opened
@@ -94,7 +91,6 @@ test("a vault's window comes back where it was; a new window never covers anothe
   r.vaults.bbbbbbbbbbbbbbbb = { path: vaultB, ts: 0 }
   fs.writeFileSync(reg, JSON.stringify(r))
   const { app, win } = await launch(env)
-  await app.evaluate(({ app: a }) => a.on('browser-window-created', (_e, w) => w.on('show', () => setImmediate(() => w.hide()))))
   const bounds = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => ({ title: w.getTitle(), ...w.getNormalBounds() })))
   const openB = async () => {
     const opened = app.waitForEvent('window')

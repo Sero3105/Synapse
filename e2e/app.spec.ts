@@ -44,19 +44,12 @@ async function launch(): Promise<{ app: ElectronApplication; win: Page }> {
   const app = await _electron.launch({
     ...(exe ? { executablePath: exe, args: [] } : { args: [path.join(__dirname, '..')] }),
     // the update check talks to a closed local port unless a test serves its own feed
-    env: { ...process.env, SYNAPSE_USER_DATA: userData, SYNAPSE_UPDATE_FEED: updateFeed },
+    // SYNAPSE_HIDDEN: no window on screen, no focus taken (see helpers.ts)
+    env: { ...process.env, SYNAPSE_USER_DATA: userData, SYNAPSE_UPDATE_FEED: updateFeed, SYNAPSE_HIDDEN: '1' },
   })
   const win = await app.firstWindow()
   win.on('pageerror', (e) => console.error('pageerror', e))
   await win.waitForLoadState('domcontentloaded')
-  // Keep the test window away from the real keyboard: shown windows take focus, and anything typed on
-  // this Mac during a run lands in the test editor (verified with an OS-level keystroke). Playwright
-  // drives the hidden window through CDP as before.
-  await app.evaluate(async ({ BrowserWindow }) => {
-    const w = BrowserWindow.getAllWindows()[0]
-    while (!w.isVisible()) await new Promise((r) => setTimeout(r, 20))
-    w.hide()
-  })
   return { app, win }
 }
 
