@@ -264,6 +264,20 @@ describe('edge cases', () => {
     expect(fs.readdirSync(tmp).filter((n) => n.includes('.tmp'))).toEqual([])
   })
 
+  it('atomicWrite keeps the permissions and creation date of the file it replaces', async () => {
+    const f = path.join(tmp, 'note.md')
+    atomicWrite(f, '1')
+    fs.chmodSync(f, 0o600)
+    const born = fs.statSync(f).birthtimeMs
+    await new Promise((r) => setTimeout(r, 50))
+    atomicWrite(f, '2')
+    const st = fs.statSync(f)
+    expect(st.mode & 0o777).toBe(0o600)
+    expect(st.mtimeMs).toBeGreaterThan(born)
+    // APFS only: Linux (CI) cannot set a birthtime
+    if (process.platform === 'darwin') expect(Math.abs(st.birthtimeMs - born)).toBeLessThan(1)
+  })
+
   it('window state round-trips', () => {
     const app = new AppStore(userData)
     expect(app.getWindowState()).toBeNull()

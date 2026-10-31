@@ -16,15 +16,21 @@ export const newId = () => crypto.randomBytes(8).toString('hex')
 export function atomicWrite(file: string, data: string) {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   const tmp = `${file}.${process.pid}.${Date.now()}.tmp`
-  let mode: number | undefined
+  let old: fs.Stats | undefined
   try {
-    mode = fs.statSync(file).mode & 0o7777 // keep the permissions of the file being replaced
+    old = fs.statSync(file)
   } catch { /* new file */ }
   const fd = fs.openSync(tmp, 'w')
   try {
-    if (mode !== undefined) fs.fchmodSync(fd, mode)
+    if (old) fs.fchmodSync(fd, old.mode & 0o7777) // keep the permissions of the file being replaced
     fs.writeSync(fd, data)
     fs.fsyncSync(fd)
+    if (old) {
+      // keep the creation date: on APFS an mtime older than the birthtime moves the birthtime back with it
+      const now = new Date()
+      fs.futimesSync(fd, now, old.birthtime)
+      fs.futimesSync(fd, now, now)
+    }
   } finally {
     fs.closeSync(fd)
   }
