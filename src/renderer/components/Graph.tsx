@@ -31,6 +31,8 @@ export function GraphView() {
   const center = settings.local ? (pinnedCenter && model.index.notes.has(pinnedCenter) ? pinnedCenter : followed) : null
   const [panel, setPanel] = useState(false)
   const sim = useRef<{ nodes: Node[]; edges: [number, number][]; alpha: number; restart: () => void; resetView: () => void } | null>(null)
+  // zoom and pan outlive the rebuild that runs on every index change (typing in another pane)
+  const lastView = useRef({ x: 0, y: 0, k: 1 })
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
   const [orphansOnly, setOrphansOnly] = useState(false)
@@ -87,8 +89,10 @@ export function GraphView() {
     const degs = nodes.map((n) => n.deg)
     let shownFilter: typeof filter.current | null = null
     let visible: boolean[] = []
-    let view = { x: 0, y: 0, k: 1 }
-    const state = { nodes, edges, alpha: prev.size ? 0.3 : 1, restart: () => (state.alpha = 1), resetView: () => (view = { x: 0, y: 0, k: 1 }) }
+    let view = lastView.current
+    // same nodes and links (an edit that touched no link): keep settling instead of shaking the graph again
+    const same = prev.size === nodes.length && nodes.every((n) => prev.get(n.id)?.deg === n.deg)
+    const state = { nodes, edges, alpha: !prev.size ? 1 : same ? sim.current!.alpha : 0.3, restart: () => (state.alpha = 1), resetView: () => (view = { x: 0, y: 0, k: 1 }) }
     sim.current = state
 
     let w = 0
@@ -278,6 +282,7 @@ export function GraphView() {
     cv.addEventListener('pointerup', onUp)
     cv.addEventListener('wheel', onWheel, { passive: false })
     return () => {
+      lastView.current = view
       cancelAnimationFrame(raf)
       ro.disconnect()
       cv.removeEventListener('pointerdown', onDown)
