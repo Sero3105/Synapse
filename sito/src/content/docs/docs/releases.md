@@ -5,6 +5,28 @@ description: Published versions of Synapse and what changed.
 
 Downloads for every version are on [GitHub Releases](https://github.com/Sero3105/Synapse/releases).
 
+## 1.5.5 — 31 October 2026
+
+- **Creation dates kept:** saving a note no longer resets its creation date, so **Sort by created** in the file tree orders notes by when they were really created.
+- **Graph:** zoom and position stay put while you type in another pane, and the nodes no longer shake on every pause.
+- **Faster on big vaults:** autosaving a note no longer re-reads the whole vault; only the saved note is updated.
+- **Vault export:** each image is copied once into the site folder, next to the pages, instead of being embedded in every page that shows it. The export runs in the background and no longer freezes the app.
+- **Updates:** the update check repeats once a day while Synapse stays open, and a check that failed (for example offline at launch) is tried again.
+- **Version history:** removing a vault from the list also deletes the earlier versions Synapse kept for it.
+- **Security:** release builds turn off Electron's `--inspect` option, so no other program can start Synapse in debug mode and run code with its permissions.
+
+## 1.5.4 — 29 October 2026
+
+- **Fix:** in a long note, `[[` suggestions now open below the cursor even past the first screenful.
+
+## 1.5.3 — 28 October 2026
+
+- **Fix:** the `[[` suggestions popup could be placed off-screen and stay invisible; it now opens next to the cursor.
+
+## 1.5.2 — 28 October 2026
+
+- **Fix:** `[[` suggestions open however the brackets were typed.
+
 ## 1.5.1 — 28 October 2026
 
 - **Preview tabs:** a single click in the file tree opens a preview tab (italic title) that the next click reuses. Double-click the file or the tab, or type in the note, to keep it.

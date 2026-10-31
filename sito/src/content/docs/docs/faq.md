@@ -25,7 +25,7 @@ Not by itself. Because notes are plain files, you can keep the vault in any fold
 
 ## Does Synapse go online?
 
-Only to check for updates at launch (one request to GitHub Releases, which you can turn off in Settings → General) and when a note asks it to: to load a remote image embedded with an `https://` link, or when you click a web link, which opens in your browser. There is no telemetry.
+Only to check for updates at launch and once a day while it stays open (one request to GitHub Releases, which you can turn off in Settings → General) and when a note asks it to: to load a remote image embedded with an `https://` link, or when you click a web link, which opens in your browser. There is no telemetry.
 
 ## Which Macs are supported?
 
@@ -37,7 +37,7 @@ No. Synapse is built and tested for macOS only.
 
 ## Does it update automatically?
 
-From version 1.3.0, Synapse checks GitHub Releases at launch and shows a notice when a newer version is published. From 1.5.0 it can also install the update itself: the download is verified with the project's own ed25519 release key (not an Apple Developer ID signature), then Synapse restarts into the new version. See [Installation → Update](/docs/installation/#update).
+From version 1.3.0, Synapse checks GitHub Releases at launch (from 1.5.5 also once a day while open) and shows a notice when a newer version is published. From 1.5.0 it can also install the update itself: the download is verified with the project's own ed25519 release key (not an Apple Developer ID signature), then Synapse restarts into the new version. See [Installation → Update](/docs/installation/#update).
 
 ## I read about tasks, related notes and export. Where are they?
 

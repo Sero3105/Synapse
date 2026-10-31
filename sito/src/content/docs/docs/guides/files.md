@@ -9,6 +9,8 @@ sidebar:
 
 The **Files** view in the left dock shows the vault's folders and files. You can filter it, collapse all folders, drag files and folders to move them, and use the context menu to rename, delete, open in a new tab, open to the right or reveal in Finder.
 
+The sort menu in the panel orders files by name, by last modified or by creation date; folders always come first. From 1.5.5 saving a note keeps its creation date, so the creation order stays true.
+
 New notes are created in the vault folder or in the current note's folder, depending on **Default location for new notes** (Settings → Files and links).
 
 ## Attachments (from 1.4.0)

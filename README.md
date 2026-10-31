@@ -161,7 +161,7 @@ To add a language, add a dictionary to `src/shared/i18n.ts`. The type checker re
 
 ## Privacy
 
-Everything stays on your Mac: no account, no telemetry, no cloud sync. Synapse goes online only in two cases. At launch it asks GitHub Releases whether a newer version exists (no personal data is sent; turn it off in **Settings → General → Check for updates**), and downloads the update only when you click **Update and restart**. And when a note asks it to, for example to load a remote image embedded with an `https://` link, or when you click a web link, which opens in your browser.
+Everything stays on your Mac: no account, no telemetry, no cloud sync. Synapse goes online only in two cases. At launch, and once a day while it stays open, it asks GitHub Releases whether a newer version exists (no personal data is sent; turn it off in **Settings → General → Check for updates**), and downloads the update only when you click **Update and restart**. And when a note asks it to, for example to load a remote image embedded with an `https://` link, or when you click a web link, which opens in your browser.
 
 ## Development
 

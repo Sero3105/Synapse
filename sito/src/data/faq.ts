@@ -37,6 +37,6 @@ export const faqs: readonly Faq[] = [
   {
     question: 'Does Synapse go online?',
     answer:
-      'Only to check for a new version at launch (one request to GitHub, which you can switch off) and when a note asks it to, such as loading a remote image or opening a web link in your browser. No telemetry, no cloud sync.',
+      'Only to check for a new version at launch and once a day while open (one request to GitHub, which you can switch off) and when a note asks it to, such as loading a remote image or opening a web link in your browser. No telemetry, no cloud sync.',
   },
 ]
