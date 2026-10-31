@@ -158,7 +158,10 @@ class Model {
     api.on('command', (id) => runCommandById(String(id)))
     api.on('app:flush', async () => api.flushed(await this.flushAll()))
     await this.onSnapshot(await api.state())
-    api.checkUpdate().then((update) => update && this.set({ update }), () => {})
+    // hourly: the Mac app stays open for weeks; main asks GitHub at most once a day
+    const checkUpdate = () => api.checkUpdate().then((update) => update && this.set({ update }), () => {})
+    checkUpdate()
+    setInterval(checkUpdate, 60 * 60_000)
   }
 
   private async onSnapshot(s: Snapshot) {

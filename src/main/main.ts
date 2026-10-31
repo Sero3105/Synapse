@@ -35,19 +35,28 @@ const focusedCtx = () => {
 
 const trash = (abs: string) => shell.trashItem(abs)
 
-// One request per launch, only when the setting allows it. Failures (offline, rate limit) are silent.
-let updateCheck: Promise<UpdateInfo | null> | null = null
+// At most one request a day, shared by every window, only when the setting allows it. Failures (offline,
+// rate limit) are silent and forgotten, so the next ask tries again.
+let updateCheck: { at: number; result: Promise<UpdateInfo | null> } | null = null
 function checkForUpdate(): Promise<UpdateInfo | null> {
   if (!store.getGlobal().checkUpdates) return Promise.resolve(null)
-  updateCheck ??= net
-    .fetch(process.env.SYNAPSE_UPDATE_FEED || RELEASES_API, {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': `Synapse/${app.getVersion()}` },
-      signal: AbortSignal.timeout(10_000),
+  if (!updateCheck || Date.now() - updateCheck.at > 24 * 60 * 60_000) {
+    const result = net
+      .fetch(process.env.SYNAPSE_UPDATE_FEED || RELEASES_API, {
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': `Synapse/${app.getVersion()}` },
+        signal: AbortSignal.timeout(10_000),
+      })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((json) => updateFromRelease(json, app.getVersion(), process.arch))
+    const entry = (updateCheck = { at: Date.now(), result })
+    result.catch(() => {
+      if (updateCheck === entry) updateCheck = null
     })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((json) => updateFromRelease(json, app.getVersion(), process.arch))
-    .catch(() => null)
-  return updateCheck
+  }
+  return updateCheck.result.catch(() => null)
 }
 
 function send(ctx: Ctx, channel: string, ...args: unknown[]) {
