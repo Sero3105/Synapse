@@ -5,7 +5,9 @@
 | Typecheck | `npm run typecheck` | `tsc --noEmit` over main, preload, renderer, tests |
 | Unit / integration | `npm test` | vitest: settings layers, migrations, corruption, vault switching, moved/copied vaults, failed writes, concurrency (`test/settings.test.ts`); path confinement, symlinks, conflicts, unicode, rename, trash (`test/vault.test.ts`); link parsing and resolution, backlinks, graph edges, tags, search, rename rewriting (`test/markdown.test.ts`) |
 | E2E (dev build) | `npm run test:e2e` | Playwright drives Electron with an isolated `SYNAPSE_USER_DATA` and temp vaults |
-| E2E (installed app) | `SYNAPSE_APP=/Applications/Synapse.app/Contents/MacOS/Synapse npx playwright test` | Same suite against the production bundle |
+| E2E (packaged app) | `npm run build && npm run notices && npx electron-builder --mac --dir -c.electronFuses.enableNodeCliInspectArguments=true`, then `SYNAPSE_APP=release/mac-arm64/Synapse.app/Contents/MacOS/Synapse npx playwright test` | Same suite against a production bundle. Release builds turn the `--inspect` fuse off, so Playwright can only drive a bundle built with this override |
+
+E2E windows are never shown and the app takes no focus or Dock icon (`SYNAPSE_HIDDEN=1`, set by the specs), so you can keep working while the suite runs.
 
 All tests use temp directories. None touch real notes or the real `~/Library/Application Support/Synapse`.
 

@@ -183,10 +183,12 @@ e2e/          Playwright suites against the packaged app
 docs/         architecture, design system, testing notes
 ```
 
-End-to-end tests run against isolated temporary vaults and app-data folders. To test the installed app:
+End-to-end tests run against isolated temporary vaults and app-data folders, with hidden windows that never take focus. Release builds turn off Electron's `--inspect` fuse, so to run the suite against a packaged app, build one with it on:
 
 ```sh
-SYNAPSE_APP=/Applications/Synapse.app/Contents/MacOS/Synapse npx playwright test
+npm run build && npm run notices
+npx electron-builder --mac --dir -c.electronFuses.enableNodeCliInspectArguments=true
+SYNAPSE_APP=release/mac-arm64/Synapse.app/Contents/MacOS/Synapse npx playwright test
 ```
 
 ## Documentation

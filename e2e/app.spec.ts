@@ -1,5 +1,5 @@
 // End-to-end tests against the real Electron app with isolated temp data.
-// SYNAPSE_APP=/Applications/Synapse.app/Contents/MacOS/Synapse runs them against an installed build.
+// SYNAPSE_APP=<bundle>/Contents/MacOS/Synapse runs them against a packaged build made with the --inspect fuse on (docs/testing.md).
 import { test, expect, _electron, ElectronApplication, Page } from '@playwright/test'
 import fs from 'node:fs'
 import os from 'node:os'
