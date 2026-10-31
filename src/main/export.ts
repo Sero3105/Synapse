@@ -2,6 +2,7 @@
 // The note itself is never touched; overwriting an existing file is confirmed by the native dialog.
 import { app, BrowserWindow, dialog } from 'electron'
 import fs from 'node:fs'
+import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import type { Vault } from './vault'
@@ -19,11 +20,14 @@ const MIME: Record<string, string> = {
   svg: 'image/svg+xml', bmp: 'image/bmp', avif: 'image/avif',
 }
 
-/** Replace `synapse-file://<vault id>/…` image sources with data: URIs. Anything unreadable, outside the vault or from another vault is dropped. */
-export function inlineImages(html: string, open: { id: string; vault: Pick<Vault, 'resolve'> }): string {
-  const vault = open.vault
+type OpenRef = { id: string; vault: Pick<Vault, 'resolve'> }
+
+/**
+ * Give every `synapse-file://<vault id>/…` image source the src `use` returns for it. Only regular image files of this
+ * vault reach `use`; anything unreadable, outside the vault or from another vault gets an empty src.
+ */
+function mapImages(html: string, open: OpenRef, use: (rel: string, abs: string, size: number, mime: string) => string): string {
   const cache = new Map<string, string>()
-  let total = 0
   // only inside <img> tags: in text nodes "<" is escaped, so note prose can never match
   return html.replace(/(<img\b[^>]*?\s)src="synapse-file:\/\/([a-z0-9]+)\/([^"]*)"/g, (_, tag: string, host: string, enc: string) => {
     let src = host === open.id ? cache.get(enc) : ''
@@ -32,17 +36,24 @@ export function inlineImages(html: string, open: { id: string; vault: Pick<Vault
       try {
         const rel = enc.split('/').map(decodeURIComponent).join('/')
         const mime = MIME[rel.slice(rel.lastIndexOf('.') + 1).toLowerCase()]
-        const abs = vault.resolve(rel)
+        const abs = open.vault.resolve(rel)
         const st = fs.statSync(abs)
         // regular files only: reading a FIFO or device would block the main process
-        if (mime && st.isFile() && st.size <= MAX_IMAGE && total + st.size <= MAX_IMAGES_TOTAL) {
-          total += st.size
-          src = `data:${mime};base64,${fs.readFileSync(abs).toString('base64')}`
-        }
+        if (mime && st.isFile()) src = use(rel, abs, st.size, mime)
       } catch { /* unreadable or outside the vault: dropped */ }
       cache.set(enc, src)
     }
     return `${tag}src="${src}"`
+  })
+}
+
+/** Image sources as data: URIs, for a single standalone file. */
+export function inlineImages(html: string, open: OpenRef): string {
+  let total = 0
+  return mapImages(html, open, (_rel, abs, size, mime) => {
+    if (size > MAX_IMAGE || total + size > MAX_IMAGES_TOTAL) return ''
+    total += size
+    return `data:${mime};base64,${fs.readFileSync(abs).toString('base64')}`
   })
 }
 
@@ -88,7 +99,7 @@ export function exportDocument(title: string, body: string, dark: boolean): stri
 <html>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: https:; style-src 'unsafe-inline'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <style>${CSS(dark)}</style>
@@ -153,17 +164,32 @@ export function validPagePath(p: unknown): p is string {
   return typeof p === 'string' && p.length <= 1024 && p.endsWith('.html') && !p.includes('\\') && !p.includes('\0') && p.split('/').every((s) => s !== '' && s !== '.' && s !== '..')
 }
 
-/** Write a static site of the vault into a new folder inside `parent`. Returns that folder. Never overwrites anything. */
-export function writeSite(parent: string, open: { id: string; vault: Pick<Vault, 'resolve'> }, name: string, pages: { path: string; title: string; body: string }[], dark: boolean): string {
+/**
+ * Write a static site of the vault into a new folder inside `parent`. Returns that folder. Never overwrites anything.
+ * Images are copied once, at their vault path next to the pages (pages end in .html, images never do).
+ */
+export async function writeSite(parent: string, open: OpenRef, name: string, pages: { path: string; title: string; body: string }[], dark: boolean): Promise<string> {
   const base = `${name.replace(/[\\/:*?"<>|\0]/g, '-').trim().slice(0, 100) || 'Vault'} (HTML)`
   let out = path.join(parent, base)
   for (let i = 2; fs.existsSync(out); i++) out = path.join(parent, `${base} ${i}`)
-  fs.mkdirSync(out)
+  await fsp.mkdir(out)
+  const copied = new Set<string>()
   for (const p of pages) {
     const file = path.join(out, p.path)
     if (!file.startsWith(out + path.sep)) throw new VaultError('EINVAL', 'Invalid export')
-    fs.mkdirSync(path.dirname(file), { recursive: true })
-    fs.writeFileSync(file, exportDocument(p.title, inlineImages(p.body, open), dark), { flag: 'wx' })
+    const toRoot = '../'.repeat(p.path.split('/').length - 1)
+    const copies: [string, string][] = []
+    const body = mapImages(p.body, open, (rel, abs) => {
+      if (!copied.has(rel)) copies.push([abs, path.join(out, rel)])
+      copied.add(rel)
+      return toRoot + rel.split('/').map(encodeURIComponent).join('/')
+    })
+    for (const [from, to] of copies) {
+      await fsp.mkdir(path.dirname(to), { recursive: true })
+      await fsp.copyFile(from, to, fs.constants.COPYFILE_EXCL)
+    }
+    await fsp.mkdir(path.dirname(file), { recursive: true })
+    await fsp.writeFile(file, exportDocument(p.title, body, dark), { flag: 'wx' })
   }
   return out
 }

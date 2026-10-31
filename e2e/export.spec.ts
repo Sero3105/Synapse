@@ -149,7 +149,8 @@ test('export the whole vault as a small site: one page per note, links between p
   expect(home).toContain('href="sub/inner/Deep.html#final-part"')
   expect(home).toMatch(/<a class="internal-link is-unresolved"[^>]*>Missing<\/a>/) // no page to go to: text only
   expect(home).not.toMatch(/<a class="internal-link is-unresolved"[^>]*[^-]href=/)
-  expect(home).toContain('src="data:image/png;base64,')
+  expect(home).toContain('src="pic%201.png"')
+  expect(fs.readFileSync(path.join(site, 'pic 1.png'))).toEqual(PNG) // copied once, not inlined in every page
   expect(home).toContain('<nav class="export-nav"><a href="index.html">Vault</a></nav>')
   const deep = fs.readFileSync(path.join(site, 'sub', 'inner', 'Deep.html'), 'utf8')
   expect(deep).toContain('href="../../Home.html"')
@@ -165,12 +166,14 @@ test('export the whole vault as a small site: one page per note, links between p
   const page = await app.evaluate(async ({ BrowserWindow }, file) => {
     const w = new BrowserWindow({ show: false })
     await w.loadFile(file)
+    const image = await w.webContents.executeJavaScript(`document.querySelector('img').decode().then(() => document.querySelector('img').naturalWidth, () => 0)`)
     await w.webContents.executeJavaScript(`document.querySelector('a[href="sub/inner/Deep.html#final-part"]').click()`)
     await new Promise((r) => setTimeout(r, 500))
     const url = w.webContents.getURL()
     w.destroy()
-    return { url }
+    return { url, image }
   }, path.join(site, 'Home.html'))
+  expect(page.image).toBeGreaterThan(0) // the CSP lets the copied image load
   expect(page.url).toMatch(/sub\/inner\/Deep\.html#final-part$/)
 
   // a second export goes to a new folder, the first one stays as it was

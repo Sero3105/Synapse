@@ -16,7 +16,7 @@ describe('export', () => {
     const body = new MarkdownIt({ html: false }).render('# Título ✓\n\n- one\n- two\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n```js\nx()\n```\n\n<script>alert(1)</script>\n')
     const doc = exportDocument('Ünïcode "note"', body, false)
     expect(doc).toContain('<meta charset="utf-8">')
-    expect(doc).toMatch(/Content-Security-Policy" content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline'"/)
+    expect(doc).toMatch(/Content-Security-Policy" content="default-src 'none'; img-src 'self' data: https:; style-src 'unsafe-inline'"/)
     expect(doc).toContain('<title>Ünïcode &quot;note&quot;</title>')
     for (const tag of ['<h1>Título ✓</h1>', '<li>one</li>', '<table>', '<pre><code class="language-js">']) expect(doc).toContain(tag)
     expect(doc).not.toContain('<script')
@@ -62,17 +62,32 @@ describe('export', () => {
     for (const bad of ['../x.html', 'a/../../x.html', '/etc/x.html', 'a//b.html', './a.html', 'a\\b.html', 'a.md', 'a.html\0', 42]) expect(validPagePath(bad)).toBe(false)
   })
 
-  it('writes the site into a new folder and never overwrites an earlier export', () => {
+  it('writes the site into a new folder and never overwrites an earlier export', async () => {
     tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'synapse-export-')))
     fs.mkdirSync(path.join(tmp, 'vault'))
     const vault = { id: 'vault', vault: new Vault(path.join(tmp, 'vault'), async () => {}) }
     const pages = [{ path: 'index.html', title: 'V', body: '<a href="sub/A.html">A</a>' }, { path: 'sub/A.html', title: 'A', body: '<p>a</p>' }]
-    const first = writeSite(tmp, vault, 'My: Vault', pages, false)
+    const first = await writeSite(tmp, vault, 'My: Vault', pages, false)
     expect(path.basename(first)).toBe('My- Vault (HTML)')
     expect(fs.readFileSync(path.join(first, 'sub', 'A.html'), 'utf8')).toContain('<p>a</p>')
-    const second = writeSite(tmp, vault, 'My: Vault', pages, false)
+    const second = await writeSite(tmp, vault, 'My: Vault', pages, false)
     expect(path.basename(second)).toBe('My- Vault (HTML) 2')
-    expect(() => writeSite(tmp, vault, 'x', [{ path: '../evil.html', title: '', body: '' }], false)).toThrow()
+    await expect(writeSite(tmp, vault, 'x', [{ path: '../evil.html', title: '', body: '' }], false)).rejects.toThrow()
     expect(fs.existsSync(path.join(tmp, 'evil.html'))).toBe(false)
+  })
+
+  it('copies each site image once, at its vault path, and points every page at it', async () => {
+    tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'synapse-export-')))
+    const root = path.join(tmp, 'vault')
+    fs.mkdirSync(path.join(root, 'img'), { recursive: true })
+    fs.writeFileSync(path.join(root, 'img', 'caffè 1.png'), 'PNGDATA')
+    fs.writeFileSync(path.join(tmp, 'secret.png'), 'SECRET')
+    const vault = { id: 'vault', vault: new Vault(root, async () => {}) }
+    const img = `<img src="${url('img/caffè 1.png')}"><img src="${url('../secret.png')}">`
+    const site = await writeSite(tmp, vault, 'V', [{ path: 'A.html', title: 'A', body: img }, { path: 'sub/B.html', title: 'B', body: img }], false)
+    expect(fs.readFileSync(path.join(site, 'img', 'caffè 1.png'), 'utf8')).toBe('PNGDATA')
+    expect(fs.readFileSync(path.join(site, 'A.html'), 'utf8')).toContain('<img src="img/caff%C3%A8%201.png"><img src="">')
+    expect(fs.readFileSync(path.join(site, 'sub', 'B.html'), 'utf8')).toContain('<img src="../img/caff%C3%A8%201.png">')
+    expect(fs.readdirSync(site).sort()).toEqual(['A.html', 'img', 'sub'])
   })
 })
