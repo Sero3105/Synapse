@@ -78,6 +78,9 @@ mark { background: ${dark ? '#6b5a1e' : '#fbeaa0'}; color: inherit; }
 .frontmatter { color: var(--ink-2); }
 .task-list-item { list-style: none; }
 .markdown-embed { border-left: 3px solid var(--line); padding-left: 1em; }
+.callout { border-left: 3px solid var(--accent); padding: 0.4em 1em; margin: 1em 0; break-inside: avoid; }
+.callout-title { font-weight: 600; color: var(--accent); }
+.footnotes { font-size: 0.88em; color: var(--ink-2); }
 .markdown-embed-title { font-weight: 600; }
 .mermaid { text-align: center; margin: 1em 0; }
 .mermaid-error { color: var(--ink-2); font-size: 0.8em; }

@@ -20,6 +20,7 @@ async function renderPage(path: string, content: string, dark: boolean, linkTo: 
   try {
     await renderMermaid(box, !dark)
     for (const a of box.querySelectorAll<HTMLAnchorElement>('a')) {
+      if (/^#fn/.test(a.getAttribute('href') ?? '')) continue // footnotes link within the page
       // only schemes that are safe to follow from a standalone file
       const href = a.dataset.external ? (/^(https?|mailto):/i.test(a.dataset.external) ? a.dataset.external : null) : a.dataset.href !== undefined ? linkTo(a.dataset.href) : null
       if (href) a.href = href

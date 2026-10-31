@@ -146,6 +146,83 @@ function General() {
           <Toggle value={snap.global.checkUpdates} set={(v) => model.setGlobal({ checkUpdates: v })} label={t('settings.checkUpdates')} />
         </div>
       </div>
+      <Heading>{t('settings.macos')}</Heading>
+      <div className="setting-item" data-setting="capture">
+        <div className="setting-info">
+          <div className="setting-name">{t('settings.capture')}</div>
+          <div className="setting-desc">{t('settings.captureDesc')}</div>
+        </div>
+        <div className="setting-control">
+          <CaptureHotkey />
+        </div>
+      </div>
+      <div className="setting-item" data-setting="captureTarget">
+        <div className="setting-info">
+          <div className="setting-name">{t('settings.captureTarget')}</div>
+        </div>
+        <div className="setting-control">
+          <Select
+            label={t('settings.captureTarget')}
+            value={snap.global.capture.target}
+            onChange={(target) => model.setGlobal({ capture: { target } })}
+            options={[
+              { value: 'daily' as const, label: t('settings.captureDaily') },
+              { value: 'inbox' as const, label: t('settings.captureInbox') },
+            ]}
+          />
+        </div>
+      </div>
+      <div className="setting-item" data-setting="menuBarIcon">
+        <div className="setting-info">
+          <div className="setting-name">{t('settings.menuBarIcon')}</div>
+          <div className="setting-desc">{t('settings.menuBarIconDesc')}</div>
+        </div>
+        <div className="setting-control">
+          <Toggle value={snap.global.menuBarIcon} set={(v) => model.setGlobal({ menuBarIcon: v })} label={t('settings.menuBarIcon')} />
+        </div>
+      </div>
+    </>
+  )
+}
+
+/** The system-wide quick capture hotkey: recorded like the app's hotkeys, but it must use a modifier. */
+function CaptureHotkey() {
+  const hotkey = useModel((s) => s.snap!.global.capture.hotkey)
+  const [recording, setRecording] = useState(false)
+  const set = (hk: string) => model.setGlobal({ capture: { hotkey: hk } })
+  if (recording)
+    return (
+      <span
+        className="hotkey-pill hotkey-capture"
+        tabIndex={0}
+        ref={(el) => el?.focus()}
+        onBlur={() => setRecording(false)}
+        onKeyDown={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          if (e.key === 'Escape') return setRecording(false)
+          const hk = eventToHotkey(e.nativeEvent)
+          if (!hk?.includes('+')) return // a lone key would stop typing it in every app
+          set(hk)
+          setRecording(false)
+        }}
+      >
+        {t('settings.pressHotkey')}
+      </span>
+    )
+  return (
+    <>
+      {hotkey ? (
+        <span className="hotkey-pill">
+          {formatHotkey(hotkey)}
+          <button className="hotkey-remove" aria-label={t('settings.captureClear')} onClick={() => set('')}>
+            <X size={11} />
+          </button>
+        </span>
+      ) : (
+        <span className="setting-desc">{t('settings.captureOff')}</span>
+      )}
+      <button className="btn small" onClick={() => setRecording(true)}>{t('settings.captureSet')}</button>
     </>
   )
 }

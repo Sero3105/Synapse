@@ -64,6 +64,11 @@ export const api = {
   fontData: (id: string) => call<Uint8Array>('fonts:data', id),
   addFonts: () => call<{ added: CustomFont[]; rejected: string[] }>('fonts:add'),
   removeFont: (id: string) => call<void>('fonts:remove', id),
+  /** A note opened from Finder for this window, once. */
+  takePendingFile: () => call<string | null>('file:takePending'),
+  /** Quick capture window only: append to the capture note; returns its path. */
+  captureSave: (text: string) => call<string>('capture:save', text),
+  captureHide: () => call<void>('capture:hide'),
   loadWorkspace: () => call<unknown>('workspace:load'),
   saveWorkspace: (ws: unknown) => call<void>('workspace:save', ws),
   openExternal: (url: string) => call<void>('shell:openExternal', url),

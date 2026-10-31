@@ -4,6 +4,7 @@ import { model, useModel } from './model'
 import { Workspace } from './components/Workspace'
 import { Navigator, ContextPanel } from './components/Sidebars'
 import { Modals, ContextMenu, Notices, VaultManager } from './components/Modals'
+import { HoverPreview } from './components/HoverPreview'
 import { runCommand } from './commands'
 import { loadCustomFonts } from './fonts'
 import { wordCount } from '../shared/markdown'
@@ -70,6 +71,7 @@ export function App() {
   return (
     <Fragment key={lang}>
       <Shell loading={loading} />
+      <HoverPreview />
       <Modals />
       <ContextMenu />
       <Notices />

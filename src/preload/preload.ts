@@ -7,9 +7,9 @@ const INVOKE = [
   'fs:list', 'fs:read', 'fs:readAll', 'fs:write', 'fs:create', 'fs:createBinary', 'fs:mkdir', 'fs:rename', 'fs:trash', 'fs:exists', 'fs:reveal',
   'history:list', 'history:read', 'history:restore', 'fs:openFile', 'vault:inspect', 'export:save', 'export:vault',
   'fonts:list', 'fonts:data', 'fonts:add', 'fonts:remove',
-  'workspace:load', 'workspace:save', 'shell:openExternal', 'update:check', 'update:install', 'window:new',
+  'workspace:load', 'workspace:save', 'shell:openExternal', 'update:check', 'update:install', 'window:new', 'file:takePending', 'capture:save', 'capture:hide',
 ]
-const EVENTS = ['state', 'fs:changed', 'command', 'app:flush']
+const EVENTS = ['state', 'fs:changed', 'command', 'app:flush', 'open-file', 'capture:show']
 
 contextBridge.exposeInMainWorld('synapse', {
   invoke: (channel: string, ...args: unknown[]) => {

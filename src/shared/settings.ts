@@ -70,7 +70,13 @@ export interface GlobalSettings {
   hotkeys: Record<string, string[]>
   /** Ask GitHub Releases for a newer version at launch. */
   checkUpdates: boolean
+  /** Quick capture: system-wide hotkey ('' = off) and the note the text is appended to. */
+  capture: CaptureSettings
+  /** Synapse icon in the macOS menu bar, with recent notes. */
+  menuBarIcon: boolean
 }
+
+export interface CaptureSettings { hotkey: string; target: 'daily' | 'inbox' }
 
 export interface GraphSettings {
   showOrphans: boolean
@@ -148,6 +154,8 @@ export const defaultGlobal = (): GlobalSettings => ({
   layout: { ...DEFAULT_LAYOUT },
   hotkeys: {},
   checkUpdates: true,
+  capture: { hotkey: 'Mod+Shift+Space', target: 'daily' },
+  menuBarIcon: true,
 })
 
 export const defaultVault = (vaultId: string): VaultSettings => ({
@@ -324,7 +332,20 @@ export function normalizeGlobal(raw: unknown): GlobalSettings {
     layout: { ...d.layout, ...validLayout(m.layout) },
     hotkeys: validHotkeys(m.hotkeys),
     checkUpdates: typeof m.checkUpdates === 'boolean' ? m.checkUpdates : d.checkUpdates,
+    capture: { ...d.capture, ...validCapture(m.capture) },
+    menuBarIcon: typeof m.menuBarIcon === 'boolean' ? m.menuBarIcon : d.menuBarIcon,
   }
+}
+
+/** A hotkey needs a modifier: a system-wide plain key would stop it from typing anywhere. */
+const CAPTURE_HOTKEY = /^((Mod|Ctrl|Alt|Shift)\+)+[^+]{1,20}$/
+function validCapture(x: unknown): Partial<CaptureSettings> {
+  if (!isObj(x)) return {}
+  const out: Partial<CaptureSettings> = {}
+  const h = x.hotkey
+  if (typeof h === 'string' && (h === '' || (CAPTURE_HOTKEY.test(h) && !/^(Mod|Ctrl|Alt|Shift)$/.test(h.slice(h.lastIndexOf('+') + 1))))) out.hotkey = h
+  if (x.target === 'daily' || x.target === 'inbox') out.target = x.target
+  return out
 }
 
 /** Shape of a vault id; it also names the vault's history folder in app data. */
@@ -362,6 +383,8 @@ export function applyGlobalPatch(g: GlobalSettings, patch: unknown): GlobalSetti
     layout: isObj(patch.layout) ? { ...g.layout, ...validLayout(patch.layout) } : g.layout,
     hotkeys: isObj(patch.hotkeys) ? patchHotkeys(g.hotkeys, patch.hotkeys) : g.hotkeys,
     checkUpdates: typeof patch.checkUpdates === 'boolean' ? patch.checkUpdates : g.checkUpdates,
+    capture: { ...g.capture, ...validCapture(patch.capture) },
+    menuBarIcon: typeof patch.menuBarIcon === 'boolean' ? patch.menuBarIcon : g.menuBarIcon,
   })
 }
 

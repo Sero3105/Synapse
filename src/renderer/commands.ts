@@ -155,6 +155,7 @@ export function eventToHotkey(e: KeyboardEvent): string | null {
   else if (e.code === 'BracketLeft') key = '['
   else if (e.code === 'BracketRight') key = ']'
   else if (e.code === 'Comma') key = ','
+  else if (e.code === 'Space') key = 'Space'
   else if (e.code === 'Slash') key = '/'
   else if (e.code === 'Semicolon') key = ';'
   else if (key.length === 1) key = key.toUpperCase()

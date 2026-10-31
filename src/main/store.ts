@@ -3,6 +3,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import {
   GlobalSettings, VaultSettings, normalizeGlobal, normalizeVault, applyGlobalPatch, applyVaultPatch,
   defaultGlobal, isObj, GLOBAL_SCHEMA_VERSION, VAULT_SCHEMA_VERSION, VAULT_ID,
@@ -20,6 +21,13 @@ export function atomicWrite(file: string, data: string) {
   try {
     old = fs.statSync(file)
   } catch { /* new file */ }
+  // A new file has none of the old one's extended attributes (Finder tags and comments). Start from an APFS
+  // clone of it, which keeps them; opening with 'w' then drops the old text. Node's copyFile copies no xattrs.
+  if (old && process.platform === 'darwin') {
+    try {
+      execFileSync('/bin/cp', ['-c', file, tmp], { stdio: 'ignore' })
+    } catch { /* a plain new file, as before */ }
+  }
   const fd = fs.openSync(tmp, 'w')
   try {
     if (old) fs.fchmodSync(fd, old.mode & 0o7777) // keep the permissions of the file being replaced
@@ -74,7 +82,8 @@ function backupBeforeMigration(file: string, raw: unknown, current: number) {
 }
 
 export interface VaultEntry { path: string; ts: number }
-export interface Registry { vaults: Record<string, VaultEntry>; lastOpen: string | null }
+/** `open`: vaults with a window when the app last quit, reopened at launch. */
+export interface Registry { vaults: Record<string, VaultEntry>; lastOpen: string | null; open: string[] }
 export interface WindowState { x?: number; y?: number; width: number; height: number; isMaximized: boolean }
 
 /**
@@ -98,13 +107,14 @@ export class AppStore {
     if (s.status === 'ok') backupBeforeMigration(this.settingsFile, s.data, GLOBAL_SCHEMA_VERSION)
     this.global = s.status === 'ok' ? normalizeGlobal(s.data) : defaultGlobal()
     const r = readJson(this.registryFile).data
-    this.registry = { vaults: {}, lastOpen: null }
+    this.registry = { vaults: {}, lastOpen: null, open: [] }
     if (isObj(r) && isObj(r.vaults)) {
       for (const [id, e] of Object.entries(r.vaults)) {
         if (isObj(e) && typeof e.path === 'string' && path.isAbsolute(e.path))
           this.registry.vaults[id] = { path: e.path, ts: typeof e.ts === 'number' ? e.ts : 0 }
       }
       if (typeof r.lastOpen === 'string' && this.registry.vaults[r.lastOpen]) this.registry.lastOpen = r.lastOpen
+      if (Array.isArray(r.open)) this.registry.open = [...new Set(r.open.filter((id): id is string => typeof id === 'string' && !!this.registry.vaults[id]))]
     }
   }
 
@@ -155,6 +165,7 @@ export class AppStore {
       const next = this.getRegistry()
       const known = !!next.vaults[id]
       delete next.vaults[id]
+      next.open = next.open.filter((o) => o !== id)
       if (next.lastOpen === id) next.lastOpen = null
       this.saveRegistry(next)
       // its version history (userData/history/<id>, see session.ts) goes with it; the id shape keeps the path inside
@@ -166,6 +177,17 @@ export class AppStore {
     return this.enqueue(() => {
       const next = this.getRegistry()
       next.lastOpen = null
+      this.saveRegistry(next)
+    })
+  }
+
+  /** Remember which vaults have a window, to reopen them all at the next launch. */
+  setOpenVaults(ids: string[]): Promise<void> {
+    return this.enqueue(() => {
+      const next = this.getRegistry()
+      const open = [...new Set(ids.filter((id) => next.vaults[id]))]
+      if (open.join() === next.open.join()) return
+      next.open = open
       this.saveRegistry(next)
     })
   }

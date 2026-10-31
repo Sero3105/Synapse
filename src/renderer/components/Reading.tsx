@@ -5,6 +5,8 @@ import { api, fileUrl } from '../api'
 import { noteTitle } from '../../shared/markdown'
 import { t } from '../../shared/i18n'
 import { mathPlugin } from '../math'
+import { obsidianPlugin } from '../obsidian'
+import footnote from 'markdown-it-footnote'
 import { highlightCode, isMermaidFence, renderMermaid } from '../code'
 
 interface Env extends MdEnv { source: string; depth: number; line0?: number }
@@ -17,7 +19,10 @@ const md = new MarkdownIt({
   linkify: true,
   breaks: false,
   highlight: highlightCode,
-}).use(mathPlugin)
+})
+  .use(mathPlugin)
+  .use(footnote)
+  .use(obsidianPlugin)
 
 // ```mermaid fences become placeholders; Reading renders them to SVG after mount.
 const fence = md.renderer.rules.fence!
@@ -222,7 +227,10 @@ export function Reading({ path, tabId }: { path: string; tabId: string }) {
     }
     if (!a) return
     e.preventDefault()
-    if (a.dataset.external) api.openExternal(a.dataset.external).catch((err) => model.error(err))
+    const hash = a.getAttribute('href') ?? ''
+    // footnote reference and its way back
+    if (/^#fn/.test(hash)) root.current?.querySelector('#' + CSS.escape(hash.slice(1)))?.scrollIntoView({ block: 'center' })
+    else if (a.dataset.external) api.openExternal(a.dataset.external).catch((err) => model.error(err))
     else if (a.dataset.href !== undefined) model.followLink(a.dataset.href, path, e.metaKey || e.ctrlKey)
     else if (a.dataset.tag) {
       model.set({ searchQuery: `tag:${a.dataset.tag}` })
@@ -231,5 +239,5 @@ export function Reading({ path, tabId }: { path: string; tabId: string }) {
   }
 
   // keyed by theme: a fresh copy of the HTML brings back the Mermaid sources to redraw
-  return <div key={String(light)} className="markdown-reading" ref={root} onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} data-testid="reading" />
+  return <div key={String(light)} className="markdown-reading" ref={root} onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} data-testid="reading" data-note-path={path} />
 }

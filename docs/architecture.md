@@ -15,7 +15,7 @@ Electron was **not** chosen because Obsidian uses it. Unlike Obsidian (`contextI
 ```
 main process (Node)                         renderer (sandboxed, no Node)
 ├─ main.ts      window, menu, IPC, watcher, ├─ api.ts        typed wrapper over window.synapse
-│               synapse-file:// protocol    ├─ model.ts      state + actions (tabs, buffers, saving, rename…)
+│               synapse-file:// protocol    ├─ model.ts      state + actions; layers in model-*.ts (types, base, buffers, workspace, files)
 ├─ store.ts     AppStore / VaultStore       ├─ commands.ts   command registry + hotkeys
 │               (settings, registry, atomic ├─ editor-commands.ts
 │               writes, migrations)         ├─ components/   Editor (CM6), Reading (markdown-it), Workspace,

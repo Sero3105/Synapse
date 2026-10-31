@@ -64,7 +64,7 @@ const wikiPlugin = ViewPlugin.fromClass(
 )
 
 /** Link under a document position: wiki link, markdown link, or bare URL. */
-function linkAt(view: EditorView, pos: number): { kind: 'wiki' | 'url'; target: string } | null {
+export function linkAt(view: EditorView, pos: number): { kind: 'wiki' | 'url'; target: string } | null {
   const line = view.state.doc.lineAt(pos)
   const off = pos - line.from
   const tests: [RegExp, (m: RegExpExecArray) => { kind: 'wiki' | 'url'; target: string }][] = [
@@ -343,7 +343,7 @@ export function Editor({ tab, paneId }: { tab: Tab; paneId: string }) {
   })
 
   if (!buffer) return <div className="view-loading">{tr('common.loading')}</div>
-  return <div className={`cm-host${prefs.showLineNumber ? ' has-line-numbers' : ''}`} ref={host} data-testid="editor" />
+  return <div className={`cm-host${prefs.showLineNumber ? ' has-line-numbers' : ''}`} ref={host} data-testid="editor" data-note-path={path} />
 }
 
 function handleFiles(files: FileList | undefined, view: EditorView, notePath: string, e: Event) {

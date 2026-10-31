@@ -53,7 +53,7 @@ describe('analyzeNotes', () => {
       { path: 'x.md', content: '```dataview\nLIST\n```\nA line ^abc123\n%% hidden %%' },
       { path: 'y.md', content: '> [!warning] Careful\n[[x#^abc123]]' },
     ])
-    expect(Object.fromEntries(r.syntax.map((s) => [s.kind, s.examples]))).toEqual({ dataview: ['x.md'], blockRef: ['x.md', 'y.md'], comment: ['x.md'], callout: ['y.md'] })
+    expect(Object.fromEntries(r.syntax.map((s) => [s.kind, s.examples]))).toEqual({ dataview: ['x.md'], blockRef: ['x.md', 'y.md'] })
   })
 
   it('caps example lists but keeps totals', () => {

@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { AppStore, VaultStore, atomicWrite, placeWindow } from '../src/main/store'
 import { openVault, snapshot, listVaults } from '../src/main/session'
 import { DEFAULT_PREFS, normalizeGlobal, resolvePrefs, defaultGlobal, defaultVault } from '../src/shared/settings'
@@ -267,6 +268,16 @@ describe('edge cases', () => {
     expect(fs.existsSync(path.join(userData, 'history', b, 'x'))).toBe(true)
   })
 
+  it('remembers the vaults with a window; unknown and removed ids are dropped', async () => {
+    const app = new AppStore(userData)
+    const a = await app.touchVault(vaultA)
+    const b = await app.touchVault(vaultB)
+    await app.setOpenVaults([a, b, a, 'ffffffffffffffff'])
+    expect(new AppStore(userData).getRegistry().open).toEqual([a, b])
+    await app.removeVault(b)
+    expect(new AppStore(userData).getRegistry().open).toEqual([a])
+  })
+
   it('atomicWrite leaves no temp files', () => {
     const f = path.join(tmp, 'x.json')
     atomicWrite(f, '1')
@@ -287,6 +298,15 @@ describe('edge cases', () => {
     expect(st.mtimeMs).toBeGreaterThan(born)
     // APFS only: Linux (CI) cannot set a birthtime
     if (process.platform === 'darwin') expect(Math.abs(st.birthtimeMs - born)).toBeLessThan(1)
+  })
+
+  it.skipIf(process.platform !== 'darwin')('atomicWrite keeps Finder tags (extended attributes)', () => {
+    const f = path.join(tmp, 'tagged.md')
+    atomicWrite(f, '1')
+    execFileSync('xattr', ['-w', 'com.apple.metadata:_kMDItemUserTags', 'tag-test', f])
+    atomicWrite(f, '2')
+    expect(fs.readFileSync(f, 'utf8')).toBe('2')
+    expect(execFileSync('xattr', ['-p', 'com.apple.metadata:_kMDItemUserTags', f], { encoding: 'utf8' }).trim()).toBe('tag-test')
   })
 
   it('window state round-trips', () => {

@@ -27,13 +27,11 @@ export interface ImportReport {
   known: boolean
 }
 
-export type SyntaxKind = 'dataview' | 'blockRef' | 'comment' | 'callout'
+export type SyntaxKind = 'dataview' | 'blockRef'
 
 const SYNTAX: [SyntaxKind, RegExp][] = [
   ['dataview', /^\s*```+\s*dataview(js)?\b/im],
   ['blockRef', /\s\^[A-Za-z0-9-]+\s*$|\[\[[^\]]*#\^[^\]]*\]\]/m],
-  ['comment', /%%[\s\S]*?%%/],
-  ['callout', /^\s*>\s*\[![\w-]+\]/m],
 ]
 const CAP = 50
 
