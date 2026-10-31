@@ -153,9 +153,12 @@ export class AppStore {
   removeVault(id: string): Promise<void> {
     return this.enqueue(() => {
       const next = this.getRegistry()
+      const known = !!next.vaults[id]
       delete next.vaults[id]
       if (next.lastOpen === id) next.lastOpen = null
       this.saveRegistry(next)
+      // its version history (userData/history/<id>, see session.ts) goes with it; the id shape keeps the path inside
+      if (known && VAULT_ID.test(id)) fs.rmSync(path.join(this.dir, 'history', id), { recursive: true, force: true })
     })
   }
 

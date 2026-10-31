@@ -256,6 +256,17 @@ describe('edge cases', () => {
     expect(Object.keys(app.getGlobal().prefs)).not.toContain('evil')
   })
 
+  it('removing a vault deletes its version history, and only that', async () => {
+    const app = new AppStore(userData)
+    const a = await app.touchVault(path.join(tmp, 'A'))
+    const b = await app.touchVault(path.join(tmp, 'B'))
+    for (const id of [a, b]) fs.mkdirSync(path.join(userData, 'history', id, 'x'), { recursive: true })
+    await app.removeVault('..') // not a registered id: nothing is deleted
+    await app.removeVault(a)
+    expect(fs.existsSync(path.join(userData, 'history', a))).toBe(false)
+    expect(fs.existsSync(path.join(userData, 'history', b, 'x'))).toBe(true)
+  })
+
   it('atomicWrite leaves no temp files', () => {
     const f = path.join(tmp, 'x.json')
     atomicWrite(f, '1')
