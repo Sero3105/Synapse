@@ -47,12 +47,13 @@ test('[[ at the end of a long note shows the popup on screen', async () => {
   await win.keyboard.type('[[ide')
   const list = win.locator('.cm-tooltip-autocomplete')
   await expect(list.locator('li').first()).toContainText('Ideas')
-  const box = await list.evaluate((el) => {
+  // measured once CodeMirror has placed it (a new popup waits at -10000px for its first measure cycle)
+  const box = () => list.evaluate((el) => {
     const r = el.getBoundingClientRect()
     return { y: r.y, inner: window.innerHeight }
   })
-  expect(box.y).toBeGreaterThanOrEqual(0)
-  expect(box.y).toBeLessThan(box.inner)
+  await expect.poll(async () => (await box()).y).toBeGreaterThanOrEqual(0)
+  expect((await box()).y).toBeLessThan((await box()).inner)
   await app.close()
 })
 
