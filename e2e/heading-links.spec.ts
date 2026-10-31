@@ -19,6 +19,7 @@ test('link to a heading: suggest the note headings, then open the note at that h
   await win.keyboard.type('[[Long#res')
   const list = win.locator('.cm-tooltip-autocomplete')
   await expect(list.locator('li').first()).toContainText('Results | final')
+  await win.waitForTimeout(300) // CodeMirror ignores Enter in the first 75ms after the popup opens
   await win.keyboard.press('Enter')
   await expect.poll(() => fs.readFileSync(path.join(env.vault, 'A.md'), 'utf8')).toBe('[[Long#Results final]]')
 

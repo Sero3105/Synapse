@@ -21,13 +21,16 @@ test('[[ in a vault with only the open note still suggests that note', async () 
   const list = win.locator('.cm-tooltip-autocomplete')
   await expect(list.locator('li').first()).toContainText('Solo')
   // the popup must be on screen, not parked at -10000px (it once was: Enter worked, nothing showed)
-  const box = await list.evaluate((el) => {
+  // CodeMirror parks a new popup there until its next measure cycle; once measured it must be on screen
+  const box = () => list.evaluate((el) => {
     const r = el.getBoundingClientRect()
     return { y: r.y, height: r.height, inner: window.innerHeight }
   })
-  expect(box.height).toBeGreaterThan(0)
-  expect(box.y).toBeGreaterThanOrEqual(0)
-  expect(box.y).toBeLessThan(box.inner)
+  await expect.poll(async () => (await box()).y).toBeGreaterThanOrEqual(0)
+  const b = await box()
+  expect(b.height).toBeGreaterThan(0)
+  expect(b.y).toBeLessThan(b.inner)
+  await win.waitForTimeout(300) // CodeMirror ignores Enter in the first 75ms after the popup opens
   await win.keyboard.press('Enter')
   await expect.poll(() => fs.readFileSync(path.join(env.vault, 'Solo.md'), 'utf8')).toContain('[[Solo]]')
   await app.close()
@@ -61,6 +64,7 @@ test('[[ with no match offers to create the note, without leaving the current on
   const list = win.locator('.cm-tooltip-autocomplete')
   await expect(list.locator('li').first()).toContainText('Create note')
   await expect(list.locator('li').first()).toContainText('Zzz')
+  await win.waitForTimeout(300) // CodeMirror ignores Enter in the first 75ms after the popup opens
   await win.keyboard.press('Enter')
   await expect.poll(() => fs.existsSync(path.join(env.vault, 'Zzz.md'))).toBe(true)
   await expect.poll(() => fs.readFileSync(path.join(env.vault, 'Solo.md'), 'utf8')).toContain('[[Zzz]]')
@@ -75,6 +79,7 @@ test('[[ finds accented note names typed without accents', async () => {
   await win.keyboard.type('Link [[resume')
   const list = win.locator('.cm-tooltip-autocomplete')
   await expect(list.locator('li').first()).toContainText('Résumé')
+  await win.waitForTimeout(300) // CodeMirror ignores Enter in the first 75ms after the popup opens
   await win.keyboard.press('Enter')
   await expect.poll(() => fs.readFileSync(path.join(env.vault, 'Solo.md'), 'utf8')).toContain('[[Résumé]]')
   await app.close()
