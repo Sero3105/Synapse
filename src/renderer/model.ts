@@ -1,7 +1,7 @@
 // Central renderer state + actions. Components subscribe with useModel(selector).
 import { useSyncExternalStore } from 'react'
 import type { EditorView } from '@codemirror/view'
-import { api, ApiError, Snapshot, FileEntry, setFileHost } from './api'
+import { api, ApiError, Snapshot, FileEntry, NoteData, setFileHost } from './api'
 import type { UpdateInfo } from '../shared/update'
 import { NoteIndex, rewriteLinks, buildLookup, uniqueName, INVALID_NAME, basename, noteTitle, headingRef } from '../shared/markdown'
 import { isObj, Prefs, Layout, GraphSettings, SavedGraphView } from '../shared/settings'
@@ -796,12 +796,21 @@ class Model {
 
   // ---------- external changes ----------
   private fsTimer = 0
+  private fsPending = new Set<string>()
   private async onFsChanged(paths: string[]) {
+    for (const p of paths) this.fsPending.add(p)
     clearTimeout(this.fsTimer)
     this.fsTimer = window.setTimeout(async () => {
-      await this.refreshFiles()
+      const changed = [...this.fsPending]
+      this.fsPending.clear()
+      const read = new Map<string, NoteData | null>()
+      for (const p of changed) if (isMd(p)) read.set(p, await api.read(p).catch(() => null))
+      // an edit of a listed note (every autosave) only moves its mtime; only new, gone or non-note paths need the whole vault listed again
+      const listed = new Set(this.state.files.map((f) => f.path))
+      if (changed.some((p) => !listed.has(p) || !read.get(p))) await this.refreshFiles()
+      else this.set({ files: this.state.files.map((f) => (read.has(f.path) ? { ...f, mtime: read.get(f.path)!.mtime } : f)) })
       const existing = new Set(this.state.files.map((f) => f.path))
-      for (const p of new Set(paths)) {
+      for (const p of changed) {
         if (!isMd(p)) continue
         if (!existing.has(p)) {
           this.index.remove(p)
@@ -813,18 +822,17 @@ class Model {
           }
           continue
         }
-        try {
-          const n = await api.read(p)
-          const b = this.state.buffers[p]
-          if (this.inflight.get(p) === n.content) continue
-          if (b && n.content !== b.saved && n.mtime !== b.mtime) {
-            if (b.content === b.saved) this.setBuffer(p, { content: n.content, saved: n.content, mtime: n.mtime })
-            else if (n.content !== b.content) this.setBuffer(p, { ...b, conflict: 'modified' })
-          } else if (b && b.mtime !== n.mtime && n.content === b.saved) {
-            this.setBuffer(p, { ...b, mtime: n.mtime })
-          }
-          this.index.upsert(p, this.state.buffers[p]?.content ?? n.content)
-        } catch { /* raced with deletion */ }
+        const n = read.get(p)
+        if (!n) continue // raced with deletion
+        const b = this.state.buffers[p]
+        if (this.inflight.get(p) === n.content) continue
+        if (b && n.content !== b.saved && n.mtime !== b.mtime) {
+          if (b.content === b.saved) this.setBuffer(p, { content: n.content, saved: n.content, mtime: n.mtime })
+          else if (n.content !== b.content) this.setBuffer(p, { ...b, conflict: 'modified' })
+        } else if (b && b.mtime !== n.mtime && n.content === b.saved) {
+          this.setBuffer(p, { ...b, mtime: n.mtime })
+        }
+        this.index.upsert(p, this.state.buffers[p]?.content ?? n.content)
       }
       this.set({ indexVersion: this.state.indexVersion + 1 })
     }, 100)
@@ -834,7 +842,8 @@ class Model {
     try {
       const files = await api.list()
       this.index.setFiles(files.filter((f) => f.type === 'file').map((f) => f.path))
-      for (const p of [...this.index.notes.keys()]) if (!files.some((f) => f.path === p)) this.index.remove(p)
+      const live = new Set(files.map((f) => f.path))
+      for (const p of [...this.index.notes.keys()]) if (!live.has(p)) this.index.remove(p)
       this.set({ files, indexVersion: this.state.indexVersion + 1 })
     } catch (e) {
       this.error(e)

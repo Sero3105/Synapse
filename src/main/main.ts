@@ -70,7 +70,9 @@ function watch(ctx: Ctx, root: string) {
       if (rel.split('/').some((p) => p.startsWith('.'))) return
       pending.add(rel)
       timer ??= setTimeout(() => {
-        send(ctx, 'fs:changed', [...pending])
+        // a save's temp file (atomicWrite: <file>.<pid>.<ms>.tmp) is gone again by now; one left by a crash still exists and is reported
+        const paths = [...pending].filter((p) => !/\.\d+\.\d+\.tmp$/.test(p) || fs.existsSync(path.join(root, p)))
+        if (paths.length) send(ctx, 'fs:changed', paths)
         pending = new Set()
         timer = null
       }, 150)

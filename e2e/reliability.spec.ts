@@ -60,3 +60,33 @@ test('a vault deleted and recreated empty does not get the old note written back
   app.process().kill('SIGKILL') // SIGTERM would become a normal quit, waiting on the "quit anyway?" dialog
   await exited
 })
+
+test('autosave does not list the whole vault again; external changes still do', async () => {
+  env = makeEnv({ 'Note.md': 'start\n', 'Other.md': 'other\n' })
+  const { app, win } = await launch(env)
+  const note = path.join(env.vault, 'Note.md')
+  await win.locator('.tree-item-self', { hasText: 'Note' }).click()
+  await win.evaluate(() => {
+    const m = (window as any).__synapse
+    const list = m.refreshFiles.bind(m)
+    m.lists = 0
+    m.refreshFiles = () => (m.lists++, list())
+  })
+  const lists = () => win.evaluate(() => (window as any).__synapse.lists)
+  const mtime = (p: string) => win.evaluate((p) => (window as any).__synapse.state.files.find((f: any) => f.path === p)?.mtime, p)
+
+  await typeAtEnd(win, 'one')
+  await expect.poll(() => fs.readFileSync(note, 'utf8')).toBe('start\none')
+  await expect.poll(() => mtime('Note.md')).toBe(fs.statSync(note).mtimeMs) // the explorer still sorts by the new date
+  await win.waitForTimeout(500) // the watcher has reported the save, temp file included
+  expect(await lists()).toBe(0)
+
+  fs.writeFileSync(path.join(env.vault, 'New.md'), 'new\n') // a new file changes the tree
+  await expect(win.getByTestId('file-explorer')).toContainText('New')
+  fs.writeFileSync(path.join(env.vault, 'Other.md'), 'edited outside\n') // an external edit is still picked up
+  await expect.poll(() => win.evaluate(() => (window as any).__synapse.index.notes.get('Other.md')?.content)).toBe('edited outside\n')
+  fs.rmSync(path.join(env.vault, 'Other.md'))
+  await expect(win.getByTestId('file-explorer')).not.toContainText('Other')
+  expect(await lists()).toBeGreaterThan(0)
+  await app.close()
+})
