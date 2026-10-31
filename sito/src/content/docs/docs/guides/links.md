@@ -32,6 +32,10 @@ Type `[[Note#` and the suggestions list that note's headings; `[[#` lists the he
 
 Following a link to a note that does not exist creates it.
 
+## Previewing a link (from 1.5.6)
+
+Hold <kbd>⌘</kbd> and point at an internal link, in the editor or the reading view: the linked note appears in a floating card, already scrolled to the heading or block the link names. Move onto the card to scroll it, click it to open the note, or move away to close it. Links to notes that do not exist show no card.
+
 ## Backlinks and the note context
 
 The dock on the right shows the open note's details and three panels:

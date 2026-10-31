@@ -5,6 +5,17 @@ description: Published versions of Synapse and what changed.
 
 Downloads for every version are on [GitHub Releases](https://github.com/Sero3105/Synapse/releases).
 
+## 1.5.6 — 31 October 2026
+
+- **Open notes from Finder:** double-click a `.md` file, use **Open With**, or drop it on the Dock icon. It opens in the window of its vault; a note outside every vault asks before opening its folder as a vault.
+- **Windows come back:** every vault that had a window when you quit opens again at launch, each where it was.
+- **Finder tags kept:** saving a note no longer removes its Finder tags and comments.
+- **`synapse://` links:** open a note, or create one with some text, from Mail, Calendar, Shortcuts, Raycast or a browser. See [macOS integration](/docs/guides/macos/).
+- **Quick capture:** a shortcut that works in every app (<kbd>⌘⇧Space</kbd> by default) opens a small window; what you type is added to today's daily note or to `Inbox.md`.
+- **Menu bar icon:** recent notes of the open vaults, **New Note** and **Quick Capture**. It can be turned off in Settings → General.
+- **From Obsidian:** callouts (`> [!note]`, foldable with `+` or `-`), footnotes (`[^1]`) and `%%comments%%` render in the reading view and in exports.
+- **Page preview:** hold <kbd>⌘</kbd> over a `[[link]]`, in the editor or the reading view, to read the linked note without leaving yours.
+
 ## 1.5.5 — 31 October 2026
 
 - **Creation dates kept:** saving a note no longer resets its creation date, so **Sort by created** in the file tree orders notes by when they were really created.

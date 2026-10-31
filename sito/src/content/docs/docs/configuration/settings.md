@@ -29,7 +29,7 @@ Changing a preference while a vault overrides it changes only that vault. Removi
 
 ## Sections
 
-**General**: language, current vault, manage or close vaults, where settings are stored.
+**General**: language, current vault, manage or close vaults, where settings are stored, update checks, and the macOS section: the quick capture shortcut, the note captures go to, and the menu bar icon (see [macOS integration](/docs/guides/macos/)).
 
 **Editor**: default view for new tabs, Live Preview, readable line length, inline title, line numbers, spellcheck, auto-pair brackets, tab indent size.
 

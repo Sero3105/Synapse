@@ -41,11 +41,11 @@ From version 1.3.0, Synapse checks GitHub Releases at launch (from 1.5.5 also on
 
 ## I read about tasks, related notes and export. Where are they?
 
-They arrived with release 1.4.0. The current published download is 1.5.1. See [Releases](/docs/releases/).
+They arrived with release 1.4.0. The current published download is 1.5.6. See [Releases](/docs/releases/).
 
 ## What is not supported yet?
 
 - Raw HTML in notes is shown as text, for security.
-- Obsidian community plugins are not supported.
+- Obsidian community plugins are not supported, and Dataview queries show as code blocks. Callouts, footnotes and `%%comments%%` render from 1.5.6.
 - Task due dates and semantic (meaning-based) search are not available.
 - Builds are not notarized, so the first launch needs **Open Anyway** once. From 1.5.0, updates install from inside the app.
